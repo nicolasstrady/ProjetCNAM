@@ -34,6 +34,6 @@ on the host so Docker can display the window. On Linux you can run:
 DISPLAY=$DISPLAY docker-compose run --rm client
 ```
 
-On Windows, install an X server such as VcXsrv and ensure the `DISPLAY`
-environment variable is set before running the command.
+On Windows, install an X server such as VcXsrv and ensure the `DISPLAY` environment variable is set before running the command.
+The client container now includes the necessary JavaFX modules so the GUI can start without additional setup when a display server is available.
 

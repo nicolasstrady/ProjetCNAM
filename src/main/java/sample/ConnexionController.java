@@ -23,7 +23,8 @@ import java.util.ArrayList;
 
 public class ConnexionController extends Application {
     
-    public static String host = "192.168.1.77";
+    public static String host = System.getenv().getOrDefault("SERVER_HOST", "localhost");
+    public static int port = Integer.parseInt(System.getenv().getOrDefault("SERVER_PORT", "3333"));
     public static MySQLConnection db;
     public static String pseudo;
 
@@ -86,7 +87,7 @@ public class ConnexionController extends Application {
             connects.add("CONN");
             connects.add(pseudo);
             connects.add(password);
-            ClientConnexion client = new ClientConnexion(host,3333,connects);
+             ClientConnexion client = new ClientConnexion(host, port, connects);
             ArrayList<Object> responses = client.run();
             if(responses.get(0).equals("OK")) {
                 FXMLLoader loader = new FXMLLoader(getClass().getResource("accueil.fxml"));
@@ -135,7 +136,7 @@ public class ConnexionController extends Application {
         datas.add(username);
         datas.add(password);
         datas.add(email);
-        ClientConnexion client = new ClientConnexion(host,3333,datas);
+        ClientConnexion client = new ClientConnexion(host, port, datas);
         ArrayList<Object> responses = client.run();
         boolean pseudoInBDD = (boolean) responses.get(0);
         if(pseudoInBDD == true) {

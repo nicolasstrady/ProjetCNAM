@@ -25,3 +25,15 @@ The project uses Gradle 8 and Java 17. To build the jar locally:
 
 The main entry point of the server is `server.Server`.
 
+## Running the client with Docker
+An optional `client` service is defined in `docker-compose.yml`. It launches the
+JavaFX GUI and connects to the server container. An X server must be available
+on the host so Docker can display the window. On Linux you can run:
+
+```bash
+DISPLAY=$DISPLAY docker-compose run --rm client
+```
+
+On Windows, install an X server such as VcXsrv and ensure the `DISPLAY`
+environment variable is set before running the command.
+

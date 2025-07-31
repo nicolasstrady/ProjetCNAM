@@ -22,5 +22,19 @@ services:
       DB_URL: jdbc:mysql://db:3306/tarot_project
       DB_USER: root
       DB_PASSWORD: example
+
+  client:
+    build: .
+    depends_on:
+      - server
+    environment:
+      SERVER_HOST: server
+      DB_URL: jdbc:mysql://db:3306/tarot_project
+      DB_USER: root
+      DB_PASSWORD: example
+      DISPLAY: ${DISPLAY}
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    command: ["java","-cp","app.jar:/app/libs/*","sample.ConnexionController"]
 volumes:
   db_data:

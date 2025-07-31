@@ -34,7 +34,7 @@ public class ClientProcessor implements Runnable {
 
 
     public ClientProcessor(Socket pSock) throws SQLException, ClassNotFoundException {
-        MySQLConnection db = new MySQLConnection("jdbc:mysql://localhost:3306/tarot_project","root","");
+        MySQLConnection db = MySQLConnection.fromEnv();
         this.connection = db.getConnection();
         sock = pSock;
     }

@@ -29,10 +29,8 @@ public class ConnexionController extends Application {
 
     static {
         try {
-            db = new MySQLConnection("jdbc:mysql://localhost:3306/tarot_project","root","");
-        } catch (SQLException e) {
-            e.printStackTrace();
-        } catch (ClassNotFoundException e) {
+            db = MySQLConnection.fromEnv();
+        } catch (SQLException | ClassNotFoundException e) {
             e.printStackTrace();
         }
     }
@@ -81,8 +79,8 @@ public class ConnexionController extends Application {
     public void onLogin(ActionEvent event) throws SQLException, ClassNotFoundException, IOException {
        pseudo = this.login.getText();
        String password = this.pass.getText();
-        MySQLConnection db = new MySQLConnection("jdbc:mysql://localhost:3306/tarot_project","root","");
-        this.connection = db.getConnection();
+       MySQLConnection db = MySQLConnection.fromEnv();
+       this.connection = db.getConnection();
 
             ArrayList<Object> connects = new ArrayList<>();
             connects.add("CONN");

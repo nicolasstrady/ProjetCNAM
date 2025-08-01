@@ -3,6 +3,7 @@ package sample;
 import client.SocketClient;
 import client.ServerPoller;
 import java.io.IOException;
+import java.io.InputStream;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
@@ -120,7 +121,8 @@ public class PartieController {
             ArrayList<String> lienCartes = (ArrayList<String>) datas.get(1);
             boxRois.setSpacing(20);
             for(int i = 0; i < idCartes.size() ; i++) {
-                    Image img = new Image(getClass().getResourceAsStream("/sample/img/" + lienCartes.get(i)));
+                    InputStream is = getClass().getResourceAsStream("/sample/img/" + lienCartes.get(i));
+                    Image img = is != null ? new Image(is) : new Image(getClass().getResourceAsStream("/sample/img/carte.png"));
                     ImageView imageRoi = new ImageView(img);
                     int finalI = i;
                     imageRoi.addEventHandler(javafx.scene.input.MouseEvent.MOUSE_CLICKED, event -> {
@@ -140,7 +142,8 @@ public class PartieController {
                         ArrayList<Integer> idCartes = (ArrayList<Integer>) resp.get(1);
                         ArrayList<String> lienCartes = (ArrayList<String>) resp.get(2);
                         for (int i = 0; i < idCartes.size(); i++) {
-                            ImageView imageChien = new ImageView(new Image(getClass().getResourceAsStream("/sample/img/" + lienCartes.get(i))));
+                            InputStream is = getClass().getResourceAsStream("/sample/img/" + lienCartes.get(i));
+                            ImageView imageChien = new ImageView(new Image(is != null ? is : getClass().getResourceAsStream("/sample/img/carte.png")));
                             boxChien.getChildren().add(imageChien);
                         }
                         carteCenter.setVisible(false);
@@ -166,7 +169,8 @@ public class PartieController {
         ArrayList<Integer> idCartesChien = (ArrayList) datas2.get(0);
         ArrayList<String> lienCartesChien = (ArrayList) datas2.get(1);
         for(int j = 0; j < idCartesChien.size() ; j++) {
-            ImageView imageChien = new ImageView(new Image(getClass().getResourceAsStream("/sample/img/" + lienCartesChien.get(j)),40,60,false,false));
+            InputStream is = getClass().getResourceAsStream("/sample/img/" + lienCartesChien.get(j));
+            ImageView imageChien = new ImageView(new Image(is != null ? is : getClass().getResourceAsStream("/sample/img/carte.png"),40,60,false,false));
             imageChien.setId(idCartesChien.get(j).toString());
             boxChien.getChildren().add(imageChien);
 
@@ -248,7 +252,8 @@ public class PartieController {
                         statusLabel.setText("A votre tour !");
                         boxTour.getChildren().clear();
                         for (int i = 0; i < idCartes.size(); i++) {
-                            Image img = new Image(getClass().getResourceAsStream("/sample/img/" + lienCartes.get(i)));
+                            InputStream is = getClass().getResourceAsStream("/sample/img/" + lienCartes.get(i));
+                            Image img = new Image(is != null ? is : getClass().getResourceAsStream("/sample/img/carte.png"));
                             boxTour.getChildren().add(new ImageView(img));
                         }
                     } else if (finTour && !finPartie) {

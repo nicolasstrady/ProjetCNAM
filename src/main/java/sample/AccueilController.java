@@ -18,6 +18,7 @@ import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 
 public class AccueilController {
@@ -121,7 +122,9 @@ public class AccueilController {
         HBox main = (HBox) root.lookup("#main");
         main.setSpacing(10);
         for (int i = 0; i < idCartes.size(); i++) {
-            Image img = new Image(getClass().getResourceAsStream("/sample/img/" + lienCartes.get(i)), 40, 60, false, false);
+            InputStream is = getClass().getResourceAsStream("/sample/img/" + lienCartes.get(i));
+            Image img = is != null ? new Image(is, 40, 60, false, false)
+                                   : new Image(getClass().getResourceAsStream("/sample/img/carte.png"),40,60,false,false);
             ImageView imageCarte = new ImageView(img);
             imageCarte.setId(idCartes.get(i));
             main.getChildren().add(imageCarte);

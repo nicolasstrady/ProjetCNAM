@@ -51,8 +51,8 @@ public class PartieController {
         main.setSpacing(10);
         for (int i = 0; i < ids.size(); i++) {
             InputStream is = getClass().getResourceAsStream("/sample/img/" + liens.get(i));
-            Image img = is != null ? new Image(is,40,60,false,false)
-                                   : new Image(getClass().getResourceAsStream("/sample/img/carte.png"),40,60,false,false);
+            Image img = is != null ? new Image(is,60,100,false,false)
+                                   : new Image(getClass().getResourceAsStream("/sample/img/carte.png"),60,100,false,false);
             ImageView imageCarte = new ImageView(img);
             imageCarte.setId(ids.get(i));
             main.getChildren().add(imageCarte);
@@ -111,7 +111,8 @@ public class PartieController {
         ArrayList<String> lienCartes = (ArrayList<String>) resp.get(2);
         for (int i = 0; i < idCartes.size(); i++) {
             InputStream is = getClass().getResourceAsStream("/sample/img/" + lienCartes.get(i));
-            ImageView imageChien = new ImageView(new Image(is != null ? is : getClass().getResourceAsStream("/sample/img/carte.png")));
+            Image img = new Image(is != null ? is : getClass().getResourceAsStream("/sample/img/carte.png"),60,100,false,false);
+            ImageView imageChien = new ImageView(img);
             boxChien.getChildren().add(imageChien);
         }
         carteCenter.setVisible(false);
@@ -129,7 +130,7 @@ public class PartieController {
             boxTour.getChildren().clear();
             for (int i = 0; i < idCartes.size(); i++) {
                 InputStream is = getClass().getResourceAsStream("/sample/img/" + lienCartes.get(i));
-                Image img = new Image(is != null ? is : getClass().getResourceAsStream("/sample/img/carte.png"));
+                Image img = new Image(is != null ? is : getClass().getResourceAsStream("/sample/img/carte.png"),60,100,false,false);
                 boxTour.getChildren().add(new ImageView(img));
             }
         } else if (finTour && !finPartie) {
@@ -201,7 +202,8 @@ public class PartieController {
             boxRois.setSpacing(20);
             for(int i = 0; i < idCartes.size() ; i++) {
                     InputStream is = getClass().getResourceAsStream("/sample/img/" + lienCartes.get(i));
-                    Image img = is != null ? new Image(is) : new Image(getClass().getResourceAsStream("/sample/img/carte.png"));
+                    Image img = is != null ? new Image(is,60,100,false,false)
+                                         : new Image(getClass().getResourceAsStream("/sample/img/carte.png"),60,100,false,false);
                     ImageView imageRoi = new ImageView(img);
                     int finalI = i;
                     imageRoi.addEventHandler(javafx.scene.input.MouseEvent.MOUSE_CLICKED, event -> {
@@ -242,11 +244,14 @@ public class PartieController {
         ArrayList<String> lienCartesChien = (ArrayList) datas2.get(1);
         for(int j = 0; j < idCartesChien.size() ; j++) {
             InputStream is = getClass().getResourceAsStream("/sample/img/" + lienCartesChien.get(j));
-            ImageView imageChien = new ImageView(new Image(is != null ? is : getClass().getResourceAsStream("/sample/img/carte.png"),40,60,false,false));
-            imageChien.setId(idCartesChien.get(j).toString());
-            boxChien.getChildren().add(imageChien);
+            Image img = new Image(is != null ? is : getClass().getResourceAsStream("/sample/img/carte.png"),60,100,false,false);
+            ImageView chienView = new ImageView(img);
+            chienView.setId(idCartesChien.get(j).toString());
+            boxChien.getChildren().add(chienView);
 
-            main.getChildren().add(imageChien);
+            ImageView handView = new ImageView(img);
+            handView.setId(idCartesChien.get(j).toString());
+            main.getChildren().add(handView);
         }
         for(int i = 0; i< main.getChildren().size() ; i++) {
             ImageView imageCarte = (ImageView) main.getChildren().get(i);
@@ -265,7 +270,10 @@ public class PartieController {
 
                 if(ok.equals("OK")) {
                     main.getChildren().remove(imageCarte);
-                    boxChien.getChildren().add(new ImageView(imageCarte.getImage()));
+                    ImageView dogCard = new ImageView(imageCarte.getImage());
+                    dogCard.setFitWidth(60);
+                    dogCard.setFitHeight(100);
+                    boxChien.getChildren().add(dogCard);
                     if(dogDone == true) {
                         launch.setVisible(true);
                         for(int j = 0; j< main.getChildren().size() ; j++) {
@@ -337,8 +345,8 @@ public class PartieController {
                 if(hasError == false) {
                     main.getChildren().remove(imageCarte);
                     ImageView img = new ImageView(imageCarte.getImage());
-                    img.setFitWidth(62);
-                    img.setFitHeight(84);
+                    img.setFitWidth(60);
+                    img.setFitHeight(100);
                     boxTour.getChildren().add(img);
                     endTour.setVisible(true);
                 }

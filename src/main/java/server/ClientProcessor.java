@@ -303,8 +303,8 @@ public class ClientProcessor implements Runnable {
                             }
                         }
                     }
-                    toSend.add(lienCartes);
                     toSend.add(idCartes);
+                    toSend.add(lienCartes);
                     toSend.add(numJoueur);
 
                 } else if(responses.get(0).toString().toUpperCase().equals("WAITANSWER")) {

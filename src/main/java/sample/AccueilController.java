@@ -1,6 +1,8 @@
 package sample;
 
 import client.ClientConnexion;
+import client.ServerPoller;
+import javafx.application.Platform;
 import javafx.application.Application;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
@@ -17,7 +19,6 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
-import javax.swing.*;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -39,6 +40,8 @@ public class AccueilController {
     private Button scoreButton;
     @FXML
     private Button disconnectButton;
+    @FXML
+    private Label playStatus;
     public static String numJoueur;
 
     @FXML
@@ -48,38 +51,39 @@ public class AccueilController {
     }
 
     @FXML
-    public void play() throws IOException, InterruptedException {
-
-
+    public void play() throws IOException {
         ArrayList<Object> connects = new ArrayList<>();
-        ArrayList<Object> waits = new ArrayList<>();
         connects.add("PLAYLOBBY");
         connects.add(ConnexionController.idUser);
-        ClientConnexion client = new ClientConnexion(ConnexionController.host,3333,connects);
-        ArrayList<Object> datas = client.run();
-        int nbJoueur = -1;
-        while(nbJoueur != 0) {
-            waits.add("WAIT");
-            ClientConnexion client1 = new ClientConnexion(ConnexionController.host,3333,waits);
-            ArrayList<Object> datas1 = client1.run();
-            nbJoueur = (int)datas1.get(0)%5;
-            if(nbJoueur == 0) {
-                //JOptionPane.showMessageDialog(null,"Pret à jouer !");
-            } else {
-                JOptionPane.showMessageDialog(null,"En attente de " + (5 - ((int)datas1.get(0)%5)) + " joueurs");
-            }
-        }
+        ClientConnexion client = new ClientConnexion(ConnexionController.host, ConnexionController.port, connects);
+        ArrayList<Object> lobbyData = client.run();
 
+        playStatus.setText("En attente de joueurs...");
+        ArrayList<Object> waits = new ArrayList<>();
+        waits.add("WAIT");
+        ServerPoller poller = new ServerPoller();
+        poller.poll(ConnexionController.host, ConnexionController.port, waits,
+                resp -> ((int) resp.get(0) % 5) == 0,
+                resp -> {
+                    playStatus.setText("Début de la partie");
+                    try {
+                        startGame(lobbyData);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                });
+    }
+
+    private void startGame(ArrayList<Object> lobbyData) throws IOException {
         ArrayList<Object> plays = new ArrayList<>();
         plays.add("PLAY");
         plays.add(ConnexionController.idUser);
-        plays.add(datas.get(1));
-        ClientConnexion client2 = new ClientConnexion(ConnexionController.host,3333,plays);
+        plays.add(lobbyData.get(1));
+        ClientConnexion client2 = new ClientConnexion(ConnexionController.host, ConnexionController.port, plays);
         ArrayList<Object> datas2 = client2.run();
         ArrayList<String> idCartes = (ArrayList<String>) datas2.get(0);
         ArrayList<String> lienCartes = (ArrayList<String>) datas2.get(1);
         numJoueur = (String) datas2.get(2);
-
 
         ConnexionController.stageAccueil.hide();
         FXMLLoader loader = new FXMLLoader(getClass().getResource("partie.fxml"));
@@ -92,13 +96,12 @@ public class AccueilController {
         gameStage.setScene(scene);
         gameStage.show();
 
-
         HBox main = (HBox) root.lookup("#main");
         main.setSpacing(10);
-        for(int i = 0; i < idCartes.size() ; i++) {
-                ImageView imageCarte = new ImageView(new Image("/sample/img/" + lienCartes.get(i), 40,60,false,false));
-                imageCarte.setId(idCartes.get(i));
-                main.getChildren().add(imageCarte);
+        for (int i = 0; i < idCartes.size(); i++) {
+            ImageView imageCarte = new ImageView(new Image("/sample/img/" + lienCartes.get(i), 40, 60, false, false));
+            imageCarte.setId(idCartes.get(i));
+            main.getChildren().add(imageCarte);
         }
     }
 }

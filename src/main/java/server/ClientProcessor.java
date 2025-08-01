@@ -186,14 +186,44 @@ public class ClientProcessor implements Runnable {
                     toSend.add(nbJoueur);
                 } else if(responses.get(0).toString().toUpperCase().equals("PLAY")) {
                     String idUser = (String) responses.get(1);
-                    String query = "SELECT *  FROM main WHERE id = " + responses.get(2);
-                    PreparedStatement ps = this.connection.prepareStatement(query);
-                    ResultSet results = ps.executeQuery();
-                    if(results.next()) {
-                        for(int i =1; i<=15;i++) {
-                            Statement stmt2 = this.connection.createStatement();
-                            stmt2.executeUpdate("UPDATE joueur SET carte" + i + " = " + results.getString("carte" + i) + " WHERE utilisateur = " + idUser + " AND partie = "+ currentPartie) ;
+
+                    String check = "SELECT carte1 FROM joueur WHERE partie = ? LIMIT 1";
+                    PreparedStatement ck = this.connection.prepareStatement(check);
+                    ck.setInt(1, currentPartie);
+                    ResultSet ckRes = ck.executeQuery();
+                    boolean needDeal = true;
+                    if(ckRes.next() && ckRes.getObject(1) != null) {
+                        needDeal = false;
+                    }
+
+                    if (needDeal) {
+                        PreparedStatement psDeck = this.connection.prepareStatement("SELECT id FROM carte ORDER BY RAND()");
+                        ResultSet deck = psDeck.executeQuery();
+                        ArrayList<Integer> ids = new ArrayList<>();
+                        while (deck.next()) {
+                            ids.add(deck.getInt("id"));
                         }
+                        int index = 0;
+                        for (int p = 1; p <= 5; p++) {
+                            StringBuilder sb = new StringBuilder("UPDATE joueur SET ");
+                            for (int c = 1; c <= 15; c++) {
+                                if (c > 1) sb.append(", ");
+                                sb.append("carte" + c + " = ?");
+                            }
+                            sb.append(" WHERE num = ? AND partie = ?");
+                            PreparedStatement upd = this.connection.prepareStatement(sb.toString());
+                            for (int c = 1; c <= 15; c++) {
+                                upd.setInt(c, ids.get(index++));
+                            }
+                            upd.setInt(16, p);
+                            upd.setInt(17, currentPartie);
+                            upd.executeUpdate();
+                        }
+                        PreparedStatement dog = this.connection.prepareStatement("INSERT INTO chien(carte1,carte2,carte3) VALUES(?,?,?)");
+                        dog.setInt(1, ids.get(index++));
+                        dog.setInt(2, ids.get(index++));
+                        dog.setInt(3, ids.get(index));
+                        dog.executeUpdate();
                     }
 
                     String query2 = "SELECT *  FROM joueur WHERE utilisateur = " + idUser + " AND partie = "+ currentPartie;
@@ -226,12 +256,16 @@ public class ClientProcessor implements Runnable {
                     results.next();
                     int nbJoueur = results.getInt("nbJoueur")+1;
 
-                    String query2 = "SELECT num, COUNT(id) AS\"nbJoueur\"  FROM joueur WHERE reponse = 'TAKE' AND partie = "+ currentPartie;
+                    String query2 = "SELECT num FROM joueur WHERE reponse = 'TAKE' AND partie = ?";
                     PreparedStatement ps2 = this.connection.prepareStatement(query2);
+                    ps2.setInt(1, currentPartie);
                     ResultSet results2 = ps2.executeQuery();
-                    results2.next();
-                    int hasTake = results2.getInt("nbJoueur");
-                    int numPlayer = results2.getInt("num");
+                    int hasTake = 0;
+                    int numPlayer = -1;
+                    if(results2.next()) {
+                        hasTake = 1;
+                        numPlayer = results2.getInt("num");
+                    }
 
                     toSend.add(nbJoueur);
                     if(hasTake >0) {

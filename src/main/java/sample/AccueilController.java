@@ -96,7 +96,6 @@ public class AccueilController {
         ArrayList<Object> plays = new ArrayList<>();
         plays.add("PLAY");
         plays.add(ConnexionController.idUser);
-        plays.add(lobbyData.get(1));
         ArrayList<Object> datas2;
         try {
             datas2 = ConnexionController.client.send(plays);

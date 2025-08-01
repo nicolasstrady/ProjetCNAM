@@ -13,6 +13,7 @@ docker-compose up --build
 ```
 
 The server listens on port `3333` and connects to the MySQL container using the environment variables defined in `docker-compose.yml`.
+Clients open a second connection handled by `ServerListener` to receive real-time events like lobby updates.
 
 A basic database schema is provided in `db/init.sql` and loaded automatically when the database container starts.
 

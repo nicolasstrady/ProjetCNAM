@@ -4,6 +4,7 @@ import java.io.*;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketException;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,6 +30,8 @@ public class ClientProcessor implements Runnable {
     public static boolean finTour = false;
     public static String couleurTour = "";
 
+    private static final CopyOnWriteArrayList<ObjectOutputStream> listeners = new CopyOnWriteArrayList<>();
+
 
 
 
@@ -36,6 +39,30 @@ public class ClientProcessor implements Runnable {
         MySQLConnection db = MySQLConnection.fromEnv();
         this.connection = db.getConnection();
         sock = pSock;
+    }
+
+    public void sendAsync(List<Object> message) {
+        try {
+            synchronized (out) {
+                out.writeObject(message);
+                out.flush();
+            }
+        } catch (IOException e) {
+            listeners.remove(out);
+        }
+    }
+
+    public static void broadcast(List<Object> message) {
+        for (ObjectOutputStream o : listeners) {
+            try {
+                synchronized (o) {
+                    o.writeObject(message);
+                    o.flush();
+                }
+            } catch (IOException e) {
+                listeners.remove(o);
+            }
+        }
     }
 
     //Le traitement lancé dans un thread séparé
@@ -55,6 +82,10 @@ public class ClientProcessor implements Runnable {
         while (!Thread.currentThread().isInterrupted()) {
             try {
                 List<Object> responses = (List<Object>) in.readObject();
+                if (responses.get(0).toString().equalsIgnoreCase("SUBSCRIBE")) {
+                    listeners.add(out);
+                    continue;
+                }
                 //String response = read();
                 InetSocketAddress remote = (InetSocketAddress) sock.getRemoteSocketAddress();
 
@@ -139,6 +170,7 @@ public class ClientProcessor implements Runnable {
 
                     toSend.add("JOINLOBBY");
                     toSend.add(currentnumJoueur+1);
+                    broadcast(List.of("LOBBY_COUNT", currentnumJoueur + 1));
                     currentnumJoueur++;
 
 
@@ -499,6 +531,7 @@ public class ClientProcessor implements Runnable {
                 e.printStackTrace();
             }
         }
+        listeners.remove(out);
     }
 
     // plus utilisé

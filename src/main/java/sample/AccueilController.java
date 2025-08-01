@@ -1,7 +1,7 @@
 package sample;
 
 import client.SocketClient;
-import client.ServerPoller;
+import client.ServerListener;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
@@ -61,24 +61,27 @@ public class AccueilController {
         }
 
         playStatus.setText("En attente de joueurs...");
-        ArrayList<Object> waits = new ArrayList<>();
-        waits.add("WAIT");
-        ServerPoller poller = new ServerPoller();
-        poller.poll(ConnexionController.client, waits,
-                resp -> ((int) resp.get(0) % 5) == 0,
-                resp -> {
-                    int nbLeft = (5 - ((int) resp.get(0) % 5)) % 5;
-                    if (nbLeft == 0) {
-                        playStatus.setText("Début de la partie");
-                        try {
-                            startGame(lobbyData);
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                    } else {
-                        playStatus.setText("En attente de " + nbLeft + " joueurs");
+        final ServerListener[] holder = new ServerListener[1];
+        holder[0] = new ServerListener(ConnexionController.host, ConnexionController.port, data -> {
+            if ("LOBBY_COUNT".equals(data.get(0))) {
+                int count = (int) data.get(1);
+                int nbLeft = (5 - (count % 5)) % 5;
+                if (nbLeft == 0) {
+                    playStatus.setText("Début de la partie");
+                    try {
+                        holder[0].close();
+                        startGame(lobbyData);
+                    } catch (IOException e) {
+                        e.printStackTrace();
                     }
-                });
+                } else {
+                    playStatus.setText("En attente de " + nbLeft + " joueurs");
+                }
+            }
+        });
+        Thread t = new Thread(holder[0]);
+        t.setDaemon(true);
+        t.start();
     }
 
     private void startGame(ArrayList<Object> lobbyData) throws IOException {

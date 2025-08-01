@@ -42,3 +42,6 @@ xhost +local:
 
 On Windows, install an X server such as VcXsrv and ensure the `DISPLAY` environment variable is set before running the command. The client container now bundles all required JavaFX libraries so the GUI starts without additional setup.
 
+### Should the client run in Docker?
+Running the GUI inside Docker guarantees the correct JavaFX dependencies are present and avoids configuring your local JVM. However it requires an X server on the host and may be less convenient during development. If you already have Java and JavaFX installed locally, you can run the client from your IDE or with `./gradlew run` without Docker.
+

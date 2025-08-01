@@ -22,4 +22,6 @@ javafx {
     modules = ['javafx.controls', 'javafx.graphics', 'javafx.fxml', 'javafx.base']
 }
 
-mainClassName = "sample.ConnexionController"
+application {
+    mainClass = 'sample.ConnexionController'
+}

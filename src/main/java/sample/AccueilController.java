@@ -60,13 +60,21 @@ public class AccueilController {
             return;
         }
 
-        playStatus.setText("En attente de joueurs...");
+        int count = (int) lobbyData.get(1);
+        int nbLeft = (5 - (count % 5)) % 5;
+        if (nbLeft == 0) {
+            playStatus.setText("Début de la partie");
+            startGame(lobbyData);
+            return;
+        }
+
+        playStatus.setText("En attente de " + nbLeft + " joueurs");
         final ServerListener[] holder = new ServerListener[1];
         holder[0] = new ServerListener(ConnexionController.host, ConnexionController.port, data -> {
             if ("LOBBY_COUNT".equals(data.get(0))) {
-                int count = (int) data.get(1);
-                int nbLeft = (5 - (count % 5)) % 5;
-                if (nbLeft == 0) {
+                int cnt = (int) data.get(1);
+                int left = (5 - (cnt % 5)) % 5;
+                if (left == 0) {
                     playStatus.setText("Début de la partie");
                     try {
                         holder[0].close();
@@ -75,7 +83,7 @@ public class AccueilController {
                         e.printStackTrace();
                     }
                 } else {
-                    playStatus.setText("En attente de " + nbLeft + " joueurs");
+                    playStatus.setText("En attente de " + left + " joueurs");
                 }
             }
         });

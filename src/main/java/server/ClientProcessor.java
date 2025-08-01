@@ -525,6 +525,7 @@ public class ClientProcessor implements Runnable {
                 break;
             } catch (IOException e) {
                 e.printStackTrace();
+                break;
             } catch (ClassNotFoundException e) {
                 e.printStackTrace();
             } catch (SQLException e) {

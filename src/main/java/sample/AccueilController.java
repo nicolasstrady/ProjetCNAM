@@ -17,6 +17,8 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
+import sample.PartieController;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -111,6 +113,9 @@ public class AccueilController {
         ConnexionController.stageAccueil.hide();
         FXMLLoader loader = new FXMLLoader(getClass().getResource("partie.fxml"));
         Parent root = loader.load();
+        PartieController controller = loader.getController();
+        controller.initHand(idCartes, lienCartes);
+        controller.startListener();
         Stage gameStage = new Stage();
         Scene scene = new Scene(root, 900, 500);
         scene.getStylesheets().add(getClass().getResource("style.css").toString());
@@ -119,15 +124,6 @@ public class AccueilController {
         gameStage.setScene(scene);
         gameStage.show();
 
-        HBox main = (HBox) root.lookup("#main");
-        main.setSpacing(10);
-        for (int i = 0; i < idCartes.size(); i++) {
-            InputStream is = getClass().getResourceAsStream("/sample/img/" + lienCartes.get(i));
-            Image img = is != null ? new Image(is, 40, 60, false, false)
-                                   : new Image(getClass().getResourceAsStream("/sample/img/carte.png"),40,60,false,false);
-            ImageView imageCarte = new ImageView(img);
-            imageCarte.setId(idCartes.get(i));
-            main.getChildren().add(imageCarte);
-        }
+        // hand and listener initialized in controller
     }
 }

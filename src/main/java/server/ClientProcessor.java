@@ -65,6 +65,63 @@ public class ClientProcessor implements Runnable {
         }
     }
 
+    private void broadcastAnswerUpdate() throws SQLException {
+        String query = "SELECT COUNT(id) AS nbJoueur FROM joueur WHERE reponse != 'WAIT' AND partie = " + currentPartie;
+        PreparedStatement ps = this.connection.prepareStatement(query);
+        ResultSet rs = ps.executeQuery();
+        rs.next();
+        int nbJoueur = rs.getInt("nbJoueur") + 1;
+        String query2 = "SELECT num FROM joueur WHERE reponse = 'TAKE' AND partie = ?";
+        PreparedStatement ps2 = this.connection.prepareStatement(query2);
+        ps2.setInt(1, currentPartie);
+        ResultSet rs2 = ps2.executeQuery();
+        String flag = "NOTAKE";
+        int numPlayer = -1;
+        if (rs2.next()) {
+            flag = "TAKE";
+            numPlayer = rs2.getInt("num");
+        }
+        broadcast(List.of("ANSWER_UPDATE", nbJoueur, flag, numPlayer));
+    }
+
+    private void broadcastCallInfo(ArrayList<Integer> ids, ArrayList<String> liens, String couleur) {
+        broadcast(List.of("CALL_INFO", true, ids, liens, couleur));
+    }
+
+    private void broadcastDogReady() {
+        broadcast(List.of("DOG_READY"));
+    }
+
+    private void broadcastTourUpdate() throws SQLException {
+        if(currentJoueurTour == -1) {
+            String query = "SELECT * FROM joueur WHERE reponse = 'TAKE' AND partie = " + currentPartie;
+            PreparedStatement ps = this.connection.prepareStatement(query);
+            ResultSet results = ps.executeQuery();
+            if (results.next()) {
+                currentJoueurTour = results.getInt("num") + 1;
+            }
+        }
+        ArrayList<String> idCartes= new ArrayList<>();
+        ArrayList<String> lienCartes= new ArrayList<>();
+        String query2 = "SELECT * FROM plis WHERE id = " + currentPlis + " AND pliChien = 0";
+        PreparedStatement ps2 = this.connection.prepareStatement(query2);
+        ResultSet results2 = ps2.executeQuery();
+        if (results2.next()) {
+            for (int i = 1; i <= 5; i++) {
+                if (results2.getString("carte" + i) != null) {
+                    String query3 = "SELECT * FROM carte WHERE id = " + results2.getInt("carte" + i);
+                    PreparedStatement ps3 = this.connection.prepareStatement(query3);
+                    ResultSet results3 = ps3.executeQuery();
+                    if (results3.next()) {
+                        idCartes.add(results3.getString("id"));
+                        lienCartes.add(results3.getString("lien"));
+                    }
+                }
+            }
+        }
+        broadcast(List.of("TOUR_UPDATE", currentJoueurTour, finTour, finPartie, idCartes, lienCartes));
+    }
+
     //Le traitement lancé dans un thread séparé
 
     public void run() {
@@ -224,6 +281,7 @@ public class ClientProcessor implements Runnable {
                         dog.setInt(2, ids.get(index++));
                         dog.setInt(3, ids.get(index));
                         dog.executeUpdate();
+                        broadcastAnswerUpdate();
                     }
 
                     String query2 = "SELECT *  FROM joueur WHERE utilisateur = " + idUser + " AND partie = "+ currentPartie;
@@ -285,6 +343,8 @@ public class ClientProcessor implements Runnable {
                     Statement stmt2 = this.connection.createStatement();
                     stmt2.executeUpdate("UPDATE joueur SET reponse = 'TAKE' , equipe = 1 WHERE utilisateur = " + idUser + " AND partie = " + currentPartie) ;
 
+                    broadcastAnswerUpdate();
+
 
 
                 } else if(responses.get(0).toString().toUpperCase().equals("REFUSE")) {
@@ -292,6 +352,7 @@ public class ClientProcessor implements Runnable {
 
                     Statement stmt = this.connection.createStatement();
                     stmt.executeUpdate("UPDATE joueur SET reponse = 'REFUSE' , equipe = 2 WHERE utilisateur = " + idUser + " AND partie = " + currentPartie);
+                    broadcastAnswerUpdate();
                 }  else if(responses.get(0).toString().toUpperCase().equals("ROIS")) {
                     String query = "SELECT *  FROM carte WHERE valeur = 'R'";
                     PreparedStatement ps = this.connection.prepareStatement(query);
@@ -354,6 +415,7 @@ public class ClientProcessor implements Runnable {
                     toSend.add(lienCartes);
 
                     callDone = true;
+                    broadcastCallInfo(idCartes, lienCartes, couleurAppel);
 
 
                 } else if(responses.get(0).toString().toUpperCase().equals("WAITCALL")) {
@@ -412,6 +474,7 @@ public class ClientProcessor implements Runnable {
                             stmt1.executeUpdate("UPDATE plis SET carte" + nbCartesChien + " = " + idCarte + " WHERE id = " + currentPlis);
                             if(nbCartesChien == 3) {
                                 dogDone = true;
+                                broadcastDogReady();
                             }
                             toSend.add(dogDone);
                             toSend.add("OK");
@@ -430,6 +493,7 @@ public class ClientProcessor implements Runnable {
                 }
                 else if(responses.get(0).toString().toUpperCase().equals("BEGIN")) {
 //                    finTour = false;
+                    broadcastTourUpdate();
                 }
                 else if(responses.get(0).toString().toUpperCase().equals("PLAYTOUR")) {
                     String idCarte = (String) responses.get(1);
@@ -508,6 +572,7 @@ public class ClientProcessor implements Runnable {
                         }
                     }
                     toSend.add(error);
+                    broadcastTourUpdate();
 
                 }
                 else if(responses.get(0).toString().toUpperCase().equals("WAITTOUR")) {

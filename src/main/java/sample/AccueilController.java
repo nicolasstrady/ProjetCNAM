@@ -1,9 +1,7 @@
 package sample;
 
-import client.ClientConnexion;
+import client.SocketClient;
 import client.ServerPoller;
-import javafx.application.Platform;
-import javafx.application.Application;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
@@ -19,7 +17,6 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 
@@ -55,21 +52,31 @@ public class AccueilController {
         ArrayList<Object> connects = new ArrayList<>();
         connects.add("PLAYLOBBY");
         connects.add(ConnexionController.idUser);
-        ClientConnexion client = new ClientConnexion(ConnexionController.host, ConnexionController.port, connects);
-        ArrayList<Object> lobbyData = client.run();
+        ArrayList<Object> lobbyData;
+        try {
+            lobbyData = ConnexionController.client.send(connects);
+        } catch (IOException | ClassNotFoundException e) {
+            e.printStackTrace();
+            return;
+        }
 
         playStatus.setText("En attente de joueurs...");
         ArrayList<Object> waits = new ArrayList<>();
         waits.add("WAIT");
         ServerPoller poller = new ServerPoller();
-        poller.poll(ConnexionController.host, ConnexionController.port, waits,
+        poller.poll(ConnexionController.client, waits,
                 resp -> ((int) resp.get(0) % 5) == 0,
                 resp -> {
-                    playStatus.setText("Début de la partie");
-                    try {
-                        startGame(lobbyData);
-                    } catch (IOException e) {
-                        e.printStackTrace();
+                    int nbLeft = (5 - ((int) resp.get(0) % 5)) % 5;
+                    if (nbLeft == 0) {
+                        playStatus.setText("Début de la partie");
+                        try {
+                            startGame(lobbyData);
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    } else {
+                        playStatus.setText("En attente de " + nbLeft + " joueurs");
                     }
                 });
     }
@@ -79,8 +86,13 @@ public class AccueilController {
         plays.add("PLAY");
         plays.add(ConnexionController.idUser);
         plays.add(lobbyData.get(1));
-        ClientConnexion client2 = new ClientConnexion(ConnexionController.host, ConnexionController.port, plays);
-        ArrayList<Object> datas2 = client2.run();
+        ArrayList<Object> datas2;
+        try {
+            datas2 = ConnexionController.client.send(plays);
+        } catch (IOException | ClassNotFoundException e) {
+            e.printStackTrace();
+            return;
+        }
         ArrayList<String> idCartes = (ArrayList<String>) datas2.get(0);
         ArrayList<String> lienCartes = (ArrayList<String>) datas2.get(1);
         numJoueur = (String) datas2.get(2);

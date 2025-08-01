@@ -2,6 +2,7 @@ package client;
 
 import javafx.application.Platform;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
@@ -25,15 +26,24 @@ public class ServerPoller {
      * evaluates to true. The listener is called on the JavaFX thread on each
      * poll.
      */
-    public void poll(String host, int port, ArrayList<Object> message,
+    public void poll(SocketClient client, ArrayList<Object> message,
                      Predicate<List<Object>> stopCondition, Listener listener) {
-        scheduler.scheduleAtFixedRate(() -> {
-            ClientConnexion cl = new ClientConnexion(host, port, message);
-            ArrayList<Object> resp = cl.run();
-            Platform.runLater(() -> listener.onUpdate(resp));
-            if (stopCondition.test(resp)) {
-                scheduler.shutdown();
+        scheduler.schedule(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    ArrayList<Object> resp = client.send(message);
+                    Platform.runLater(() -> listener.onUpdate(resp));
+                    if (!stopCondition.test(resp)) {
+                        scheduler.schedule(this, 1, TimeUnit.SECONDS);
+                    } else {
+                        scheduler.shutdown();
+                    }
+                } catch (IOException | ClassNotFoundException e) {
+                    e.printStackTrace();
+                    scheduler.shutdown();
+                }
             }
-        }, 0, 1, TimeUnit.SECONDS);
+        }, 0, TimeUnit.SECONDS);
     }
 }

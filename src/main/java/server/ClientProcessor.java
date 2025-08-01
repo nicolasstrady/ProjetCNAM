@@ -1,6 +1,5 @@
 package server;
 
-import javax.swing.*;
 import java.io.*;
 import java.net.InetSocketAddress;
 import java.net.Socket;
@@ -12,8 +11,8 @@ import java.util.List;
 public class ClientProcessor implements Runnable {
 
     private Socket sock;
-    private PrintWriter writer = null;
-    private BufferedInputStream reader = null;
+    private ObjectInputStream in = null;
+    private ObjectOutputStream out = null;
     private Connection connection;
     public static int currentnumJoueur = 0;
     public static int currentEquipe =1;
@@ -44,17 +43,18 @@ public class ClientProcessor implements Runnable {
     public void run() {
         System.err.println("Lancement du traitement de la connexion cliente");
 
-        boolean closeConnexion = false;
+        try {
+            in = new ObjectInputStream(sock.getInputStream());
+            out = new ObjectOutputStream(sock.getOutputStream());
+        } catch (IOException e) {
+            e.printStackTrace();
+            return;
+        }
+
         //tant que la connexion est active, on traite les demandes
         while (!Thread.currentThread().isInterrupted()) {
             try {
-                //writer = new PrintWriter(sock.getOutputStream());
-                //reader = new BufferedInputStream(sock.getInputStream());
-                //On attend la demande du client
-                InputStream inputStream = sock.getInputStream();
-
-                ObjectInputStream objectInputStream = new ObjectInputStream(inputStream);
-                List<Object> responses = (List<Object>) objectInputStream.readObject();
+                List<Object> responses = (List<Object>) in.readObject();
                 //String response = read();
                 InetSocketAddress remote = (InetSocketAddress) sock.getRemoteSocketAddress();
 
@@ -67,8 +67,6 @@ public class ClientProcessor implements Runnable {
                 System.err.println("\n" + debug);
 
                 //On traite la demande du client en fonction de la commande envoyée
-                OutputStream outputStream = sock.getOutputStream();
-                ObjectOutputStream objectOutputStream = new ObjectOutputStream(outputStream);
                 List<Object> toSend = new ArrayList<>();
                 if(responses.get(0).toString().toUpperCase().equals("CONN")) {
                     //case "CONN":
@@ -487,9 +485,8 @@ public class ClientProcessor implements Runnable {
                         break;
                 }
 
-                objectOutputStream.writeObject(toSend);
-                objectOutputStream.flush();
-                objectOutputStream.close();
+                out.writeObject(toSend);
+                out.flush();
 
             } catch (SocketException e) {
                 System.err.println("Interruption de la connexion");
@@ -504,13 +501,5 @@ public class ClientProcessor implements Runnable {
         }
     }
 
-    //La méthode que nous utilisons pour lire les réponses
-    private String read() throws IOException {
-        String response = "";
-        int stream;
-        byte[] b = new byte[4096];
-        stream = reader.read(b);
-        response = new String(b, 0, stream);
-        return response;
-    }
+    // plus utilisé
 }

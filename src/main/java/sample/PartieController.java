@@ -1,7 +1,8 @@
 package sample;
 
-import client.ClientConnexion;
+import client.SocketClient;
 import client.ServerPoller;
+import java.io.IOException;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
@@ -49,7 +50,7 @@ public class PartieController {
         ArrayList<Object> waitsAnswer = new ArrayList<>();
         waitsAnswer.add("WAITANSWER");
         ServerPoller poller = new ServerPoller();
-        poller.poll(ConnexionController.host, ConnexionController.port, waitsAnswer,
+        poller.poll(ConnexionController.client, waitsAnswer,
                 resp -> {
                     int current = (int) resp.get(0);
                     String takeFlag = (String) resp.get(1);
@@ -78,8 +79,11 @@ public class PartieController {
         chiens.add("CHIEN");
         chiens.add(ConnexionController.idUser);
 
-        ClientConnexion client2 = new ClientConnexion(ConnexionController.host,3333,chiens);
-        ArrayList<Object> datas2 = client2.run();
+        try {
+            ConnexionController.client.send(chiens);
+        } catch (IOException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
         refuse.setVisible(false);
         take.setVisible(false);
         play();
@@ -90,8 +94,11 @@ public class PartieController {
         refuses.add("REFUSE");
         refuses.add(ConnexionController.idUser);
 
-        ClientConnexion client2 = new ClientConnexion(ConnexionController.host,3333,refuses);
-        ArrayList<Object> datas2 = client2.run();
+        try {
+            ConnexionController.client.send(refuses);
+        } catch (IOException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
         refuse.setVisible(false);
         take.setVisible(false);
         play();
@@ -103,8 +110,12 @@ public class PartieController {
             ArrayList<Object> rois = new ArrayList<>();
             rois.add("ROIS");
             rois.add(ConnexionController.idUser);
-            ClientConnexion client2 = new ClientConnexion(ConnexionController.host,3333,rois);
-            ArrayList<Object> datas = client2.run();
+            ArrayList<Object> datas = null;
+            try {
+                datas = ConnexionController.client.send(rois);
+            } catch (IOException | ClassNotFoundException e) {
+                e.printStackTrace();
+            }
             ArrayList<String> idCartes = (ArrayList<String>) datas.get(0);
             ArrayList<String> lienCartes = (ArrayList<String>) datas.get(1);
             boxRois.setSpacing(20);
@@ -121,7 +132,7 @@ public class PartieController {
             waitcalls.add("WAITCALL");
             waitcalls.add(ConnexionController.idUser);
             ServerPoller callPoller = new ServerPoller();
-            callPoller.poll(ConnexionController.host, ConnexionController.port, waitcalls,
+            callPoller.poll(ConnexionController.client, waitcalls,
                     resp -> (boolean) resp.get(0),
                     resp -> {
                         statusLabel.setText("Le Roi de " + resp.get(3) + " a été appelé !");
@@ -144,8 +155,13 @@ public class PartieController {
         calls.add("CALL");
         calls.add(Integer.parseInt(idCarte));
         calls.add(ConnexionController.idUser);
-        ClientConnexion client3 = new ClientConnexion(ConnexionController.host,3333,calls);
-        ArrayList<Object> datas2 = client3.run();
+        ArrayList<Object> datas2 = null;
+        try {
+            datas2 = ConnexionController.client.send(calls);
+        } catch (IOException | ClassNotFoundException e) {
+            e.printStackTrace();
+            return;
+        }
         ArrayList<Integer> idCartesChien = (ArrayList) datas2.get(0);
         ArrayList<String> lienCartesChien = (ArrayList) datas2.get(1);
         for(int j = 0; j < idCartesChien.size() ; j++) {
@@ -161,8 +177,12 @@ public class PartieController {
                 ArrayList<Object> addDogs = new ArrayList<>();
                 addDogs.add("ADDDOG");
                 addDogs.add(imageCarte.getId());
-                ClientConnexion client4 = new ClientConnexion(ConnexionController.host,3333,addDogs);
-                ArrayList<Object> datas3 = client4.run();
+                ArrayList<Object> datas3 = null;
+                try {
+                    datas3 = ConnexionController.client.send(addDogs);
+                } catch (IOException | ClassNotFoundException ex) {
+                    ex.printStackTrace();
+                }
                 boolean dogDone = (boolean) datas3.get(0);
                 String ok = (String) datas3.get(1);
 
@@ -192,7 +212,7 @@ public class PartieController {
         waitdog.add("WAITDOG");
         waitdog.add(ConnexionController.idUser);
         ServerPoller dogPoller = new ServerPoller();
-        dogPoller.poll(ConnexionController.host, ConnexionController.port, waitdog,
+        dogPoller.poll(ConnexionController.client, waitdog,
                 resp -> (boolean) resp.get(0),
                 resp -> playTour.setVisible(true));
     }
@@ -201,13 +221,16 @@ public class PartieController {
         playTour.setVisible(false);
         ArrayList<Object> begins = new ArrayList<>();
         begins.add("BEGIN");
-        ClientConnexion client1 = new ClientConnexion(ConnexionController.host,3333,begins);
-        client1.run();
+        try {
+            ConnexionController.client.send(begins);
+        } catch (IOException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
 
 
         ArrayList<Object> waitTours = new ArrayList<>();
         ServerPoller tourPoller = new ServerPoller();
-        tourPoller.poll(ConnexionController.host, ConnexionController.port, waitTours,
+        tourPoller.poll(ConnexionController.client, waitTours,
                 resp -> {
                     int current = (int) resp.get(0);
                     boolean finTour = (boolean) resp.get(1);
@@ -245,8 +268,13 @@ public class PartieController {
                 playTours.add(imageCarte.getId());
                 playTours.add(ConnexionController.idUser);
                 playTours.add(finalI +1);
-                ClientConnexion client = new ClientConnexion(ConnexionController.host,3333,playTours);
-                ArrayList<Object> datas = client.run();
+                ArrayList<Object> datas = null;
+                try {
+                    datas = ConnexionController.client.send(playTours);
+                } catch (IOException | ClassNotFoundException ex) {
+                    ex.printStackTrace();
+                    return;
+                }
                 boolean hasError = (boolean) datas.get(0);
                 if(hasError == false) {
                     main.getChildren().remove(imageCarte);

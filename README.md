@@ -33,8 +33,8 @@ on the host so Docker can display the window. On Linux you can run:
 ```bash
 DISPLAY=$DISPLAY docker-compose run --rm client
 ```
-The Docker image now installs the X11 libraries required by JavaFX so the GUI
-can launch in the container.
+The Docker image now installs the X11 and OpenGL libraries required by JavaFX
+so the GUI can launch in the container.
 
 If you run Linux, you may need to allow Docker to access your X server with:
 

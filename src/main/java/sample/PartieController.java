@@ -120,7 +120,8 @@ public class PartieController {
             ArrayList<String> lienCartes = (ArrayList<String>) datas.get(1);
             boxRois.setSpacing(20);
             for(int i = 0; i < idCartes.size() ; i++) {
-                    ImageView imageRoi = new ImageView(new Image("/sample/img/" + lienCartes.get(i)));
+                    Image img = new Image(getClass().getResourceAsStream("/sample/img/" + lienCartes.get(i)));
+                    ImageView imageRoi = new ImageView(img);
                     int finalI = i;
                     imageRoi.addEventHandler(javafx.scene.input.MouseEvent.MOUSE_CLICKED, event -> {
                         callKing(idCartes.get(finalI));
@@ -139,7 +140,7 @@ public class PartieController {
                         ArrayList<Integer> idCartes = (ArrayList<Integer>) resp.get(1);
                         ArrayList<String> lienCartes = (ArrayList<String>) resp.get(2);
                         for (int i = 0; i < idCartes.size(); i++) {
-                            ImageView imageChien = new ImageView(new Image("/sample/img/" + lienCartes.get(i)));
+                            ImageView imageChien = new ImageView(new Image(getClass().getResourceAsStream("/sample/img/" + lienCartes.get(i))));
                             boxChien.getChildren().add(imageChien);
                         }
                         carteCenter.setVisible(false);
@@ -165,7 +166,7 @@ public class PartieController {
         ArrayList<Integer> idCartesChien = (ArrayList) datas2.get(0);
         ArrayList<String> lienCartesChien = (ArrayList) datas2.get(1);
         for(int j = 0; j < idCartesChien.size() ; j++) {
-            ImageView imageChien = new ImageView(new Image("/sample/img/" + lienCartesChien.get(j), 40,60,false,false));
+            ImageView imageChien = new ImageView(new Image(getClass().getResourceAsStream("/sample/img/" + lienCartesChien.get(j)),40,60,false,false));
             imageChien.setId(idCartesChien.get(j).toString());
             boxChien.getChildren().add(imageChien);
 
@@ -247,7 +248,8 @@ public class PartieController {
                         statusLabel.setText("A votre tour !");
                         boxTour.getChildren().clear();
                         for (int i = 0; i < idCartes.size(); i++) {
-                            boxTour.getChildren().add(new ImageView(new Image("/sample/img/" + lienCartes.get(i))));
+                            Image img = new Image(getClass().getResourceAsStream("/sample/img/" + lienCartes.get(i)));
+                            boxTour.getChildren().add(new ImageView(img));
                         }
                     } else if (finTour && !finPartie) {
                         statusLabel.setText("Le tour est fini !");

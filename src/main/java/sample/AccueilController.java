@@ -121,7 +121,8 @@ public class AccueilController {
         HBox main = (HBox) root.lookup("#main");
         main.setSpacing(10);
         for (int i = 0; i < idCartes.size(); i++) {
-            ImageView imageCarte = new ImageView(new Image("/sample/img/" + lienCartes.get(i), 40, 60, false, false));
+            Image img = new Image(getClass().getResourceAsStream("/sample/img/" + lienCartes.get(i)), 40, 60, false, false);
+            ImageView imageCarte = new ImageView(img);
             imageCarte.setId(idCartes.get(i));
             main.getChildren().add(imageCarte);
         }

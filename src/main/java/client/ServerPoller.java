@@ -33,11 +33,11 @@ public class ServerPoller {
             public void run() {
                 try {
                     ArrayList<Object> resp = client.send(message);
-                    Platform.runLater(() -> listener.onUpdate(resp));
-                    if (!stopCondition.test(resp)) {
-                        scheduler.schedule(this, 1, TimeUnit.SECONDS);
-                    } else {
+                    if (stopCondition.test(resp)) {
+                        Platform.runLater(() -> listener.onUpdate(resp));
                         scheduler.shutdown();
+                    } else {
+                        scheduler.schedule(this, 1, TimeUnit.SECONDS);
                     }
                 } catch (IOException | ClassNotFoundException e) {
                     e.printStackTrace();

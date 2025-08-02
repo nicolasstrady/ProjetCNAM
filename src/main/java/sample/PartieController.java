@@ -64,7 +64,7 @@ public class PartieController {
     private List<String> pendingDogColors = new ArrayList<>();
 
     public void initHand(ArrayList<String> ids, ArrayList<String> liens, ArrayList<String> colors) {
-        main.setHgap(-40);
+        main.setHgap(-10);
         main.setVgap(0);
         for (int i = 0; i < ids.size(); i++) {
             InputStream is = getClass().getResourceAsStream("/sample/img/" + liens.get(i));
@@ -187,6 +187,97 @@ public class PartieController {
         } else {
             statusLabel.setText("Au tour du Joueur " + current);
             tourLabel.setText("Tour " + tourCount + " : Au tour du Joueur " + current);
+        }
+        updatePlayableCards(current, couleur);
+    }
+
+    private void updatePlayableCards(int current, String couleur) {
+        int myNum = Integer.parseInt(AccueilController.numJoueur);
+        boolean isMyTurn = current == myNum;
+        boolean hasColor = false;
+        if (isMyTurn && !couleur.isEmpty()) {
+            for (int i = 0; i < main.getChildren().size(); i++) {
+                ImageView img = (ImageView) main.getChildren().get(i);
+                if (couleur.equals(cardColors.get(img.getId()))) {
+                    hasColor = true;
+                    break;
+                }
+            }
+        }
+        ColorAdjust gray = new ColorAdjust();
+        gray.setSaturation(-1);
+        gray.setBrightness(-0.3);
+        for (int i = 0; i < main.getChildren().size(); i++) {
+            ImageView imageCarte = (ImageView) main.getChildren().get(i);
+            imageCarte.setOnMouseClicked(null);
+            imageCarte.setOnMouseEntered(null);
+            imageCarte.setOnMouseExited(null);
+            imageCarte.setScaleX(1);
+            imageCarte.setScaleY(1);
+            imageCarte.setViewOrder(0);
+            if (!isMyTurn) {
+                imageCarte.setDisable(true);
+                imageCarte.setEffect(gray);
+                continue;
+            }
+            boolean disable = false;
+            if (!couleur.isEmpty() && hasColor && !couleur.equals(cardColors.get(imageCarte.getId()))) {
+                disable = true;
+            }
+            imageCarte.setDisable(disable);
+            if (disable) {
+                imageCarte.setEffect(gray);
+                imageCarte.setCursor(Cursor.DEFAULT);
+                continue;
+            } else {
+                imageCarte.setEffect(null);
+            }
+            int finalI = i;
+            imageCarte.setOnMouseEntered(e -> {
+                imageCarte.setScaleX(1.2);
+                imageCarte.setScaleY(1.2);
+                imageCarte.setViewOrder(-1);
+                imageCarte.setCursor(Cursor.HAND);
+            });
+            imageCarte.setOnMouseExited(e -> {
+                imageCarte.setScaleX(1);
+                imageCarte.setScaleY(1);
+                imageCarte.setViewOrder(0);
+                imageCarte.setCursor(Cursor.DEFAULT);
+            });
+            imageCarte.setOnMouseClicked(e -> {
+                ArrayList<Object> playTours = new ArrayList<>();
+                playTours.add("PLAYTOUR");
+                playTours.add(imageCarte.getId());
+                playTours.add(ConnexionController.idUser);
+                playTours.add(finalI + 1);
+                ArrayList<Object> datas = null;
+                try {
+                    datas = ConnexionController.client.send(playTours);
+                } catch (IOException | ClassNotFoundException ex) {
+                    ex.printStackTrace();
+                    return;
+                }
+                boolean hasError = (boolean) datas.get(0);
+                if (!hasError) {
+                    main.getChildren().remove(imageCarte);
+                    disableAllCards();
+                } else {
+                    statusLabel.setText("Carte non valide !");
+                }
+            });
+        }
+    }
+
+    private void disableAllCards() {
+        ColorAdjust gray = new ColorAdjust();
+        gray.setSaturation(-1);
+        gray.setBrightness(-0.3);
+        for (int i = 0; i < main.getChildren().size(); i++) {
+            ImageView imageCarte = (ImageView) main.getChildren().get(i);
+            imageCarte.setDisable(true);
+            imageCarte.setEffect(gray);
+            imageCarte.setCursor(Cursor.DEFAULT);
         }
     }
 
@@ -353,79 +444,6 @@ public class PartieController {
         try {
             ArrayList<Object> resp = ConnexionController.client.send(waitTours);
             handleTourUpdate(resp);
-            int current = (int) resp.get(0);
-            String couleur = (String) resp.get(5);
-            boolean isMyTurn = current == Integer.parseInt(AccueilController.numJoueur);
-            boolean hasColor = false;
-            if (isMyTurn && !couleur.isEmpty()) {
-                for (int i = 0; i < main.getChildren().size(); i++) {
-                    ImageView img = (ImageView) main.getChildren().get(i);
-                    if (couleur.equals(cardColors.get(img.getId()))) {
-                        hasColor = true;
-                        break;
-                    }
-                }
-            }
-            ColorAdjust gray = new ColorAdjust();
-            gray.setSaturation(-1);
-            gray.setBrightness(-0.3);
-            for (int i = 0; i < main.getChildren().size(); i++) {
-                ImageView imageCarte = (ImageView) main.getChildren().get(i);
-                imageCarte.setOnMouseClicked(null);
-                imageCarte.setOnMouseEntered(null);
-                imageCarte.setOnMouseExited(null);
-                imageCarte.setScaleX(1);
-                imageCarte.setScaleY(1);
-                if (!isMyTurn) {
-                    imageCarte.setDisable(true);
-                    imageCarte.setEffect(gray);
-                    continue;
-                }
-                boolean disable = false;
-                if (!couleur.isEmpty() && hasColor && !couleur.equals(cardColors.get(imageCarte.getId()))) {
-                    disable = true;
-                }
-                imageCarte.setDisable(disable);
-                if (disable) {
-                    imageCarte.setEffect(gray);
-                    imageCarte.setCursor(Cursor.DEFAULT);
-                    continue;
-                } else {
-                    imageCarte.setEffect(null);
-                }
-                int finalI = i;
-                imageCarte.setOnMouseEntered(e -> {
-                    imageCarte.setScaleX(1.2);
-                    imageCarte.setScaleY(1.2);
-                    imageCarte.toFront();
-                    imageCarte.setCursor(Cursor.HAND);
-                });
-                imageCarte.setOnMouseExited(e -> {
-                    imageCarte.setScaleX(1);
-                    imageCarte.setScaleY(1);
-                    imageCarte.setCursor(Cursor.DEFAULT);
-                });
-                imageCarte.setOnMouseClicked(e -> {
-                    ArrayList<Object> playTours = new ArrayList<>();
-                    playTours.add("PLAYTOUR");
-                    playTours.add(imageCarte.getId());
-                    playTours.add(ConnexionController.idUser);
-                    playTours.add(finalI + 1);
-                    ArrayList<Object> datas = null;
-                    try {
-                        datas = ConnexionController.client.send(playTours);
-                    } catch (IOException | ClassNotFoundException ex) {
-                        ex.printStackTrace();
-                        return;
-                    }
-                    boolean hasError = (boolean) datas.get(0);
-                    if (!hasError) {
-                        main.getChildren().remove(imageCarte);
-                    } else {
-                        statusLabel.setText("Carte non valide !");
-                    }
-                });
-            }
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
         }

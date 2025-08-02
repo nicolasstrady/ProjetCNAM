@@ -313,15 +313,14 @@ public class ClientProcessor implements Runnable {
                     String idUser = (String) responses.get(1);
 
                     if(currentnumJoueur%5 ==0) {
-                        String query = "SELECT COUNT(id) AS\"nbPartie\"  FROM partie ";
-                        PreparedStatement ps = this.connection.prepareStatement(query);
-                        ResultSet results = ps.executeQuery();
-                        if(results.next()) {
-                            currentPartie = results.getInt("nbPartie") +1;
+                        PreparedStatement stmt2 = this.connection.prepareStatement("INSERT INTO partie() VALUES ()", Statement.RETURN_GENERATED_KEYS);
+                        stmt2.executeUpdate();
+                        ResultSet gen = stmt2.getGeneratedKeys();
+                        if(gen.next()) {
+                            currentPartie = gen.getInt(1);
                         }
-
-                        Statement stmt2 = this.connection.createStatement();
-                        stmt2.executeUpdate("INSERT INTO partie(id) VALUES ("+ currentPartie  +")") ;
+                        gen.close();
+                        stmt2.close();
                         cardsDealt = false;
                     }
 
@@ -585,18 +584,16 @@ public class ClientProcessor implements Runnable {
                         if(!couleur.equals("BOUT") && !couleur.equals("ATOUT") && !valeur.equals("R")) {
                             if(nbCartesChien == 1) {
 
-                                String query2 = "SELECT COUNT(id) AS\"nbPlis\"  FROM plis WHERE partie = ?";
-                                PreparedStatement ps2 = this.connection.prepareStatement(query2);
-                                ps2.setInt(1, currentPartie);
-                                ResultSet results2 = ps2.executeQuery();
-                                if(results2.next()) {
-                                    currentPlis = results2.getInt("nbPlis") +1;
-                                }
-                                PreparedStatement stmt = this.connection.prepareStatement("INSERT INTO plis(id,pliChien,partie) VALUES(?,?,?)");
-                                stmt.setInt(1, currentPlis);
-                                stmt.setInt(2,1);
-                                stmt.setInt(3,currentPartie);
+                                PreparedStatement stmt = this.connection.prepareStatement("INSERT INTO plis(pliChien,partie) VALUES(?,?)", Statement.RETURN_GENERATED_KEYS);
+                                stmt.setInt(1,1);
+                                stmt.setInt(2,currentPartie);
                                 stmt.executeUpdate();
+                                ResultSet gen = stmt.getGeneratedKeys();
+                                if(gen.next()) {
+                                    currentPlis = gen.getInt(1);
+                                }
+                                gen.close();
+                                stmt.close();
 
 
                             }
@@ -654,18 +651,16 @@ public class ClientProcessor implements Runnable {
 
                     if(countJoueurTour == 1) {
                         firstPlayer = currentJoueurTour;
-                        String query2 = "SELECT COUNT(id) AS\"nbPlis\"  FROM plis WHERE partie = ?";
-                        PreparedStatement ps2 = this.connection.prepareStatement(query2);
-                        ps2.setInt(1, currentPartie);
-                        ResultSet results2 = ps2.executeQuery();
-                        if(results2.next()) {
-                            currentPlis = results2.getInt("nbPlis") +1;
-                        }
-                        PreparedStatement stmt = this.connection.prepareStatement("INSERT INTO plis(id,pliChien,partie) VALUES(?,?,?)");
-                        stmt.setInt(1, currentPlis);
-                        stmt.setInt(2,0);
-                        stmt.setInt(3,currentPartie);
+                        PreparedStatement stmt = this.connection.prepareStatement("INSERT INTO plis(pliChien,partie) VALUES(?,?)", Statement.RETURN_GENERATED_KEYS);
+                        stmt.setInt(1,0);
+                        stmt.setInt(2,currentPartie);
                         stmt.executeUpdate();
+                        ResultSet gen = stmt.getGeneratedKeys();
+                        if(gen.next()) {
+                            currentPlis = gen.getInt(1);
+                        }
+                        gen.close();
+                        stmt.close();
                         couleurTour = couleurCarte;
                         PreparedStatement stmt1 = this.connection.prepareStatement("UPDATE plis SET carte" + countJoueurTour + " = ? WHERE id = ? AND partie = ?");
                         stmt1.setInt(1, Integer.parseInt(idCarte));

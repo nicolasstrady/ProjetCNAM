@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS utilisateur (
 );
 
 CREATE TABLE IF NOT EXISTS partie (
-    id INT PRIMARY KEY
+    id INT AUTO_INCREMENT PRIMARY KEY
 );
 
 CREATE TABLE IF NOT EXISTS joueur (
@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS joueur (
 );
 
 CREATE TABLE IF NOT EXISTS carte (
-    id INT PRIMARY KEY,
+    id INT AUTO_INCREMENT PRIMARY KEY,
     lien VARCHAR(100),
     couleur VARCHAR(20),
     valeur VARCHAR(10),
@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS chien (
 );
 
 CREATE TABLE IF NOT EXISTS plis (
-    id INT PRIMARY KEY,
+    id INT AUTO_INCREMENT PRIMARY KEY,
     partie INT,
     pliChien TINYINT(1),
     carte1 INT NULL,
@@ -68,7 +68,7 @@ CREATE TABLE IF NOT EXISTS plis (
 );
 
 CREATE TABLE IF NOT EXISTS main (
-    id INT PRIMARY KEY,
+    id INT AUTO_INCREMENT PRIMARY KEY,
     carte1 INT,
     carte2 INT,
     carte3 INT,

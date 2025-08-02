@@ -1,6 +1,5 @@
 package sample;
 
-import client.SocketClient;
 import client.ServerListener;
 import java.io.IOException;
 import java.io.InputStream;
@@ -13,6 +12,8 @@ import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.layout.FlowPane;
+import javafx.scene.Cursor;
+import javafx.scene.effect.ColorAdjust;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -63,8 +64,8 @@ public class PartieController {
     private List<String> pendingDogColors = new ArrayList<>();
 
     public void initHand(ArrayList<String> ids, ArrayList<String> liens, ArrayList<String> colors) {
-        main.setHgap(10);
-        main.setVgap(10);
+        main.setHgap(-40);
+        main.setVgap(0);
         for (int i = 0; i < ids.size(); i++) {
             InputStream is = getClass().getResourceAsStream("/sample/img/" + liens.get(i));
             Image img = is != null ? new Image(is,60,100,false,false)
@@ -365,11 +366,19 @@ public class PartieController {
                     }
                 }
             }
+            ColorAdjust gray = new ColorAdjust();
+            gray.setSaturation(-1);
+            gray.setBrightness(-0.3);
             for (int i = 0; i < main.getChildren().size(); i++) {
                 ImageView imageCarte = (ImageView) main.getChildren().get(i);
                 imageCarte.setOnMouseClicked(null);
+                imageCarte.setOnMouseEntered(null);
+                imageCarte.setOnMouseExited(null);
+                imageCarte.setScaleX(1);
+                imageCarte.setScaleY(1);
                 if (!isMyTurn) {
                     imageCarte.setDisable(true);
+                    imageCarte.setEffect(gray);
                     continue;
                 }
                 boolean disable = false;
@@ -377,29 +386,45 @@ public class PartieController {
                     disable = true;
                 }
                 imageCarte.setDisable(disable);
-                int finalI = i;
-                if (!disable) {
-                    imageCarte.setOnMouseClicked(e -> {
-                        ArrayList<Object> playTours = new ArrayList<>();
-                        playTours.add("PLAYTOUR");
-                        playTours.add(imageCarte.getId());
-                        playTours.add(ConnexionController.idUser);
-                        playTours.add(finalI + 1);
-                        ArrayList<Object> datas = null;
-                        try {
-                            datas = ConnexionController.client.send(playTours);
-                        } catch (IOException | ClassNotFoundException ex) {
-                            ex.printStackTrace();
-                            return;
-                        }
-                        boolean hasError = (boolean) datas.get(0);
-                        if (!hasError) {
-                            main.getChildren().remove(imageCarte);
-                        } else {
-                            statusLabel.setText("Carte non valide !");
-                        }
-                    });
+                if (disable) {
+                    imageCarte.setEffect(gray);
+                    imageCarte.setCursor(Cursor.DEFAULT);
+                    continue;
+                } else {
+                    imageCarte.setEffect(null);
                 }
+                int finalI = i;
+                imageCarte.setOnMouseEntered(e -> {
+                    imageCarte.setScaleX(1.2);
+                    imageCarte.setScaleY(1.2);
+                    imageCarte.toFront();
+                    imageCarte.setCursor(Cursor.HAND);
+                });
+                imageCarte.setOnMouseExited(e -> {
+                    imageCarte.setScaleX(1);
+                    imageCarte.setScaleY(1);
+                    imageCarte.setCursor(Cursor.DEFAULT);
+                });
+                imageCarte.setOnMouseClicked(e -> {
+                    ArrayList<Object> playTours = new ArrayList<>();
+                    playTours.add("PLAYTOUR");
+                    playTours.add(imageCarte.getId());
+                    playTours.add(ConnexionController.idUser);
+                    playTours.add(finalI + 1);
+                    ArrayList<Object> datas = null;
+                    try {
+                        datas = ConnexionController.client.send(playTours);
+                    } catch (IOException | ClassNotFoundException ex) {
+                        ex.printStackTrace();
+                        return;
+                    }
+                    boolean hasError = (boolean) datas.get(0);
+                    if (!hasError) {
+                        main.getChildren().remove(imageCarte);
+                    } else {
+                        statusLabel.setText("Carte non valide !");
+                    }
+                });
             }
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();

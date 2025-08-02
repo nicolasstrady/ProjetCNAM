@@ -101,7 +101,7 @@
                   </VBox>
                </children>
             </HBox>
-            <FlowPane fx:id="main" prefHeight="166.0" prefWidth="900.0" hgap="10.0" vgap="10.0" prefWrapLength="900.0" />
+            <FlowPane fx:id="main" prefHeight="166.0" prefWidth="900.0" hgap="-40.0" vgap="0.0" prefWrapLength="900.0" />
             <Label fx:id="tourLabel" alignment="CENTER" prefWidth="400.0" />
             <Label fx:id="statusLabel" prefWidth="400.0" alignment="CENTER" />
          </children>

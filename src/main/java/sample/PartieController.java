@@ -37,8 +37,6 @@ public class PartieController {
     @FXML
     private HBox boxTour;
     @FXML
-    private Label tourLabel;
-    @FXML
     private ImageView carteCenter;
     @FXML
     private ImageView dog;
@@ -215,18 +213,14 @@ public class PartieController {
             }
         }
         if (current == myNum && !finTour && !finPartie) {
-            statusLabel.setText("A votre tour !");
-            tourLabel.setText("Tour " + tourCount + " : A votre tour");
+            statusLabel.setText("Tour " + tourCount + " : A votre tour");
         } else if (finTour && !finPartie) {
-            statusLabel.setText("Le tour est fini !");
-            tourLabel.setText("Tour " + tourCount + " terminé");
+            statusLabel.setText("Tour " + tourCount + " terminé");
             startNextTurn();
         } else if (finPartie) {
-            statusLabel.setText("La partie est finie !");
-            tourLabel.setText("Fin de partie");
+            statusLabel.setText("Fin de partie");
         } else {
-            statusLabel.setText("Au tour du Joueur " + current);
-            tourLabel.setText("Tour " + tourCount + " : Au tour du Joueur " + current);
+            statusLabel.setText("Tour " + tourCount + " : Au tour du Joueur " + current);
         }
         updatePlayableCards(current, couleur);
     }

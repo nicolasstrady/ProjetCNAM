@@ -28,6 +28,8 @@ public class PartieController {
     @FXML
     private Button refuse;
     @FXML
+    private Button retrieveDog;
+    @FXML
     private HBox boxRois;
     @FXML
     private HBox boxChien;
@@ -41,11 +43,24 @@ public class PartieController {
     private ImageView dog;
     @FXML
     private Label statusLabel;
+    @FXML
+    private Label labelLeft;
+    @FXML
+    private Label labelTopLeft;
+    @FXML
+    private Label labelTopRight;
+    @FXML
+    private Label labelRight;
 
     private ServerListener listener;
     private int tourCount = 0;
     private boolean sendingTurn = false;
     private final Map<String, String> cardColors = new HashMap<>();
+    private List<Label> opponentLabels;
+    private List<String> playerNames;
+    private List<String> pendingDogIds = new ArrayList<>();
+    private List<String> pendingDogLiens = new ArrayList<>();
+    private List<String> pendingDogColors = new ArrayList<>();
 
     public void initHand(ArrayList<String> ids, ArrayList<String> liens, ArrayList<String> colors) {
         main.setHgap(10);
@@ -58,6 +73,16 @@ public class PartieController {
             imageCarte.setId(ids.get(i));
             cardColors.put(ids.get(i), colors.get(i));
             main.getChildren().add(imageCarte);
+        }
+    }
+
+    public void setPlayerNames(ArrayList<String> names) {
+        this.playerNames = names;
+        opponentLabels = List.of(labelLeft, labelTopLeft, labelTopRight, labelRight);
+        int myNum = Integer.parseInt(AccueilController.numJoueur);
+        for (int i = 1; i <= 4; i++) {
+            int playerNum = ((myNum + i - 1) % 5) + 1;
+            opponentLabels.get(i - 1).setText(names.get(playerNum - 1));
         }
     }
 
@@ -117,7 +142,7 @@ public class PartieController {
     }
 
     private void handleCallInfo(List<Object> resp) {
-        statusLabel.setText("Le Roi de " + resp.get(3) + " a été appelé !");
+        statusLabel.setText("Le Roi de " + resp.get(4) + " a été appelé !");
         boxChien.getChildren().clear();
         ArrayList<Integer> idCartes = (ArrayList<Integer>) resp.get(1);
         ArrayList<String> lienCartes = (ArrayList<String>) resp.get(2);
@@ -128,6 +153,9 @@ public class PartieController {
             boxChien.getChildren().add(imageChien);
         }
         carteCenter.setVisible(false);
+        if (!pendingDogIds.isEmpty()) {
+            retrieveDog.setVisible(true);
+        }
     }
 
     private void handleTourUpdate(List<Object> resp) {
@@ -137,15 +165,17 @@ public class PartieController {
         ArrayList<String> idCartes = (ArrayList<String>) resp.get(3);
         ArrayList<String> lienCartes = (ArrayList<String>) resp.get(4);
         String couleur = resp.size() > 5 ? (String) resp.get(5) : "";
-        if (current == Integer.parseInt(AccueilController.numJoueur) && !finTour && !finPartie) {
+        boxTour.getChildren().clear();
+        for (int i = 0; i < idCartes.size(); i++) {
+            InputStream is = getClass().getResourceAsStream("/sample/img/" + lienCartes.get(i));
+            Image img = new Image(is != null ? is : getClass().getResourceAsStream("/sample/img/carte.png"),60,100,false,false);
+            boxTour.getChildren().add(new ImageView(img));
+        }
+        updateCurrentPlayerLabel(current);
+        int myNum = Integer.parseInt(AccueilController.numJoueur);
+        if (current == myNum && !finTour && !finPartie) {
             statusLabel.setText("A votre tour !");
             tourLabel.setText("Tour " + tourCount + " : A votre tour");
-            boxTour.getChildren().clear();
-            for (int i = 0; i < idCartes.size(); i++) {
-                InputStream is = getClass().getResourceAsStream("/sample/img/" + lienCartes.get(i));
-                Image img = new Image(is != null ? is : getClass().getResourceAsStream("/sample/img/carte.png"),60,100,false,false);
-                boxTour.getChildren().add(new ImageView(img));
-            }
         } else if (finTour && !finPartie) {
             statusLabel.setText("Le tour est fini !");
             tourLabel.setText("Tour " + tourCount + " terminé");
@@ -156,6 +186,18 @@ public class PartieController {
         } else {
             statusLabel.setText("Au tour du Joueur " + current);
             tourLabel.setText("Tour " + tourCount + " : Au tour du Joueur " + current);
+        }
+    }
+
+    private void updateCurrentPlayerLabel(int current) {
+        if (opponentLabels == null || playerNames == null) return;
+        for (Label l : opponentLabels) {
+            l.setStyle("");
+        }
+        int myNum = Integer.parseInt(AccueilController.numJoueur);
+        int diff = (current - myNum + 5) % 5;
+        if (diff >= 1 && diff <= 4) {
+            opponentLabels.get(diff - 1).setStyle("-fx-font-weight: bold;");
         }
     }
 
@@ -242,21 +284,32 @@ public class PartieController {
             e.printStackTrace();
             return;
         }
-        ArrayList<Integer> idCartesChien = (ArrayList) datas2.get(0);
-        ArrayList<String> lienCartesChien = (ArrayList) datas2.get(1);
-        boxChien.getChildren().clear();
-        for(int j = 0; j < idCartesChien.size() ; j++) {
-            InputStream is = getClass().getResourceAsStream("/sample/img/" + lienCartesChien.get(j));
-            Image img = new Image(is != null ? is : getClass().getResourceAsStream("/sample/img/carte.png"),60,100,false,false);
-            ImageView chienView = new ImageView(img);
-            chienView.setId(idCartesChien.get(j).toString());
-            boxChien.getChildren().add(chienView);
+        ArrayList<Integer> idsTmp = (ArrayList<Integer>) datas2.get(0);
+        pendingDogIds = new ArrayList<>();
+        for (Integer i : idsTmp) {
+            pendingDogIds.add(i.toString());
+        }
+        pendingDogLiens = (ArrayList<String>) datas2.get(1);
+        pendingDogColors = (ArrayList<String>) datas2.get(2);
+    }
 
+    @FXML
+    public void retrieveDogCards() {
+        for (int j = 0; j < pendingDogIds.size(); j++) {
+            InputStream is = getClass().getResourceAsStream("/sample/img/" + pendingDogLiens.get(j));
+            Image img = new Image(is != null ? is : getClass().getResourceAsStream("/sample/img/carte.png"),60,100,false,false);
             ImageView handView = new ImageView(img);
-            handView.setId(idCartesChien.get(j).toString());
+            handView.setId(pendingDogIds.get(j));
+            cardColors.put(pendingDogIds.get(j), pendingDogColors.get(j));
             main.getChildren().add(handView);
         }
-        for(int i = 0; i< main.getChildren().size() ; i++) {
+        boxChien.getChildren().clear();
+        retrieveDog.setVisible(false);
+        enableDogSelection();
+    }
+
+    private void enableDogSelection() {
+        for (int i = 0; i < main.getChildren().size(); i++) {
             ImageView imageCarte = (ImageView) main.getChildren().get(i);
             imageCarte.setOnMouseClicked((e) -> {
                 ArrayList<Object> addDogs = new ArrayList<>();
@@ -342,10 +395,6 @@ public class PartieController {
                         boolean hasError = (boolean) datas.get(0);
                         if (!hasError) {
                             main.getChildren().remove(imageCarte);
-                            ImageView img = new ImageView(imageCarte.getImage());
-                            img.setFitWidth(60);
-                            img.setFitHeight(100);
-                            boxTour.getChildren().add(img);
                         } else {
                             statusLabel.setText("Carte non valide !");
                         }
@@ -360,6 +409,8 @@ public class PartieController {
     private void startNextTurn() {
         if (sendingTurn) return;
         sendingTurn = true;
+        boxChien.getChildren().clear();
+        boxTour.getChildren().clear();
         tourCount++;
         ArrayList<Object> begins = new ArrayList<>();
         begins.add("BEGIN");

@@ -85,8 +85,8 @@ public class ClientProcessor implements Runnable {
         broadcast(List.of("ANSWER_UPDATE", nbJoueur, flag, numPlayer));
     }
 
-    private void broadcastCallInfo(ArrayList<Integer> ids, ArrayList<String> liens, String couleur) {
-        broadcast(List.of("CALL_INFO", true, ids, liens, couleur));
+    private void broadcastCallInfo(ArrayList<Integer> ids, ArrayList<String> liens, ArrayList<String> couleurs, String couleur) {
+        broadcast(List.of("CALL_INFO", true, ids, liens, couleurs, couleur));
     }
 
     private void broadcastDogReady() {
@@ -311,10 +311,19 @@ public class ClientProcessor implements Runnable {
                     } else {
                         System.err.println("No player row found for utilisateur=" + idUser + " partie=" + currentPartie);
                     }
+                    ArrayList<String> noms = new ArrayList<>();
+                    String queryNames = "SELECT num, u.pseudo FROM joueur j JOIN utilisateur u ON j.utilisateur = u.id WHERE partie = ? ORDER BY num";
+                    PreparedStatement psNames = this.connection.prepareStatement(queryNames);
+                    psNames.setInt(1, currentPartie);
+                    ResultSet rsNames = psNames.executeQuery();
+                    while (rsNames.next()) {
+                        noms.add(rsNames.getString("pseudo"));
+                    }
                     toSend.add(idCartes);
                     toSend.add(lienCartes);
                     toSend.add(couleurs);
                     toSend.add(numJoueur);
+                    toSend.add(noms);
 
                 } else if(responses.get(0).toString().toUpperCase().equals("WAITANSWER")) {
                     String query = "SELECT COUNT(id) AS\"nbJoueur\"  FROM joueur WHERE reponse != 'WAIT' AND partie = "+ currentPartie;
@@ -402,6 +411,7 @@ public class ClientProcessor implements Runnable {
                     ResultSet results3 = ps3.executeQuery();
                     ArrayList<Integer> idCartes = new ArrayList<>();
                     ArrayList<String> lienCartes = new ArrayList<>();
+                    ArrayList<String> couleurCartes = new ArrayList<>();
                     if(results3.next()) {
                         for(int i = 1; i <= 3; i++) {
                             String query4 = "SELECT * FROM carte WHERE id = " + results3.getInt("carte" + i) ;
@@ -410,6 +420,7 @@ public class ClientProcessor implements Runnable {
                             if(results4.next()) {
                                 idCartes.add(results4.getInt("id"));
                                 lienCartes.add(results4.getString("lien"));
+                                couleurCartes.add(results4.getString("couleur"));
                             }
                         }
                     }
@@ -422,9 +433,10 @@ public class ClientProcessor implements Runnable {
                     }
                     toSend.add(idCartes);
                     toSend.add(lienCartes);
+                    toSend.add(couleurCartes);
 
                     callDone = true;
-                    broadcastCallInfo(idCartes, lienCartes, couleurAppel);
+                    broadcastCallInfo(idCartes, lienCartes, couleurCartes, couleurAppel);
 
 
                 } else if(responses.get(0).toString().toUpperCase().equals("WAITCALL")) {
@@ -451,6 +463,7 @@ public class ClientProcessor implements Runnable {
                         toSend.add(callDone);
                         toSend.add(idCartes);
                         toSend.add(lienCartes);
+                        toSend.add(new ArrayList<String>());
                         toSend.add(couleurAppel);
 
 

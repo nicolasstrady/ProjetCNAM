@@ -100,7 +100,7 @@ public class PartieController {
             ImageView imageCarte = new ImageView(img);
             applyCardSize(imageCarte);
             imageCarte.setId(ids.get(i));
-            cardColors.put(ids.get(i), colors.get(i));
+            cardColors.put(ids.get(i), colors.get(i).toUpperCase());
             cardRanks.put(ids.get(i), extractRank(liens.get(i)));
             main.getChildren().add(imageCarte);
         }
@@ -332,12 +332,13 @@ public class PartieController {
                 ImageView img = (ImageView) main.getChildren().get(i);
                 String id = img.getId();
                 String color = cardColors.get(id);
-                if (couleur.equals(color)) {
+                int r = cardRanks.getOrDefault(id, 0);
+                String effective = "BOUT".equals(color) && r > 0 ? "ATOUT" : color;
+                if (couleur.equals(effective)) {
                     hasColor = true;
                 }
-                if ("ATOUT".equals(color) || "BOUT".equals(color)) {
+                if ("ATOUT".equals(effective)) {
                     hasAtout = true;
-                    int r = cardRanks.getOrDefault(id, 0);
                     if (r > highestAtoutCenter) {
                         hasHigherAtout = true;
                     }
@@ -364,13 +365,19 @@ public class PartieController {
             String id = imageCarte.getId();
             String color = cardColors.get(id);
             int rank = cardRanks.getOrDefault(id, 0);
-            if (!couleur.isEmpty()) {
+            boolean isExcuse = "BOUT".equals(color) && rank == 0;
+            String effective = "BOUT".equals(color) && rank > 0 ? "ATOUT" : color;
+            if (isExcuse) {
+                disable = tourCount >= 15;
+            } else if (!couleur.isEmpty()) {
                 if (hasColor) {
-                    if (!couleur.equals(color)) {
+                    if (!couleur.equals(effective)) {
+                        disable = true;
+                    } else if ("ATOUT".equals(couleur) && highestAtoutCenter > 0 && hasHigherAtout && rank < highestAtoutCenter) {
                         disable = true;
                     }
                 } else if (hasAtout) {
-                    if (!("ATOUT".equals(color) || "BOUT".equals(color))) {
+                    if (!"ATOUT".equals(effective)) {
                         disable = true;
                     } else if (highestAtoutCenter > 0 && hasHigherAtout && rank < highestAtoutCenter) {
                         disable = true;
@@ -548,7 +555,7 @@ public class PartieController {
             ImageView handView = new ImageView(img);
             applyCardSize(handView);
             handView.setId(pendingDogIds.get(j));
-            cardColors.put(pendingDogIds.get(j), pendingDogColors.get(j));
+            cardColors.put(pendingDogIds.get(j), pendingDogColors.get(j).toUpperCase());
             cardRanks.put(pendingDogIds.get(j), extractRank(pendingDogLiens.get(j)));
             main.getChildren().add(handView);
         }

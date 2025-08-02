@@ -31,6 +31,9 @@ public class ClientProcessor implements Runnable {
     public static boolean finTour = false;
     public static String couleurTour = "";
     public static int firstPlayer = 1;
+    public static int plisCount = 0;
+    public static int lastExcusePlayer = -1;
+    public static double lastExcusePoints = 0;
 
     private static final CopyOnWriteArrayList<ObjectOutputStream> listeners = new CopyOnWriteArrayList<>();
 
@@ -135,7 +138,7 @@ public class ClientProcessor implements Runnable {
     }
 
     private int rank(String couleur, String valeur) {
-        if (couleur.equals("BOUT")) return -1;
+        if ("EXCUSE".equals(couleur)) return -1;
         try { return Integer.parseInt(valeur); } catch (NumberFormatException e) { return -1; }
     }
 
@@ -166,26 +169,28 @@ public class ClientProcessor implements Runnable {
             pc.setInt(1, cid);
             ResultSet rc = pc.executeQuery();
             if (rc.next()) {
-                String c = rc.getString("couleur");
-                String v = rc.getString("valeur");
-                int r = rank(c, v);
+                String c = rc.getString("couleur").toUpperCase();
+                String v = rc.getString("valeur").toUpperCase();
+                boolean isExc = c.equals("BOUT") && v.equals("E");
+                String eff = isExc ? "EXCUSE" : (c.equals("BOUT") ? "ATOUT" : c);
+                int r = rank(eff, v);
                 if (i == 0) {
-                    bestColor = c.equals("BOUT") ? couleurTour : c;
+                    bestColor = isExc ? couleurTour : eff;
                     bestRank = r;
                     winner = player;
                 } else {
-                    if (!c.equals("BOUT")) {
+                    if (!isExc) {
                         if (bestColor.equals("ATOUT")) {
-                            if (c.equals("ATOUT") && r > bestRank) {
+                            if (eff.equals("ATOUT") && r > bestRank) {
                                 bestRank = r;
                                 winner = player;
                             }
                         } else {
-                            if (c.equals("ATOUT")) {
+                            if (eff.equals("ATOUT")) {
                                 bestColor = "ATOUT";
                                 bestRank = r;
                                 winner = player;
-                            } else if (c.equals(couleurTour) && r > bestRank) {
+                            } else if (eff.equals(couleurTour) && r > bestRank) {
                                 bestRank = r;
                                 winner = player;
                             }
@@ -201,6 +206,8 @@ public class ClientProcessor implements Runnable {
     }
 
     private double calculatePoints() throws SQLException {
+        lastExcusePlayer = -1;
+        lastExcusePoints = 0;
         String q = "SELECT carte1,carte2,carte3,carte4,carte5 FROM plis WHERE id = ? AND partie = ?";
         PreparedStatement ps = this.connection.prepareStatement(q);
         ps.setInt(1, currentPlis);
@@ -211,10 +218,20 @@ public class ClientProcessor implements Runnable {
             for (int i = 1; i <= 5; i++) {
                 int cid = rs.getInt("carte" + i);
                 if (rs.wasNull()) continue;
-                PreparedStatement pc = this.connection.prepareStatement("SELECT points FROM carte WHERE id = ?");
+                PreparedStatement pc = this.connection.prepareStatement("SELECT couleur,valeur,points FROM carte WHERE id = ?");
                 pc.setInt(1, cid);
                 ResultSet rc = pc.executeQuery();
-                if (rc.next()) total += rc.getDouble("points");
+                if (rc.next()) {
+                    String c = rc.getString("couleur").toUpperCase();
+                    String v = rc.getString("valeur").toUpperCase();
+                    double p = rc.getDouble("points");
+                    if (c.equals("BOUT") && v.equals("E")) {
+                        lastExcusePlayer = ((firstPlayer + i - 2) % 5) + 1;
+                        lastExcusePoints = p;
+                    } else {
+                        total += p;
+                    }
+                }
                 rc.close();
                 pc.close();
             }
@@ -638,8 +655,6 @@ public class ClientProcessor implements Runnable {
                     int numeroCarte= (int) responses.get(3);
                     boolean error = false;
                     finTour = false;
- //                    idCartesTour.add(Integer.parseInt(idCarte));
-//                    if(currentJoueurTour)
                     String query = "SELECT * FROM carte WHERE id = " + idCarte;
                     PreparedStatement ps = this.connection.prepareStatement(query);
                     ResultSet results = ps.executeQuery();
@@ -650,13 +665,14 @@ public class ClientProcessor implements Runnable {
                         valeurCarte = results.getString("valeur").toUpperCase();
                         if("BOUT".equals(couleurCarte)) {
                             if("E".equals(valeurCarte)) {
-                                couleurCarte = "";
+                                couleurCarte = "EXCUSE";
                             } else {
                                 couleurCarte = "ATOUT";
                             }
                         }
                     }
-
+                    ps.close();
+                    int rankCarte = "ATOUT".equals(couleurCarte) ? rank("ATOUT", valeurCarte) : -1;
                     if(countJoueurTour == 1) {
                         firstPlayer = currentJoueurTour;
                         PreparedStatement stmt = this.connection.prepareStatement("INSERT INTO plis(pliChien,partie) VALUES(?,?)", Statement.RETURN_GENERATED_KEYS);
@@ -669,7 +685,11 @@ public class ClientProcessor implements Runnable {
                         }
                         gen.close();
                         stmt.close();
-                        couleurTour = couleurCarte;
+                        if(!"EXCUSE".equals(couleurCarte)) {
+                            couleurTour = couleurCarte;
+                        } else {
+                            couleurTour = "";
+                        }
                         PreparedStatement stmt1 = this.connection.prepareStatement("UPDATE plis SET carte" + countJoueurTour + " = ? WHERE id = ? AND partie = ?");
                         stmt1.setInt(1, Integer.parseInt(idCarte));
                         stmt1.setInt(2, currentPlis);
@@ -681,28 +701,66 @@ public class ClientProcessor implements Runnable {
                         stmt2.executeUpdate();
                     }
                     else {
+                        int highestAtoutCenter = 0;
+                        String centerQ = "SELECT carte1,carte2,carte3,carte4,carte5 FROM plis WHERE id = ? AND partie = ?";
+                        PreparedStatement centerStmt = this.connection.prepareStatement(centerQ);
+                        centerStmt.setInt(1, currentPlis);
+                        centerStmt.setInt(2, currentPartie);
+                        ResultSet centerRs = centerStmt.executeQuery();
+                        if(centerRs.next()) {
+                            for(int i=1;i<=5;i++) {
+                                String cidStr = centerRs.getString("carte"+i);
+                                if(cidStr != null) {
+                                    PreparedStatement pc2 = this.connection.prepareStatement("SELECT couleur,valeur FROM carte WHERE id = ?");
+                                    pc2.setInt(1, Integer.parseInt(cidStr));
+                                    ResultSet rc2 = pc2.executeQuery();
+                                    if(rc2.next()) {
+                                        String c = rc2.getString("couleur").toUpperCase();
+                                        String v = rc2.getString("valeur").toUpperCase();
+                                        if(!(c.equals("BOUT") && v.equals("E")) && (c.equals("ATOUT") || c.equals("BOUT"))) {
+                                            int r = rank("ATOUT", v);
+                                            if(r > highestAtoutCenter) highestAtoutCenter = r;
+                                        }
+                                    }
+                                    rc2.close();
+                                    pc2.close();
+                                }
+                            }
+                        }
+                        centerRs.close();
+                        centerStmt.close();
                         if(couleurTour.isEmpty()) {
-                            couleurTour = couleurCarte;
+                            if(!"EXCUSE".equals(couleurCarte)) {
+                                couleurTour = couleurCarte;
+                            }
                         } else {
                             String query3 = "SELECT * FROM joueur WHERE utilisateur = " + idUser + " AND partie = " + currentPartie;
                             PreparedStatement ps3 = this.connection.prepareStatement(query3);
                             ResultSet results3 = ps3.executeQuery();
                             boolean hasCouleur = false;
                             boolean hasAtout = false;
+                            boolean hasHigherAtout = false;
                             if(results3.next()) {
                                 for(int i = 1; i<=15; i++) {
                                     String cid = results3.getString("carte" + i);
                                     if(cid != null) {
-                                        PreparedStatement ps4 = this.connection.prepareStatement("SELECT couleur FROM carte WHERE id = ?");
+                                        PreparedStatement ps4 = this.connection.prepareStatement("SELECT couleur,valeur FROM carte WHERE id = ?");
                                         ps4.setInt(1, Integer.parseInt(cid));
                                         ResultSet results4 = ps4.executeQuery();
                                         if (results4.next()) {
                                             String c = results4.getString("couleur").toUpperCase();
-                                            if(c.equals(couleurTour)) {
+                                            String v = results4.getString("valeur").toUpperCase();
+                                            boolean isExc = c.equals("BOUT") && v.equals("E");
+                                            String eff = isExc ? "EXCUSE" : (c.equals("BOUT") ? "ATOUT" : c);
+                                            if(eff.equals(couleurTour)) {
                                                 hasCouleur = true;
                                             }
-                                            if(c.equals("ATOUT") || c.equals("BOUT")) {
+                                            if("ATOUT".equals(eff)) {
                                                 hasAtout = true;
+                                                int r = rank("ATOUT", v);
+                                                if(r > highestAtoutCenter) {
+                                                    hasHigherAtout = true;
+                                                }
                                             }
                                         }
                                         results4.close();
@@ -710,14 +768,24 @@ public class ClientProcessor implements Runnable {
                                     }
                                 }
                             }
-                            if(couleurCarte.equals(couleurTour) || ("ATOUT".equals(couleurTour) && "BOUT".equals(couleurCarte))) {
-                                // suit followed or BOUT on atout
-                            } else if(!hasCouleur) {
-                                if(hasAtout && !("ATOUT".equals(couleurCarte) || "BOUT".equals(couleurCarte))) {
+                            results3.close();
+                            ps3.close();
+                            if(plisCount == 14 && "EXCUSE".equals(couleurCarte)) {
+                                error = true;
+                            } else if("EXCUSE".equals(couleurCarte)) {
+                                // always allowed
+                            } else if(hasCouleur) {
+                                if(!couleurCarte.equals(couleurTour)) {
+                                    error = true;
+                                } else if("ATOUT".equals(couleurTour) && highestAtoutCenter > 0 && hasHigherAtout && rankCarte < highestAtoutCenter) {
                                     error = true;
                                 }
-                            } else {
-                                error = true;
+                            } else if(hasAtout) {
+                                if(!"ATOUT".equals(couleurCarte)) {
+                                    error = true;
+                                } else if("ATOUT".equals(couleurTour) && highestAtoutCenter > 0 && hasHigherAtout && rankCarte < highestAtoutCenter) {
+                                    error = true;
+                                }
                             }
                         }
                         if(!error) {
@@ -748,10 +816,10 @@ public class ClientProcessor implements Runnable {
                         }
                         checkRs.close();
                         checkStmt.close();
-
                         if (filled == 5) {
                             finTour = true;
                             countJoueurTour = 1;
+                            plisCount++;
                             int gagnant = determineWinner();
                             currentJoueurTour = gagnant;
                             double pts = calculatePoints();
@@ -760,18 +828,24 @@ public class ClientProcessor implements Runnable {
                             upScore.setInt(2, gagnant);
                             upScore.setInt(3, currentPartie);
                             upScore.executeUpdate();
+                            if(lastExcusePlayer != -1) {
+                                PreparedStatement upExcuse = this.connection.prepareStatement("UPDATE joueur SET score = score + ? WHERE num = ? AND partie = ?");
+                                upExcuse.setDouble(1, lastExcusePoints);
+                                upExcuse.setInt(2, lastExcusePlayer);
+                                upExcuse.setInt(3, currentPartie);
+                                upExcuse.executeUpdate();
+                            }
                             PreparedStatement upPli = this.connection.prepareStatement("UPDATE plis SET joueurGagnant = ? WHERE id = ? AND partie = ?");
                             upPli.setInt(1, gagnant);
                             upPli.setInt(2, currentPlis);
                             upPli.setInt(3, currentPartie);
                             upPli.executeUpdate();
+                            if(plisCount == 15) {
+                                finPartie = true;
+                            }
                         } else {
                             countJoueurTour = filled + 1;
                             currentJoueurTour = currentJoueurTour == 5 ? 1 : currentJoueurTour + 1;
-                        }
-
-                        if (currentPlis % 16 == 0 && finTour) {
-                            finPartie = true;
                         }
                     }
                     toSend.add(error);

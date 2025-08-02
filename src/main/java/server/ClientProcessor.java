@@ -22,6 +22,7 @@ public class ClientProcessor implements Runnable {
     public static int nbCartesChien = 1;
     public static int currentPlis =1;
     public static boolean dogDone = false;
+    public static boolean cardsDealt = false;
     public static int currentJoueurTour = -1;
     public static int countJoueurTour = 1;
     public static int countNbTour = 1;
@@ -220,6 +221,7 @@ public class ClientProcessor implements Runnable {
 
                         Statement stmt2 = this.connection.createStatement();
                         stmt2.executeUpdate("INSERT INTO partie(id) VALUES ("+ currentPartie  +")") ;
+                        cardsDealt = false;
                     }
 
                     Statement stmt = this.connection.createStatement();
@@ -244,44 +246,38 @@ public class ClientProcessor implements Runnable {
                 } else if(responses.get(0).toString().toUpperCase().equals("PLAY")) {
                     String idUser = (String) responses.get(1);
 
-                    String check = "SELECT carte1 FROM joueur WHERE partie = ? LIMIT 1";
-                    PreparedStatement ck = this.connection.prepareStatement(check);
-                    ck.setInt(1, currentPartie);
-                    ResultSet ckRes = ck.executeQuery();
-                    boolean needDeal = true;
-                    if(ckRes.next() && ckRes.getObject(1) != null) {
-                        needDeal = false;
-                    }
-
-                    if (needDeal) {
-                        PreparedStatement psDeck = this.connection.prepareStatement("SELECT id FROM carte ORDER BY RAND()");
-                        ResultSet deck = psDeck.executeQuery();
-                        ArrayList<Integer> ids = new ArrayList<>();
-                        while (deck.next()) {
-                            ids.add(deck.getInt("id"));
-                        }
-                        int index = 0;
-                        for (int p = 1; p <= 5; p++) {
-                            StringBuilder sb = new StringBuilder("UPDATE joueur SET ");
-                            for (int c = 1; c <= 15; c++) {
-                                if (c > 1) sb.append(", ");
-                                sb.append("carte" + c + " = ?");
+                    synchronized (ClientProcessor.class) {
+                        if (!cardsDealt) {
+                            PreparedStatement psDeck = this.connection.prepareStatement("SELECT id FROM carte ORDER BY RAND()");
+                            ResultSet deck = psDeck.executeQuery();
+                            ArrayList<Integer> ids = new ArrayList<>();
+                            while (deck.next()) {
+                                ids.add(deck.getInt("id"));
                             }
-                            sb.append(" WHERE num = ? AND partie = ?");
-                            PreparedStatement upd = this.connection.prepareStatement(sb.toString());
-                            for (int c = 1; c <= 15; c++) {
-                                upd.setInt(c, ids.get(index++));
+                            int index = 0;
+                            for (int p = 1; p <= 5; p++) {
+                                StringBuilder sb = new StringBuilder("UPDATE joueur SET ");
+                                for (int c = 1; c <= 15; c++) {
+                                    if (c > 1) sb.append(", ");
+                                    sb.append("carte" + c + " = ?");
+                                }
+                                sb.append(" WHERE num = ? AND partie = ?");
+                                PreparedStatement upd = this.connection.prepareStatement(sb.toString());
+                                for (int c = 1; c <= 15; c++) {
+                                    upd.setInt(c, ids.get(index++));
+                                }
+                                upd.setInt(16, p);
+                                upd.setInt(17, currentPartie);
+                                upd.executeUpdate();
                             }
-                            upd.setInt(16, p);
-                            upd.setInt(17, currentPartie);
-                            upd.executeUpdate();
+                            PreparedStatement dog = this.connection.prepareStatement("INSERT INTO chien(carte1,carte2,carte3) VALUES(?,?,?)");
+                            dog.setInt(1, ids.get(index++));
+                            dog.setInt(2, ids.get(index++));
+                            dog.setInt(3, ids.get(index));
+                            dog.executeUpdate();
+                            broadcastAnswerUpdate();
+                            cardsDealt = true;
                         }
-                        PreparedStatement dog = this.connection.prepareStatement("INSERT INTO chien(carte1,carte2,carte3) VALUES(?,?,?)");
-                        dog.setInt(1, ids.get(index++));
-                        dog.setInt(2, ids.get(index++));
-                        dog.setInt(3, ids.get(index));
-                        dog.executeUpdate();
-                        broadcastAnswerUpdate();
                     }
 
                     String query2 = "SELECT *  FROM joueur WHERE utilisateur = " + idUser + " AND partie = "+ currentPartie;

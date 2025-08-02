@@ -12,6 +12,7 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.scene.layout.FlowPane;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -19,7 +20,7 @@ import java.util.List;
 public class PartieController {
 
     @FXML
-    private HBox main;
+    private FlowPane main;
     @FXML
     private Button play;
     @FXML
@@ -48,7 +49,8 @@ public class PartieController {
     private ServerListener listener;
 
     public void initHand(ArrayList<String> ids, ArrayList<String> liens) {
-        main.setSpacing(10);
+        main.setHgap(10);
+        main.setVgap(10);
         for (int i = 0; i < ids.size(); i++) {
             InputStream is = getClass().getResourceAsStream("/sample/img/" + liens.get(i));
             Image img = is != null ? new Image(is,60,100,false,false)

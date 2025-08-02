@@ -11,9 +11,9 @@
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.control.Label?>
 
-<AnchorPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="500.0" prefWidth="900.0" style="-fx-background-image: url('img/background.png'); -fx-background-size: cover;" xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="sample.PartieController">
+<AnchorPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="500.0" prefWidth="900.0" style="-fx-background-image: url('@img/background.png'); -fx-background-repeat: no-repeat; -fx-background-size: cover; -fx-background-position: center center;" xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="sample.PartieController">
    <children>
-      <Label fx:id="tourLabel" alignment="CENTER" style="-fx-text-fill: white; -fx-font-size: 24px;" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="10.0" />
+      <Label fx:id="tourLabel" alignment="CENTER" text="Tour 1" style="-fx-text-fill: white; -fx-font-size: 24px; -fx-background-color: rgba(0,0,0,0.5); -fx-padding: 5; -fx-background-radius: 5;" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="10.0" />
       <VBox AnchorPane.bottomAnchor="150.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="60.0">
          <children>
             <HBox prefHeight="166.0" spacing="440.0">

@@ -1,6 +1,6 @@
 package sample;
 
-import client.ClientConnexion;
+import client.SocketClient;
 import javafx.scene.layout.VBox;
 import server.MySQLConnection;
 import javafx.application.Application;
@@ -23,16 +23,16 @@ import java.util.ArrayList;
 
 public class ConnexionController extends Application {
     
-    public static String host = "192.168.1.77";
+    public static String host = System.getenv().getOrDefault("SERVER_HOST", "localhost");
+    public static int port = Integer.parseInt(System.getenv().getOrDefault("SERVER_PORT", "3333"));
     public static MySQLConnection db;
+    public static SocketClient client;
     public static String pseudo;
 
     static {
         try {
-            db = new MySQLConnection("jdbc:mysql://localhost:3306/tarot_project","root","");
-        } catch (SQLException e) {
-            e.printStackTrace();
-        } catch (ClassNotFoundException e) {
+            db = MySQLConnection.fromEnv();
+        } catch (SQLException | ClassNotFoundException e) {
             e.printStackTrace();
         }
     }
@@ -81,15 +81,15 @@ public class ConnexionController extends Application {
     public void onLogin(ActionEvent event) throws SQLException, ClassNotFoundException, IOException {
        pseudo = this.login.getText();
        String password = this.pass.getText();
-        MySQLConnection db = new MySQLConnection("jdbc:mysql://localhost:3306/tarot_project","root","");
-        this.connection = db.getConnection();
+       MySQLConnection db = MySQLConnection.fromEnv();
+       this.connection = db.getConnection();
 
             ArrayList<Object> connects = new ArrayList<>();
             connects.add("CONN");
             connects.add(pseudo);
             connects.add(password);
-            ClientConnexion client = new ClientConnexion(host,3333,connects);
-            ArrayList<Object> responses = client.run();
+            client = new SocketClient(host, port);
+            ArrayList<Object> responses = client.send(connects);
             if(responses.get(0).equals("OK")) {
                 FXMLLoader loader = new FXMLLoader(getClass().getResource("accueil.fxml"));
                 Parent root = loader.load();
@@ -137,14 +137,18 @@ public class ConnexionController extends Application {
         datas.add(username);
         datas.add(password);
         datas.add(email);
-        ClientConnexion client = new ClientConnexion(host,3333,datas);
-        ArrayList<Object> responses = client.run();
-        boolean pseudoInBDD = (boolean) responses.get(0);
-        if(pseudoInBDD == true) {
-            JOptionPane.showMessageDialog(null, "Utilisateur d\u00e9j\u00e0 pr\u00e9sent dans la base de donn\u00e9e");
-        } else  {
-            JOptionPane.showMessageDialog(null,"Inscription faite !");
+        try (SocketClient tmp = new SocketClient(host, port)) {
+            ArrayList<Object> responses = tmp.send(datas);
+            boolean pseudoInBDD = (boolean) responses.get(0);
+            if(pseudoInBDD == true) {
+                JOptionPane.showMessageDialog(null, "Utilisateur déjà présent dans la base de donnée");
+            } else  {
+                JOptionPane.showMessageDialog(null,"Inscription faite !");
+            }
+        } catch (IOException | ClassNotFoundException e) {
+            e.printStackTrace();
         }
+        return;
     }
 
     @Override

@@ -1,6 +1,9 @@
 package sample;
 
-import client.ClientConnexion;
+import client.ServerListener;
+import java.io.IOException;
+import java.io.InputStream;
+import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -8,23 +11,25 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.scene.layout.FlowPane;
+import javafx.scene.Cursor;
+import javafx.scene.effect.ColorAdjust;
+import java.util.HashMap;
+import java.util.Map;
 
-import javax.swing.*;
-import java.beans.EventHandler;
-import java.io.File;
 import java.util.ArrayList;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.List;
 
 public class PartieController {
 
     @FXML
-    private HBox main;
-    @FXML
-    private Button play;
+    private FlowPane main;
     @FXML
     private Button take;
     @FXML
     private Button refuse;
+    @FXML
+    private Button retrieveDog;
     @FXML
     private HBox boxRois;
     @FXML
@@ -32,46 +37,280 @@ public class PartieController {
     @FXML
     private HBox boxTour;
     @FXML
-    private Button launch;
-    @FXML
-    private Button playTour;
-    @FXML
-    private Button endTour;
+    private Label tourLabel;
     @FXML
     private ImageView carteCenter;
     @FXML
     private ImageView dog;
+    @FXML
+    private Label statusLabel;
+    @FXML
+    private Label labelLeft;
+    @FXML
+    private Label labelTopLeft;
+    @FXML
+    private Label labelTopRight;
+    @FXML
+    private Label labelRight;
+    @FXML
+    private Label scoreLeft;
+    @FXML
+    private Label scoreTopLeft;
+    @FXML
+    private Label scoreTopRight;
+    @FXML
+    private Label scoreRight;
+    @FXML
+    private Label scoreSelf;
 
-    public void play() throws InterruptedException {
-        ArrayList<Object> waitsAnswer = new ArrayList<>();
-        int currentNumJoueur = -1;
-        String hasTake = "";
-        int numPlayerTake = -1;
-        while(currentNumJoueur != Integer.parseInt(AccueilController.numJoueur) && !hasTake.equals("TAKE")) {
-            waitsAnswer.add("WAITANSWER");
-            ClientConnexion client3 = new ClientConnexion(ConnexionController.host,3333,waitsAnswer);
-            ArrayList<Object> datas3 = client3.run();
-            currentNumJoueur = (int) datas3.get(0);
-            hasTake = (String) datas3.get(1);
-            numPlayerTake = (int) datas3.get(2);
+    private ServerListener listener;
+    private int tourCount = 0;
+    private boolean sendingTurn = false;
+    private final Map<String, String> cardColors = new HashMap<>();
+    private List<Label> opponentLabels;
+    private List<String> playerNames;
+    private List<Label> opponentScoreLabels;
+    private List<String> pendingDogIds = new ArrayList<>();
+    private List<String> pendingDogLiens = new ArrayList<>();
+    private List<String> pendingDogColors = new ArrayList<>();
 
-            if(currentNumJoueur == Integer.parseInt(AccueilController.numJoueur) && !hasTake.equals("TAKE")) {
-                JOptionPane.showMessageDialog(null,"A votre tour !");
-                take.setVisible(true);
-                refuse.setVisible(true);
-            }
-            else if(hasTake.equals("TAKE")) {
-                JOptionPane.showMessageDialog(null,"Joueur " + numPlayerTake + " a pris le chien");
-                take(numPlayerTake);
-            } else {
-                JOptionPane.showMessageDialog(null,"En attente du joueur " + currentNumJoueur);
-            }
-
-
+    public void initHand(ArrayList<String> ids, ArrayList<String> liens, ArrayList<String> colors) {
+        main.setHgap(-10);
+        main.setVgap(0);
+        for (int i = 0; i < ids.size(); i++) {
+            InputStream is = getClass().getResourceAsStream("/sample/img/" + liens.get(i));
+            Image img = is != null ? new Image(is,60,100,false,false)
+                                   : new Image(getClass().getResourceAsStream("/sample/img/carte.png"),60,100,false,false);
+            ImageView imageCarte = new ImageView(img);
+            imageCarte.setId(ids.get(i));
+            cardColors.put(ids.get(i), colors.get(i));
+            main.getChildren().add(imageCarte);
         }
+    }
 
-            play.setVisible(false);
+    public void setPlayerNames(ArrayList<String> names) {
+        this.playerNames = names;
+        opponentLabels = List.of(labelLeft, labelTopLeft, labelTopRight, labelRight);
+        opponentScoreLabels = List.of(scoreLeft, scoreTopLeft, scoreTopRight, scoreRight);
+        int myNum = Integer.parseInt(AccueilController.numJoueur);
+        for (int i = 1; i <= 4; i++) {
+            int playerNum = ((myNum + i - 1) % 5) + 1;
+            opponentLabels.get(i - 1).setText(names.get(playerNum - 1));
+        }
+    }
 
+    public void startListener() {
+        try {
+            listener = new ServerListener(ConnexionController.host, ConnexionController.port, data -> {
+                if (data.isEmpty()) return;
+                String type = data.get(0).toString();
+                switch (type) {
+                    case "ANSWER_UPDATE":
+                        handleAnswerUpdate(data.subList(1, data.size()));
+                        break;
+                    case "CALL_INFO":
+                        handleCallInfo(data.subList(1, data.size()));
+                        break;
+                    case "DOG_READY":
+                        startNextTurn();
+                        break;
+                    case "TOUR_UPDATE":
+                        handleTourUpdate(data.subList(1, data.size()));
+                        break;
+                    default:
+                        break;
+                }
+            });
+            Thread t = new Thread(listener);
+            t.setDaemon(true);
+            t.start();
+
+            ArrayList<Object> wait = new ArrayList<>();
+            wait.add("WAITANSWER");
+            try {
+                ArrayList<Object> resp = ConnexionController.client.send(wait);
+                handleAnswerUpdate(resp);
+            } catch (IOException | ClassNotFoundException ex) {
+                ex.printStackTrace();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void handleAnswerUpdate(List<Object> resp) {
+        int current = (int) resp.get(0);
+        String takeFlag = (String) resp.get(1);
+        int numPlayerTake = (int) resp.get(2);
+        if (takeFlag.equals("TAKE")) {
+            statusLabel.setText("Joueur " + numPlayerTake + " a pris le chien");
+            take(numPlayerTake);
+        } else if (current == Integer.parseInt(AccueilController.numJoueur)) {
+            statusLabel.setText("A votre tour !");
+            take.setVisible(true);
+            refuse.setVisible(true);
+        } else {
+            statusLabel.setText("Au tour du Joueur " + current);
+        }
+    }
+
+    private void handleCallInfo(List<Object> resp) {
+        statusLabel.setText("Le Roi de " + resp.get(4) + " a été appelé !");
+        boxChien.getChildren().clear();
+        ArrayList<Integer> idCartes = (ArrayList<Integer>) resp.get(1);
+        ArrayList<String> lienCartes = (ArrayList<String>) resp.get(2);
+        for (int i = 0; i < idCartes.size(); i++) {
+            InputStream is = getClass().getResourceAsStream("/sample/img/" + lienCartes.get(i));
+            Image img = new Image(is != null ? is : getClass().getResourceAsStream("/sample/img/carte.png"),60,100,false,false);
+            ImageView imageChien = new ImageView(img);
+            boxChien.getChildren().add(imageChien);
+        }
+        carteCenter.setVisible(false);
+        if (!pendingDogIds.isEmpty()) {
+            retrieveDog.setVisible(true);
+        }
+    }
+
+    private void handleTourUpdate(List<Object> resp) {
+        int current = (int) resp.get(0);
+        boolean finTour = (boolean) resp.get(1);
+        boolean finPartie = (boolean) resp.get(2);
+        ArrayList<String> idCartes = (ArrayList<String>) resp.get(3);
+        ArrayList<String> lienCartes = (ArrayList<String>) resp.get(4);
+        String couleur = resp.size() > 5 ? (String) resp.get(5) : "";
+        ArrayList<Double> scores = resp.size() > 6 ? (ArrayList<Double>) resp.get(6) : null;
+        boxTour.getChildren().clear();
+        for (int i = 0; i < idCartes.size(); i++) {
+            InputStream is = getClass().getResourceAsStream("/sample/img/" + lienCartes.get(i));
+            Image img = new Image(is != null ? is : getClass().getResourceAsStream("/sample/img/carte.png"),60,100,false,false);
+            boxTour.getChildren().add(new ImageView(img));
+        }
+        updateCurrentPlayerLabel(current);
+        int myNum = Integer.parseInt(AccueilController.numJoueur);
+        if (scores != null && playerNames != null && scores.size() == playerNames.size()) {
+            scoreSelf.setText(String.format("%.1f", scores.get(myNum - 1)));
+            for (int i = 1; i <= 4; i++) {
+                int playerNum = ((myNum + i - 1) % 5) + 1;
+                opponentScoreLabels.get(i - 1).setText(String.format("%.1f", scores.get(playerNum - 1)));
+            }
+        }
+        if (current == myNum && !finTour && !finPartie) {
+            statusLabel.setText("A votre tour !");
+            tourLabel.setText("Tour " + tourCount + " : A votre tour");
+        } else if (finTour && !finPartie) {
+            statusLabel.setText("Le tour est fini !");
+            tourLabel.setText("Tour " + tourCount + " terminé");
+            startNextTurn();
+        } else if (finPartie) {
+            statusLabel.setText("La partie est finie !");
+            tourLabel.setText("Fin de partie");
+        } else {
+            statusLabel.setText("Au tour du Joueur " + current);
+            tourLabel.setText("Tour " + tourCount + " : Au tour du Joueur " + current);
+        }
+        updatePlayableCards(current, couleur);
+    }
+
+    private void updatePlayableCards(int current, String couleur) {
+        int myNum = Integer.parseInt(AccueilController.numJoueur);
+        boolean isMyTurn = current == myNum;
+        boolean hasColor = false;
+        if (isMyTurn && !couleur.isEmpty()) {
+            for (int i = 0; i < main.getChildren().size(); i++) {
+                ImageView img = (ImageView) main.getChildren().get(i);
+                if (couleur.equals(cardColors.get(img.getId()))) {
+                    hasColor = true;
+                    break;
+                }
+            }
+        }
+        ColorAdjust gray = new ColorAdjust();
+        gray.setSaturation(-1);
+        gray.setBrightness(-0.3);
+        for (int i = 0; i < main.getChildren().size(); i++) {
+            ImageView imageCarte = (ImageView) main.getChildren().get(i);
+            imageCarte.setOnMouseClicked(null);
+            imageCarte.setOnMouseEntered(null);
+            imageCarte.setOnMouseExited(null);
+            imageCarte.setScaleX(1);
+            imageCarte.setScaleY(1);
+            imageCarte.setViewOrder(0);
+            if (!isMyTurn) {
+                imageCarte.setDisable(true);
+                imageCarte.setEffect(gray);
+                continue;
+            }
+            boolean disable = false;
+            if (!couleur.isEmpty() && hasColor && !couleur.equals(cardColors.get(imageCarte.getId()))) {
+                disable = true;
+            }
+            imageCarte.setDisable(disable);
+            if (disable) {
+                imageCarte.setEffect(gray);
+                imageCarte.setCursor(Cursor.DEFAULT);
+                continue;
+            } else {
+                imageCarte.setEffect(null);
+            }
+            int finalI = i;
+            imageCarte.setOnMouseEntered(e -> {
+                imageCarte.setScaleX(1.2);
+                imageCarte.setScaleY(1.2);
+                imageCarte.setViewOrder(-1);
+                imageCarte.setCursor(Cursor.HAND);
+            });
+            imageCarte.setOnMouseExited(e -> {
+                imageCarte.setScaleX(1);
+                imageCarte.setScaleY(1);
+                imageCarte.setViewOrder(0);
+                imageCarte.setCursor(Cursor.DEFAULT);
+            });
+            imageCarte.setOnMouseClicked(e -> {
+                ArrayList<Object> playTours = new ArrayList<>();
+                playTours.add("PLAYTOUR");
+                playTours.add(imageCarte.getId());
+                playTours.add(ConnexionController.idUser);
+                playTours.add(finalI + 1);
+                ArrayList<Object> datas = null;
+                try {
+                    datas = ConnexionController.client.send(playTours);
+                } catch (IOException | ClassNotFoundException ex) {
+                    ex.printStackTrace();
+                    return;
+                }
+                boolean hasError = (boolean) datas.get(0);
+                if (!hasError) {
+                    main.getChildren().remove(imageCarte);
+                    disableAllCards();
+                } else {
+                    statusLabel.setText("Carte non valide !");
+                }
+            });
+        }
+    }
+
+    private void disableAllCards() {
+        ColorAdjust gray = new ColorAdjust();
+        gray.setSaturation(-1);
+        gray.setBrightness(-0.3);
+        for (int i = 0; i < main.getChildren().size(); i++) {
+            ImageView imageCarte = (ImageView) main.getChildren().get(i);
+            imageCarte.setDisable(true);
+            imageCarte.setEffect(gray);
+            imageCarte.setCursor(Cursor.DEFAULT);
+        }
+    }
+
+    private void updateCurrentPlayerLabel(int current) {
+        if (opponentLabels == null || playerNames == null) return;
+        for (Label l : opponentLabels) {
+            l.setStyle("");
+        }
+        int myNum = Integer.parseInt(AccueilController.numJoueur);
+        int diff = (current - myNum + 5) % 5;
+        if (diff >= 1 && diff <= 4) {
+            opponentLabels.get(diff - 1).setStyle("-fx-font-weight: bold;");
+        }
     }
 
     public void playWithDog() throws InterruptedException {
@@ -79,11 +318,13 @@ public class PartieController {
         chiens.add("CHIEN");
         chiens.add(ConnexionController.idUser);
 
-        ClientConnexion client2 = new ClientConnexion(ConnexionController.host,3333,chiens);
-        ArrayList<Object> datas2 = client2.run();
+        try {
+            ConnexionController.client.send(chiens);
+        } catch (IOException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
         refuse.setVisible(false);
         take.setVisible(false);
-        play();
     }
 
     public void playWithoutDog() throws InterruptedException {
@@ -91,11 +332,13 @@ public class PartieController {
         refuses.add("REFUSE");
         refuses.add(ConnexionController.idUser);
 
-        ClientConnexion client2 = new ClientConnexion(ConnexionController.host,3333,refuses);
-        ArrayList<Object> datas2 = client2.run();
+        try {
+            ConnexionController.client.send(refuses);
+        } catch (IOException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
         refuse.setVisible(false);
         take.setVisible(false);
-        play();
     }
 
     public void take(int numPlayerTake) {
@@ -104,13 +347,20 @@ public class PartieController {
             ArrayList<Object> rois = new ArrayList<>();
             rois.add("ROIS");
             rois.add(ConnexionController.idUser);
-            ClientConnexion client2 = new ClientConnexion(ConnexionController.host,3333,rois);
-            ArrayList<Object> datas = client2.run();
+            ArrayList<Object> datas = null;
+            try {
+                datas = ConnexionController.client.send(rois);
+            } catch (IOException | ClassNotFoundException e) {
+                e.printStackTrace();
+            }
             ArrayList<String> idCartes = (ArrayList<String>) datas.get(0);
             ArrayList<String> lienCartes = (ArrayList<String>) datas.get(1);
             boxRois.setSpacing(20);
             for(int i = 0; i < idCartes.size() ; i++) {
-                    ImageView imageRoi = new ImageView(new Image("/sample/img/" + lienCartes.get(i)));
+                    InputStream is = getClass().getResourceAsStream("/sample/img/" + lienCartes.get(i));
+                    Image img = is != null ? new Image(is,60,100,false,false)
+                                         : new Image(getClass().getResourceAsStream("/sample/img/carte.png"),60,100,false,false);
+                    ImageView imageRoi = new ImageView(img);
                     int finalI = i;
                     imageRoi.addEventHandler(javafx.scene.input.MouseEvent.MOUSE_CLICKED, event -> {
                         callKing(idCartes.get(finalI));
@@ -121,26 +371,13 @@ public class PartieController {
             ArrayList<Object> waitcalls = new ArrayList<>();
             waitcalls.add("WAITCALL");
             waitcalls.add(ConnexionController.idUser);
-            boolean callsDone = false;
-            while(callsDone == false) {
-                ClientConnexion client2 = new ClientConnexion(ConnexionController.host,3333,waitcalls);
-                ArrayList<Object> datas2 = client2.run();
-                callsDone = (boolean) datas2.get(0);
-                if(callsDone == true) {
-                    //boxRois.getChildren().clear();
-                    JOptionPane.showMessageDialog(null,"Le Roi de "+ datas2.get(3) +" a \u00e9t\u00e9 appel\u00e9 !");
-                    ArrayList<Integer> idCartes = (ArrayList) datas2.get(1);
-                    ArrayList<String> lienCartes = (ArrayList) datas2.get(2);
-                    for(int i = 0; i < idCartes.size() ; i++) {
-                        ImageView imageChien = new ImageView(new Image("/sample/img/" + lienCartes.get(i)));
-                        boxChien.getChildren().add(imageChien);
-                    }
-                    carteCenter.setVisible(false);
-                    launch.setVisible(true);
-                } else {
-                    JOptionPane.showMessageDialog(null,"Appel du Roi en cours !");
+            try {
+                ArrayList<Object> resp = ConnexionController.client.send(waitcalls);
+                if ((boolean) resp.get(0)) {
+                    handleCallInfo(resp);
                 }
-
+            } catch (IOException | ClassNotFoundException e) {
+                e.printStackTrace();
             }
         }
     }
@@ -152,156 +389,101 @@ public class PartieController {
         calls.add("CALL");
         calls.add(Integer.parseInt(idCarte));
         calls.add(ConnexionController.idUser);
-        ClientConnexion client3 = new ClientConnexion(ConnexionController.host,3333,calls);
-        ArrayList<Object> datas2 = client3.run();
-        ArrayList<Integer> idCartesChien = (ArrayList) datas2.get(0);
-        ArrayList<String> lienCartesChien = (ArrayList) datas2.get(1);
-        for(int j = 0; j < idCartesChien.size() ; j++) {
-            ImageView imageChien = new ImageView(new Image("/sample/img/" + lienCartesChien.get(j), 40,60,false,false));
-            imageChien.setId(idCartesChien.get(j).toString());
-            boxChien.getChildren().add(imageChien);
-
-            main.getChildren().add(imageChien);
+        ArrayList<Object> datas2 = null;
+        try {
+            datas2 = ConnexionController.client.send(calls);
+        } catch (IOException | ClassNotFoundException e) {
+            e.printStackTrace();
+            return;
         }
-        for(int i = 0; i< main.getChildren().size() ; i++) {
+        ArrayList<Integer> idsTmp = (ArrayList<Integer>) datas2.get(0);
+        pendingDogIds = new ArrayList<>();
+        for (Integer i : idsTmp) {
+            pendingDogIds.add(i.toString());
+        }
+        pendingDogLiens = (ArrayList<String>) datas2.get(1);
+        pendingDogColors = (ArrayList<String>) datas2.get(2);
+    }
+
+    @FXML
+    public void retrieveDogCards() {
+        for (int j = 0; j < pendingDogIds.size(); j++) {
+            InputStream is = getClass().getResourceAsStream("/sample/img/" + pendingDogLiens.get(j));
+            Image img = new Image(is != null ? is : getClass().getResourceAsStream("/sample/img/carte.png"),60,100,false,false);
+            ImageView handView = new ImageView(img);
+            handView.setId(pendingDogIds.get(j));
+            cardColors.put(pendingDogIds.get(j), pendingDogColors.get(j));
+            main.getChildren().add(handView);
+        }
+        boxChien.getChildren().clear();
+        retrieveDog.setVisible(false);
+        enableDogSelection();
+    }
+
+    private void enableDogSelection() {
+        for (int i = 0; i < main.getChildren().size(); i++) {
             ImageView imageCarte = (ImageView) main.getChildren().get(i);
             imageCarte.setOnMouseClicked((e) -> {
                 ArrayList<Object> addDogs = new ArrayList<>();
                 addDogs.add("ADDDOG");
                 addDogs.add(imageCarte.getId());
-                ClientConnexion client4 = new ClientConnexion(ConnexionController.host,3333,addDogs);
-                ArrayList<Object> datas3 = client4.run();
+                ArrayList<Object> datas3 = null;
+                try {
+                    datas3 = ConnexionController.client.send(addDogs);
+                } catch (IOException | ClassNotFoundException ex) {
+                    ex.printStackTrace();
+                }
                 boolean dogDone = (boolean) datas3.get(0);
                 String ok = (String) datas3.get(1);
 
                 if(ok.equals("OK")) {
                     main.getChildren().remove(imageCarte);
-                    boxChien.getChildren().add(new ImageView(imageCarte.getImage()));
-                    if(dogDone == true) {
-                        launch.setVisible(true);
-                        for(int j = 0; j< main.getChildren().size() ; j++) {
+                    ImageView dogCard = new ImageView(imageCarte.getImage());
+                    dogCard.setFitWidth(60);
+                    dogCard.setFitHeight(100);
+                    boxChien.getChildren().add(dogCard);
+                    if(dogDone) {
+                        for (int j = 0; j < main.getChildren().size(); j++) {
                             ImageView imageCarte1 = (ImageView) main.getChildren().get(j);
                             imageCarte1.setDisable(true);
                         }
                     }
                 }
                 else {
-                    JOptionPane.showMessageDialog(null,"Mauvaise carte dans le chien !");
+                    statusLabel.setText("Mauvaise carte dans le chien !");
                 }
 
             });
         }
-
     }
 
-    public void launch() throws InterruptedException {
-        launch.setVisible(false);
-        boxChien.setVisible(false);
-        ArrayList<Object> waitdog = new ArrayList<>();
-        waitdog.add("WAITDOG");
-        waitdog.add(ConnexionController.idUser);
-        boolean dogDone = false;
-        while (dogDone == false) {
-            ClientConnexion client2 = new ClientConnexion("79.94.239.225", 3333, waitdog);
-            ArrayList<Object> datas2 = client2.run();
-            dogDone = (boolean) datas2.get(0);
-            if (dogDone == true) {
-                playTour.setVisible(true);
-            } else {
-                JOptionPane.showMessageDialog(null, "En attente que le joueur fasse son chien !");
-            }
+
+    private void requestCurrentTour() {
+        ArrayList<Object> waitTours = new ArrayList<>();
+        waitTours.add("WAITTOUR");
+        try {
+            ArrayList<Object> resp = ConnexionController.client.send(waitTours);
+            handleTourUpdate(resp);
+        } catch (IOException | ClassNotFoundException e) {
+            e.printStackTrace();
         }
     }
-    public void playTour() {
-        playTour.setVisible(false);
+
+    private void startNextTurn() {
+        if (sendingTurn) return;
+        sendingTurn = true;
+        boxChien.getChildren().clear();
+        boxTour.getChildren().clear();
+        tourCount++;
         ArrayList<Object> begins = new ArrayList<>();
         begins.add("BEGIN");
-        ClientConnexion client1 = new ClientConnexion(ConnexionController.host,3333,begins);
-        client1.run();
-
-        ArrayList<Object> waitTours = new ArrayList<>();
-        int currentJoueurTour = -1;
-        boolean finTour = false;
-        boolean finPartie = false;
-        ArrayList<String> idCartes= new ArrayList<>();
-        ArrayList<String> lienCartes= new ArrayList<>();
-        while(currentJoueurTour != Integer.parseInt(AccueilController.numJoueur) && finTour == false && finPartie == false) {
-            waitTours.add("WAITTOUR");
-            ClientConnexion client3 = new ClientConnexion(ConnexionController.host, 3333, waitTours);
-            ArrayList<Object> datas3 = client3.run();
-            currentJoueurTour = (int) datas3.get(0);
-            finTour = (boolean) datas3.get(1);
-            finPartie = (boolean) datas3.get(2);
-            idCartes = (ArrayList<String>) datas3.get(3);
-            lienCartes = (ArrayList<String>) datas3.get(4);
-
-            if (currentJoueurTour == Integer.parseInt(AccueilController.numJoueur) && finTour == false && finPartie == false) {
-                JOptionPane.showMessageDialog(null, "A votre tour !");
-                if (!idCartes.isEmpty()) {
-//                    VBox boxCarte = new VBox();
-                    for (int i = 0; i < idCartes.size(); i++) {
-//                        boxCarte.getChildren().clear();
-//                        boxCarte.getChildren().add(new Label("Joueur " + currentJoueurTour));
-//                        boxCarte.getChildren().add(new ImageView(new Image("/sample/img/" + lienCartes.get(i))));
-                        boxTour.getChildren().add(new ImageView(new Image("/sample/img/" + lienCartes.get(i))));
-                    }
-                }
-
-            }
-            else if(finTour == true && finPartie == false) {
-                ArrayList<Object> endTours = new ArrayList<>();
-                endTours.add("FINTOUR");
-                ClientConnexion client4 = new ClientConnexion(ConnexionController.host, 3333, endTours);
-                ArrayList<Object> datas4 = client4.run();
-                playTour.setVisible(true);
-                JOptionPane.showMessageDialog(null,"Le tour est fini !");
-                boxTour.getChildren().clear();
-                if (!idCartes.isEmpty()) {
-                    for (int i = 0; i < idCartes.size(); i++) {
-                        boxTour.getChildren().add(new ImageView(new Image("/sample/img/" + lienCartes.get(i))));
-                    }
-                }
-            }
-            else if(finPartie == true) {
-                JOptionPane.showMessageDialog(null,"La partie est finie !");
-            } else {
-                JOptionPane.showMessageDialog(null,"Au tour du Joueur " + currentJoueurTour);
-            }
+        try {
+            ConnexionController.client.send(begins);
+        } catch (IOException | ClassNotFoundException e) {
+            e.printStackTrace();
         }
-
-        for(int i = 0; i< main.getChildren().size() ; i++) {
-            ImageView imageCarte = (ImageView) main.getChildren().get(i);
-            imageCarte.setDisable(false);
-            int finalI = i;
-            imageCarte.setOnMouseClicked((e) -> {
-                ArrayList<Object> playTours = new ArrayList<>();
-                playTours.add("PLAYTOUR");
-                playTours.add(imageCarte.getId());
-                playTours.add(ConnexionController.idUser);
-                playTours.add(finalI +1);
-                ClientConnexion client = new ClientConnexion(ConnexionController.host,3333,playTours);
-                ArrayList<Object> datas = client.run();
-                boolean hasError = (boolean) datas.get(0);
-                if(hasError == false) {
-                    main.getChildren().remove(imageCarte);
-                    ImageView img = new ImageView(imageCarte.getImage());
-                    img.setFitWidth(62);
-                    img.setFitHeight(84);
-                    boxTour.getChildren().add(img);
-                    endTour.setVisible(true);
-                }
-                else {
-                    JOptionPane.showMessageDialog(null,"Carte non valide !");
-                }
-            });
-        }
-
-
-    }
-
-    public void endTour() {
-        playTour();
-        endTour.setVisible(false);
+        requestCurrentTour();
+        sendingTurn = false;
     }
 
 

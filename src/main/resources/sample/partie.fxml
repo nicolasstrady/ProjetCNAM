@@ -6,8 +6,10 @@
 <?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.AnchorPane?>
 <?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.FlowPane?>
 <?import javafx.scene.layout.Pane?>
 <?import javafx.scene.layout.VBox?>
+<?import javafx.scene.control.Label?>
 
 <AnchorPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="500.0" prefWidth="900.0" style="-fx-background-color: green;" xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="sample.PartieController">
    <children>
@@ -15,19 +17,37 @@
          <children>
             <HBox prefHeight="166.0" prefWidth="825.0" spacing="440.0">
                <children>
-                  <ImageView fitHeight="100.0" fitWidth="60.0" pickOnBounds="true" preserveRatio="true">
-                     <image>
-                        <Image url="@img/carte.png" />
-                     </image>
+                  <VBox alignment="CENTER">
+                     <children>
+                        <Label fx:id="labelTopLeft" alignment="CENTER" />
+                        <Label fx:id="scoreTopLeft" alignment="CENTER" />
+                        <ImageView fitHeight="100.0" fitWidth="60.0" pickOnBounds="true" preserveRatio="true">
+                           <image>
+                              <Image url="@img/carte.png" />
+                           </image>
+                           <VBox.margin>
+                              <Insets top="5.0" />
+                           </VBox.margin>
+                        </ImageView>
+                     </children>
                      <HBox.margin>
                         <Insets left="20.0" />
                      </HBox.margin>
-                  </ImageView>
-                  <ImageView fitHeight="100.0" fitWidth="60.0" pickOnBounds="true" preserveRatio="true">
-                     <image>
-                        <Image url="@img/carte.png" />
-                     </image>
-                  </ImageView>
+                  </VBox>
+                  <VBox alignment="CENTER">
+                     <children>
+                        <Label fx:id="labelTopRight" alignment="CENTER" />
+                        <Label fx:id="scoreTopRight" alignment="CENTER" />
+                        <ImageView fitHeight="100.0" fitWidth="60.0" pickOnBounds="true" preserveRatio="true">
+                           <image>
+                              <Image url="@img/carte.png" />
+                           </image>
+                           <VBox.margin>
+                              <Insets top="5.0" />
+                           </VBox.margin>
+                        </ImageView>
+                     </children>
+                  </VBox>
                </children>
                <VBox.margin>
                   <Insets left="150.0" top="10.0" />
@@ -35,14 +55,20 @@
             </HBox>
             <HBox prefHeight="166.0" prefWidth="900.0" spacing="50.0">
                <children>
-                  <ImageView fitHeight="100.0" fitWidth="60.0" pickOnBounds="true" preserveRatio="true">
-                     <image>
-                        <Image url="@img/carte.png" />
-                     </image>
+                  <VBox alignment="CENTER">
+                     <children>
+                        <Label fx:id="labelLeft" alignment="CENTER" />
+                        <Label fx:id="scoreLeft" alignment="CENTER" />
+                        <ImageView fitHeight="100.0" fitWidth="60.0" pickOnBounds="true" preserveRatio="true">
+                           <image>
+                              <Image url="@img/carte.png" />
+                           </image>
+                        </ImageView>
+                     </children>
                      <HBox.margin>
                         <Insets left="70.0" />
                      </HBox.margin>
-                  </ImageView>
+                  </VBox>
                   <Button fx:id="take" mnemonicParsing="false" onAction="#playWithDog" prefHeight="30.0" prefWidth="116.0" text="Prendre le chien" visible="false">
                      <HBox.margin>
                         <Insets top="100.0" />
@@ -57,26 +83,32 @@
                               <Image url="@img/carte.png" />
                            </image>
                         </ImageView>
-                        <Button fx:id="play" layoutX="12.0" layoutY="109.0" mnemonicParsing="false" onAction="#play" prefHeight="40.0" prefWidth="192.0" text="Jouer" />
-                        <Button fx:id="launch" layoutX="10.0" layoutY="106.0" mnemonicParsing="false" onAction="#launch" prefHeight="46.0" prefWidth="192.0" text="Lancer" visible="false" />
-                        <Button fx:id="playTour" layoutX="10.0" layoutY="112.0" mnemonicParsing="false" onAction="#playTour" prefHeight="40.0" prefWidth="192.0" text="Lancer Tour" visible="false" />
                         <HBox fx:id="boxRois" prefHeight="100.0" prefWidth="329.0" />
-                        <Button fx:id="endTour" layoutX="44.0" layoutY="117.0" mnemonicParsing="false" onAction="#endTour" prefHeight="30.0" prefWidth="142.0" text="Fin Tour" visible="false" />
-                     </children>
+                        <Button fx:id="retrieveDog" layoutX="60.0" layoutY="105.0" mnemonicParsing="false" onAction="#retrieveDogCards" text="Récupérer" visible="false" />
+                    </children>
                   </Pane>
                   <Button fx:id="refuse" mnemonicParsing="false" onAction="#playWithoutDog" prefHeight="30.0" prefWidth="130.0" text="Refuser le chien" visible="false">
                      <HBox.margin>
                         <Insets top="100.0" />
                      </HBox.margin>
                   </Button>
-                  <ImageView fitHeight="100.0" fitWidth="60.0" pickOnBounds="true" preserveRatio="true">
-                     <image>
-                        <Image url="@img/carte.png" />
-                     </image>
-                  </ImageView>
+                  <VBox alignment="CENTER">
+                     <children>
+                        <Label fx:id="labelRight" alignment="CENTER" />
+                        <Label fx:id="scoreRight" alignment="CENTER" />
+                        <ImageView fitHeight="100.0" fitWidth="60.0" pickOnBounds="true" preserveRatio="true">
+                           <image>
+                              <Image url="@img/carte.png" />
+                           </image>
+                        </ImageView>
+                     </children>
+                  </VBox>
                </children>
             </HBox>
-            <HBox fx:id="main" prefHeight="166.0" prefWidth="900.0" />
+            <FlowPane fx:id="main" prefHeight="166.0" prefWidth="900.0" hgap="-40.0" vgap="0.0" prefWrapLength="900.0" />
+            <Label fx:id="scoreSelf" alignment="CENTER" />
+            <Label fx:id="tourLabel" alignment="CENTER" prefWidth="400.0" />
+            <Label fx:id="statusLabel" prefWidth="400.0" alignment="CENTER" />
          </children>
       </VBox>
    </children>

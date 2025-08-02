@@ -26,6 +26,7 @@
                   <Button fx:id="playButton" alignment="CENTER" layoutX="398.0" layoutY="128.0" mnemonicParsing="false" onAction="#play" text="Jouer une partie" />
                   <Button fx:id="scoreButton" alignment="CENTER" layoutX="406.0" layoutY="77.0" mnemonicParsing="false" text="Voir résultats" />
                   <Button fx:id="disconnectButton" alignment="CENTER" layoutX="406.0" layoutY="187.0" mnemonicParsing="false" onAction="#disconnect" text="Deconnexion" />
+                  <Label fx:id="playStatus" layoutX="350.0" layoutY="240.0" prefWidth="200.0" />
                </children>
             </AnchorPane>
         </items>

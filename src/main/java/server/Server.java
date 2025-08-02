@@ -15,9 +15,9 @@ public class Server {
      * Socket en attente de demande de connexion entrante
      */
     private ServerSocket serverSocket;
-    private int port = 3333;
+    private int port = Integer.parseInt(System.getenv().getOrDefault("SERVER_PORT", "3333"));
     private boolean isRunning = true;
-    private String host = "192.168.1.77";
+    private String host = System.getenv().getOrDefault("SERVER_HOST", "0.0.0.0");
 
     //private Lobby;
 

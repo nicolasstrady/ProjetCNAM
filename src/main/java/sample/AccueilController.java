@@ -1,7 +1,7 @@
 package sample;
 
-import client.ClientConnexion;
-import javafx.application.Application;
+import client.SocketClient;
+import client.ServerListener;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
@@ -17,9 +17,10 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
-import javax.swing.*;
-import java.io.File;
+import sample.PartieController;
+
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 
 public class AccueilController {
@@ -39,6 +40,8 @@ public class AccueilController {
     private Button scoreButton;
     @FXML
     private Button disconnectButton;
+    @FXML
+    private Label playStatus;
     public static String numJoueur;
 
     @FXML
@@ -48,42 +51,74 @@ public class AccueilController {
     }
 
     @FXML
-    public void play() throws IOException, InterruptedException {
-
-
+    public void play() throws IOException {
         ArrayList<Object> connects = new ArrayList<>();
-        ArrayList<Object> waits = new ArrayList<>();
         connects.add("PLAYLOBBY");
         connects.add(ConnexionController.idUser);
-        ClientConnexion client = new ClientConnexion(ConnexionController.host,3333,connects);
-        ArrayList<Object> datas = client.run();
-        int nbJoueur = -1;
-        while(nbJoueur != 0) {
-            waits.add("WAIT");
-            ClientConnexion client1 = new ClientConnexion(ConnexionController.host,3333,waits);
-            ArrayList<Object> datas1 = client1.run();
-            nbJoueur = (int)datas1.get(0)%5;
-            if(nbJoueur == 0) {
-                //JOptionPane.showMessageDialog(null,"Pret à jouer !");
-            } else {
-                JOptionPane.showMessageDialog(null,"En attente de " + (5 - ((int)datas1.get(0)%5)) + " joueurs");
-            }
+        ArrayList<Object> lobbyData;
+        try {
+            lobbyData = ConnexionController.client.send(connects);
+        } catch (IOException | ClassNotFoundException e) {
+            e.printStackTrace();
+            return;
         }
 
+        int count = (int) lobbyData.get(1);
+        int nbLeft = (5 - (count % 5)) % 5;
+        if (nbLeft == 0) {
+            playStatus.setText("Début de la partie");
+            startGame(lobbyData);
+            return;
+        }
+
+        playStatus.setText("En attente de " + nbLeft + " joueurs");
+        final ServerListener[] holder = new ServerListener[1];
+        holder[0] = new ServerListener(ConnexionController.host, ConnexionController.port, data -> {
+            if ("LOBBY_COUNT".equals(data.get(0))) {
+                int cnt = (int) data.get(1);
+                int left = (5 - (cnt % 5)) % 5;
+                if (left == 0) {
+                    playStatus.setText("Début de la partie");
+                    try {
+                        holder[0].close();
+                        startGame(lobbyData);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                } else {
+                    playStatus.setText("En attente de " + left + " joueurs");
+                }
+            }
+        });
+        Thread t = new Thread(holder[0]);
+        t.setDaemon(true);
+        t.start();
+    }
+
+    private void startGame(ArrayList<Object> lobbyData) throws IOException {
         ArrayList<Object> plays = new ArrayList<>();
         plays.add("PLAY");
         plays.add(ConnexionController.idUser);
-        plays.add(datas.get(1));
-        ClientConnexion client2 = new ClientConnexion(ConnexionController.host,3333,plays);
-        ArrayList<Object> datas2 = client2.run();
+        ArrayList<Object> datas2;
+        try {
+            datas2 = ConnexionController.client.send(plays);
+        } catch (IOException | ClassNotFoundException e) {
+            e.printStackTrace();
+            return;
+        }
         ArrayList<String> idCartes = (ArrayList<String>) datas2.get(0);
         ArrayList<String> lienCartes = (ArrayList<String>) datas2.get(1);
-        numJoueur = (String) datas2.get(2);
-
+        ArrayList<String> couleurs = (ArrayList<String>) datas2.get(2);
+        numJoueur = (String) datas2.get(3);
+        ArrayList<String> noms = (ArrayList<String>) datas2.get(4);
 
         ConnexionController.stageAccueil.hide();
         FXMLLoader loader = new FXMLLoader(getClass().getResource("partie.fxml"));
         Parent root = loader.load();
+        PartieController controller = loader.getController();
+        controller.initHand(idCartes, lienCartes, couleurs);
+        controller.setPlayerNames(noms);
+        controller.startListener();
         Stage gameStage = new Stage();
         Scene scene = new Scene(root, 900, 500);
         scene.getStylesheets().add(getClass().getResource("style.css").toString());
@@ -92,13 +127,6 @@ public class AccueilController {
         gameStage.setScene(scene);
         gameStage.show();
 
-
-        HBox main = (HBox) root.lookup("#main");
-        main.setSpacing(10);
-        for(int i = 0; i < idCartes.size() ; i++) {
-                ImageView imageCarte = new ImageView(new Image("/sample/img/" + lienCartes.get(i), 40,60,false,false));
-                imageCarte.setId(idCartes.get(i));
-                main.getChildren().add(imageCarte);
-        }
+        // hand and listener initialized in controller
     }
 }

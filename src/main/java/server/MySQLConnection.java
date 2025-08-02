@@ -22,6 +22,13 @@ public class MySQLConnection {
         }
     }
 
+    public static MySQLConnection fromEnv() throws SQLException, ClassNotFoundException {
+        String url = System.getenv().getOrDefault("DB_URL", "jdbc:mysql://localhost:3306/tarot_project");
+        String user = System.getenv().getOrDefault("DB_USER", "root");
+        String pass = System.getenv().getOrDefault("DB_PASSWORD", "");
+        return new MySQLConnection(url, user, pass);
+    }
+
     public Connection getConnection() {
         return this.connection;
     }

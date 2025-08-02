@@ -120,7 +120,7 @@ public class ClientProcessor implements Runnable {
                 }
             }
         }
-        broadcast(List.of("TOUR_UPDATE", currentJoueurTour, finTour, finPartie, idCartes, lienCartes));
+        broadcast(List.of("TOUR_UPDATE", currentJoueurTour, finTour, finPartie, idCartes, lienCartes, couleurTour));
     }
 
     //Le traitement lancé dans un thread séparé
@@ -292,18 +292,20 @@ public class ClientProcessor implements Runnable {
                     String numJoueur = "";
                     ArrayList<String> idCartes = new ArrayList<>();
                     ArrayList<String> lienCartes = new ArrayList<>();
+                    ArrayList<String> couleurs = new ArrayList<>();
                     if (results2.next()) {
                         numJoueur = results2.getString("num");
                         for (int i = 1; i <= 15; i++) {
                             String cardId = results2.getString("carte" + i);
                             if (cardId == null) continue;
                             PreparedStatement ps3 = this.connection.prepareStatement(
-                                    "SELECT id,lien FROM carte WHERE id = ?");
+                                    "SELECT id,lien,couleur FROM carte WHERE id = ?");
                             ps3.setInt(1, Integer.parseInt(cardId));
                             ResultSet results3 = ps3.executeQuery();
                             if (results3.next()) {
                                 idCartes.add(results3.getString("id"));
                                 lienCartes.add(results3.getString("lien"));
+                                couleurs.add(results3.getString("couleur"));
                             }
                         }
                     } else {
@@ -311,6 +313,7 @@ public class ClientProcessor implements Runnable {
                     }
                     toSend.add(idCartes);
                     toSend.add(lienCartes);
+                    toSend.add(couleurs);
                     toSend.add(numJoueur);
 
                 } else if(responses.get(0).toString().toUpperCase().equals("WAITANSWER")) {
@@ -498,7 +501,7 @@ public class ClientProcessor implements Runnable {
                     toSend.add(dogDone);
                 }
                 else if(responses.get(0).toString().toUpperCase().equals("BEGIN")) {
-//                    finTour = false;
+                    couleurTour = "";
                     broadcastTourUpdate();
                 }
                 else if(responses.get(0).toString().toUpperCase().equals("PLAYTOUR")) {
@@ -615,6 +618,7 @@ public class ClientProcessor implements Runnable {
                     toSend.add(finPartie);
                     toSend.add(idCartes);
                     toSend.add(lienCartes);
+                    toSend.add(couleurTour);
                 }
                 else if(responses.get(0).toString().toUpperCase().equals("FINTOUR")) {
                 }else {

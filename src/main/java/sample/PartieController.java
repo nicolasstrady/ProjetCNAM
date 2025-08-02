@@ -13,6 +13,8 @@ import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.layout.FlowPane;
+import java.util.HashMap;
+import java.util.Map;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -43,8 +45,9 @@ public class PartieController {
     private ServerListener listener;
     private int tourCount = 0;
     private boolean sendingTurn = false;
+    private final Map<String, String> cardColors = new HashMap<>();
 
-    public void initHand(ArrayList<String> ids, ArrayList<String> liens) {
+    public void initHand(ArrayList<String> ids, ArrayList<String> liens, ArrayList<String> colors) {
         main.setHgap(10);
         main.setVgap(10);
         for (int i = 0; i < ids.size(); i++) {
@@ -53,6 +56,7 @@ public class PartieController {
                                    : new Image(getClass().getResourceAsStream("/sample/img/carte.png"),60,100,false,false);
             ImageView imageCarte = new ImageView(img);
             imageCarte.setId(ids.get(i));
+            cardColors.put(ids.get(i), colors.get(i));
             main.getChildren().add(imageCarte);
         }
     }
@@ -132,6 +136,7 @@ public class PartieController {
         boolean finPartie = (boolean) resp.get(2);
         ArrayList<String> idCartes = (ArrayList<String>) resp.get(3);
         ArrayList<String> lienCartes = (ArrayList<String>) resp.get(4);
+        String couleur = resp.size() > 5 ? (String) resp.get(5) : "";
         if (current == Integer.parseInt(AccueilController.numJoueur) && !finTour && !finPartie) {
             statusLabel.setText("A votre tour !");
             tourLabel.setText("Tour " + tourCount + " : A votre tour");
@@ -294,40 +299,61 @@ public class PartieController {
         try {
             ArrayList<Object> resp = ConnexionController.client.send(waitTours);
             handleTourUpdate(resp);
+            int current = (int) resp.get(0);
+            String couleur = (String) resp.get(5);
+            boolean isMyTurn = current == Integer.parseInt(AccueilController.numJoueur);
+            boolean hasColor = false;
+            if (isMyTurn && !couleur.isEmpty()) {
+                for (int i = 0; i < main.getChildren().size(); i++) {
+                    ImageView img = (ImageView) main.getChildren().get(i);
+                    if (couleur.equals(cardColors.get(img.getId()))) {
+                        hasColor = true;
+                        break;
+                    }
+                }
+            }
+            for (int i = 0; i < main.getChildren().size(); i++) {
+                ImageView imageCarte = (ImageView) main.getChildren().get(i);
+                imageCarte.setOnMouseClicked(null);
+                if (!isMyTurn) {
+                    imageCarte.setDisable(true);
+                    continue;
+                }
+                boolean disable = false;
+                if (!couleur.isEmpty() && hasColor && !couleur.equals(cardColors.get(imageCarte.getId()))) {
+                    disable = true;
+                }
+                imageCarte.setDisable(disable);
+                int finalI = i;
+                if (!disable) {
+                    imageCarte.setOnMouseClicked(e -> {
+                        ArrayList<Object> playTours = new ArrayList<>();
+                        playTours.add("PLAYTOUR");
+                        playTours.add(imageCarte.getId());
+                        playTours.add(ConnexionController.idUser);
+                        playTours.add(finalI + 1);
+                        ArrayList<Object> datas = null;
+                        try {
+                            datas = ConnexionController.client.send(playTours);
+                        } catch (IOException | ClassNotFoundException ex) {
+                            ex.printStackTrace();
+                            return;
+                        }
+                        boolean hasError = (boolean) datas.get(0);
+                        if (!hasError) {
+                            main.getChildren().remove(imageCarte);
+                            ImageView img = new ImageView(imageCarte.getImage());
+                            img.setFitWidth(60);
+                            img.setFitHeight(100);
+                            boxTour.getChildren().add(img);
+                        } else {
+                            statusLabel.setText("Carte non valide !");
+                        }
+                    });
+                }
+            }
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
-        }
-        for (int i = 0; i < main.getChildren().size(); i++) {
-            ImageView imageCarte = (ImageView) main.getChildren().get(i);
-            imageCarte.setDisable(false);
-            int finalI = i;
-            imageCarte.setOnMouseClicked(e -> {
-                ArrayList<Object> playTours = new ArrayList<>();
-                playTours.add("PLAYTOUR");
-                playTours.add(imageCarte.getId());
-                playTours.add(ConnexionController.idUser);
-                playTours.add(finalI + 1);
-                ArrayList<Object> datas = null;
-                try {
-                    datas = ConnexionController.client.send(playTours);
-                } catch (IOException | ClassNotFoundException ex) {
-                    ex.printStackTrace();
-                    return;
-                }
-                boolean hasError = (boolean) datas.get(0);
-                if (!hasError) {
-                    main.getChildren().remove(imageCarte);
-                    ImageView img = new ImageView(imageCarte.getImage());
-                    img.setFitWidth(60);
-                    img.setFitHeight(100);
-                    boxTour.getChildren().add(img);
-                    if (sendingTurn) {
-                        // ignore
-                    }
-                } else {
-                    statusLabel.setText("Carte non valide !");
-                }
-            });
         }
     }
 

@@ -108,13 +108,14 @@ public class AccueilController {
         }
         ArrayList<String> idCartes = (ArrayList<String>) datas2.get(0);
         ArrayList<String> lienCartes = (ArrayList<String>) datas2.get(1);
-        numJoueur = (String) datas2.get(2);
+        ArrayList<String> couleurs = (ArrayList<String>) datas2.get(2);
+        numJoueur = (String) datas2.get(3);
 
         ConnexionController.stageAccueil.hide();
         FXMLLoader loader = new FXMLLoader(getClass().getResource("partie.fxml"));
         Parent root = loader.load();
         PartieController controller = loader.getController();
-        controller.initHand(idCartes, lienCartes);
+        controller.initHand(idCartes, lienCartes, couleurs);
         controller.startListener();
         Stage gameStage = new Stage();
         Scene scene = new Scene(root, 900, 500);

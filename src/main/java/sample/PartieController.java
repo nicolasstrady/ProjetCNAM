@@ -12,6 +12,8 @@ import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.layout.FlowPane;
+import javafx.scene.layout.AnchorPane;
+import javafx.scene.layout.Pane;
 import javafx.scene.Cursor;
 import javafx.scene.effect.ColorAdjust;
 import javafx.scene.Node;
@@ -61,6 +63,8 @@ public class PartieController {
     private Label scoreRight;
     @FXML
     private Label scoreSelf;
+    @FXML
+    private AnchorPane root;
 
     private ServerListener listener;
     private int tourCount = 0;
@@ -74,21 +78,34 @@ public class PartieController {
     private List<String> pendingDogIds = new ArrayList<>();
     private List<String> pendingDogLiens = new ArrayList<>();
     private List<String> pendingDogColors = new ArrayList<>();
+    private static final String BASE_LABEL_STYLE = "-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;";
+    private static final String CURRENT_LABEL_STYLE = "-fx-text-fill: orange; -fx-font-size: 20px; -fx-font-weight: bold;";
+
+    @FXML
+    public void initialize() {
+        if (root != null) {
+            main.prefWrapLengthProperty().bind(root.widthProperty());
+            root.widthProperty().addListener((o, ov, nv) -> resizeAllCards());
+            root.heightProperty().addListener((o, ov, nv) -> resizeAllCards());
+        }
+    }
 
     public void initHand(ArrayList<String> ids, ArrayList<String> liens, ArrayList<String> colors) {
         main.setHgap(-10);
         main.setVgap(0);
         for (int i = 0; i < ids.size(); i++) {
             InputStream is = getClass().getResourceAsStream("/sample/img/" + liens.get(i));
-            Image img = is != null ? new Image(is,60,100,false,false)
-                                   : new Image(getClass().getResourceAsStream("/sample/img/carte.png"),60,100,false,false);
+            Image img = is != null ? new Image(is)
+                                   : new Image(getClass().getResourceAsStream("/sample/img/carte.png"));
             ImageView imageCarte = new ImageView(img);
+            applyCardSize(imageCarte);
             imageCarte.setId(ids.get(i));
             cardColors.put(ids.get(i), colors.get(i));
             cardRanks.put(ids.get(i), extractRank(liens.get(i)));
             main.getChildren().add(imageCarte);
         }
         sortHand();
+        resizeAllCards();
     }
 
     private int extractRank(String lien) {
@@ -98,6 +115,37 @@ public class PartieController {
             return Integer.parseInt(value);
         } catch (Exception e) {
             return 0;
+        }
+    }
+
+    private void applyCardSize(ImageView img) {
+        if (root == null) return;
+        double scale = Math.min(root.getWidth() / 900.0, root.getHeight() / 500.0);
+        if (scale <= 0) scale = 1;
+        img.setFitWidth(60 * scale);
+        img.setFitHeight(100 * scale);
+        img.setPreserveRatio(true);
+    }
+
+    private void resizeAllCards() {
+        if (root == null) return;
+        double scale = Math.min(root.getWidth() / 900.0, root.getHeight() / 500.0);
+        if (scale <= 0) scale = 1;
+        double w = 60 * scale;
+        double h = 100 * scale;
+        resizeImagesIn(root, w, h);
+    }
+
+    private void resizeImagesIn(Pane pane, double w, double h) {
+        if (pane == null) return;
+        for (Node n : pane.getChildren()) {
+            if (n instanceof ImageView) {
+                ImageView iv = (ImageView) n;
+                iv.setFitWidth(w);
+                iv.setFitHeight(h);
+            } else if (n instanceof Pane) {
+                resizeImagesIn((Pane) n, w, h);
+            }
         }
     }
 
@@ -137,6 +185,7 @@ public class PartieController {
         for (int i = 1; i <= 4; i++) {
             int playerNum = ((myNum + i - 1) % 5) + 1;
             opponentLabels.get(i - 1).setText(names.get(playerNum - 1));
+            opponentLabels.get(i - 1).setStyle(BASE_LABEL_STYLE);
         }
     }
 
@@ -184,14 +233,20 @@ public class PartieController {
         String takeFlag = (String) resp.get(1);
         int numPlayerTake = (int) resp.get(2);
         if (takeFlag.equals("TAKE")) {
-            statusLabel.setText("Joueur " + numPlayerTake + " a pris le chien");
+            String name = playerNames != null && numPlayerTake <= playerNames.size()
+                    ? playerNames.get(numPlayerTake - 1)
+                    : "Joueur " + numPlayerTake;
+            statusLabel.setText(name + " a pris le chien");
             take(numPlayerTake);
         } else if (current == Integer.parseInt(AccueilController.numJoueur)) {
             statusLabel.setText("A votre tour !");
             take.setVisible(true);
             refuse.setVisible(true);
         } else {
-            statusLabel.setText("Au tour du Joueur " + current);
+            String name = playerNames != null && current <= playerNames.size()
+                    ? playerNames.get(current - 1)
+                    : "Joueur " + current;
+            statusLabel.setText("Au tour de " + name);
         }
     }
 
@@ -202,14 +257,16 @@ public class PartieController {
         ArrayList<String> lienCartes = (ArrayList<String>) resp.get(2);
         for (int i = 0; i < idCartes.size(); i++) {
             InputStream is = getClass().getResourceAsStream("/sample/img/" + lienCartes.get(i));
-            Image img = new Image(is != null ? is : getClass().getResourceAsStream("/sample/img/carte.png"),60,100,false,false);
+            Image img = new Image(is != null ? is : getClass().getResourceAsStream("/sample/img/carte.png"));
             ImageView imageChien = new ImageView(img);
+            applyCardSize(imageChien);
             boxChien.getChildren().add(imageChien);
         }
         carteCenter.setVisible(false);
         if (!pendingDogIds.isEmpty()) {
             retrieveDog.setVisible(true);
         }
+        resizeAllCards();
     }
 
     private void handleTourUpdate(List<Object> resp) {
@@ -224,8 +281,10 @@ public class PartieController {
         highestAtoutCenter = 0;
         for (int i = 0; i < idCartes.size(); i++) {
             InputStream is = getClass().getResourceAsStream("/sample/img/" + lienCartes.get(i));
-            Image img = new Image(is != null ? is : getClass().getResourceAsStream("/sample/img/carte.png"),60,100,false,false);
-            boxTour.getChildren().add(new ImageView(img));
+            Image img = new Image(is != null ? is : getClass().getResourceAsStream("/sample/img/carte.png"));
+            ImageView view = new ImageView(img);
+            applyCardSize(view);
+            boxTour.getChildren().add(view);
             if (lienCartes.get(i).contains("Atout")) {
                 int r = extractRank(lienCartes.get(i));
                 if (r > highestAtoutCenter) {
@@ -233,6 +292,7 @@ public class PartieController {
                 }
             }
         }
+        resizeAllCards();
         updateCurrentPlayerLabel(current);
         int myNum = Integer.parseInt(AccueilController.numJoueur);
         if (scores != null && playerNames != null && scores.size() == playerNames.size()) {
@@ -250,7 +310,10 @@ public class PartieController {
         } else if (finPartie) {
             statusLabel.setText("Fin de partie");
         } else {
-            statusLabel.setText("Tour " + tourCount + " : Au tour du Joueur " + current);
+            String name = playerNames != null && current <= playerNames.size()
+                    ? playerNames.get(current - 1)
+                    : "Joueur " + current;
+            statusLabel.setText("Tour " + tourCount + " : Au tour de " + name);
         }
         updatePlayableCards(current, couleur);
     }
@@ -374,12 +437,12 @@ public class PartieController {
     private void updateCurrentPlayerLabel(int current) {
         if (opponentLabels == null || playerNames == null) return;
         for (Label l : opponentLabels) {
-            l.setStyle("");
+            l.setStyle(BASE_LABEL_STYLE);
         }
         int myNum = Integer.parseInt(AccueilController.numJoueur);
         int diff = (current - myNum + 5) % 5;
         if (diff >= 1 && diff <= 4) {
-            opponentLabels.get(diff - 1).setStyle("-fx-font-weight: bold;");
+            opponentLabels.get(diff - 1).setStyle(CURRENT_LABEL_STYLE);
         }
     }
 
@@ -428,15 +491,17 @@ public class PartieController {
             boxRois.setSpacing(20);
             for(int i = 0; i < idCartes.size() ; i++) {
                     InputStream is = getClass().getResourceAsStream("/sample/img/" + lienCartes.get(i));
-                    Image img = is != null ? new Image(is,60,100,false,false)
-                                         : new Image(getClass().getResourceAsStream("/sample/img/carte.png"),60,100,false,false);
+                    Image img = is != null ? new Image(is)
+                                         : new Image(getClass().getResourceAsStream("/sample/img/carte.png"));
                     ImageView imageRoi = new ImageView(img);
+                    applyCardSize(imageRoi);
                     int finalI = i;
                     imageRoi.addEventHandler(javafx.scene.input.MouseEvent.MOUSE_CLICKED, event -> {
                         callKing(idCartes.get(finalI));
                     });
                     boxRois.getChildren().add(imageRoi);
             }
+            resizeAllCards();
         } else {
             ArrayList<Object> waitcalls = new ArrayList<>();
             waitcalls.add("WAITCALL");
@@ -479,8 +544,9 @@ public class PartieController {
     public void retrieveDogCards() {
         for (int j = 0; j < pendingDogIds.size(); j++) {
             InputStream is = getClass().getResourceAsStream("/sample/img/" + pendingDogLiens.get(j));
-            Image img = new Image(is != null ? is : getClass().getResourceAsStream("/sample/img/carte.png"),60,100,false,false);
+            Image img = new Image(is != null ? is : getClass().getResourceAsStream("/sample/img/carte.png"));
             ImageView handView = new ImageView(img);
+            applyCardSize(handView);
             handView.setId(pendingDogIds.get(j));
             cardColors.put(pendingDogIds.get(j), pendingDogColors.get(j));
             cardRanks.put(pendingDogIds.get(j), extractRank(pendingDogLiens.get(j)));
@@ -490,6 +556,7 @@ public class PartieController {
         boxChien.getChildren().clear();
         retrieveDog.setVisible(false);
         enableDogSelection();
+        resizeAllCards();
     }
 
     private void enableDogSelection() {
@@ -511,9 +578,9 @@ public class PartieController {
                 if(ok.equals("OK")) {
                     main.getChildren().remove(imageCarte);
                     ImageView dogCard = new ImageView(imageCarte.getImage());
-                    dogCard.setFitWidth(60);
-                    dogCard.setFitHeight(100);
+                    applyCardSize(dogCard);
                     boxChien.getChildren().add(dogCard);
+                    resizeAllCards();
                     if(dogDone) {
                         for (int j = 0; j < main.getChildren().size(); j++) {
                             ImageView imageCarte1 = (ImageView) main.getChildren().get(j);

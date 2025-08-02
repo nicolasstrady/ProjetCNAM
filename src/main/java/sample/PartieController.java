@@ -257,6 +257,9 @@ public class PartieController {
 
     private void updatePlayableCards(int current, String couleur) {
         int myNum = Integer.parseInt(AccueilController.numJoueur);
+        if ("BOUT".equals(couleur)) {
+            couleur = "ATOUT";
+        }
         boolean isMyTurn = current == myNum;
         boolean hasColor = false;
         boolean hasAtout = false;

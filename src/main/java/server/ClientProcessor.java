@@ -644,10 +644,18 @@ public class ClientProcessor implements Runnable {
                     PreparedStatement ps = this.connection.prepareStatement(query);
                     ResultSet results = ps.executeQuery();
                     String couleurCarte = "";
+                    String valeurCarte = "";
                     if(results.next()) {
                         couleurCarte = results.getString("couleur").toUpperCase();
+                        valeurCarte = results.getString("valeur").toUpperCase();
+                        if("BOUT".equals(couleurCarte)) {
+                            if("E".equals(valeurCarte)) {
+                                couleurCarte = "";
+                            } else {
+                                couleurCarte = "ATOUT";
+                            }
+                        }
                     }
-
 
                     if(countJoueurTour == 1) {
                         firstPlayer = currentJoueurTour;
@@ -673,40 +681,44 @@ public class ClientProcessor implements Runnable {
                         stmt2.executeUpdate();
                     }
                     else {
-                        String query3 = "SELECT * FROM joueur WHERE utilisateur = " + idUser + " AND partie = " + currentPartie;
-                        PreparedStatement ps3 = this.connection.prepareStatement(query3);
-                        ResultSet results3 = ps3.executeQuery();
-                        boolean hasCouleur = false;
-                        boolean hasAtout = false;
-                        if(results3.next()) {
-                            for(int i = 1; i<=15; i++) {
-                                String cid = results3.getString("carte" + i);
-                                if(cid != null) {
-                                    PreparedStatement ps4 = this.connection.prepareStatement("SELECT couleur FROM carte WHERE id = ?");
-                                    ps4.setInt(1, Integer.parseInt(cid));
-                                    ResultSet results4 = ps4.executeQuery();
-                                    if (results4.next()) {
-                                        String c = results4.getString("couleur").toUpperCase();
-                                        if(c.equals(couleurTour)) {
-                                            hasCouleur = true;
+                        if(couleurTour.isEmpty()) {
+                            couleurTour = couleurCarte;
+                        } else {
+                            String query3 = "SELECT * FROM joueur WHERE utilisateur = " + idUser + " AND partie = " + currentPartie;
+                            PreparedStatement ps3 = this.connection.prepareStatement(query3);
+                            ResultSet results3 = ps3.executeQuery();
+                            boolean hasCouleur = false;
+                            boolean hasAtout = false;
+                            if(results3.next()) {
+                                for(int i = 1; i<=15; i++) {
+                                    String cid = results3.getString("carte" + i);
+                                    if(cid != null) {
+                                        PreparedStatement ps4 = this.connection.prepareStatement("SELECT couleur FROM carte WHERE id = ?");
+                                        ps4.setInt(1, Integer.parseInt(cid));
+                                        ResultSet results4 = ps4.executeQuery();
+                                        if (results4.next()) {
+                                            String c = results4.getString("couleur").toUpperCase();
+                                            if(c.equals(couleurTour)) {
+                                                hasCouleur = true;
+                                            }
+                                            if(c.equals("ATOUT") || c.equals("BOUT")) {
+                                                hasAtout = true;
+                                            }
                                         }
-                                        if(c.equals("ATOUT") || c.equals("BOUT")) {
-                                            hasAtout = true;
-                                        }
+                                        results4.close();
+                                        ps4.close();
                                     }
-                                    results4.close();
-                                    ps4.close();
                                 }
                             }
-                        }
-                        if(couleurCarte.equals(couleurTour) || ("ATOUT".equals(couleurTour) && "BOUT".equals(couleurCarte))) {
-                            // suit followed or BOUT on atout
-                        } else if(!hasCouleur) {
-                            if(hasAtout && !("ATOUT".equals(couleurCarte) || "BOUT".equals(couleurCarte))) {
+                            if(couleurCarte.equals(couleurTour) || ("ATOUT".equals(couleurTour) && "BOUT".equals(couleurCarte))) {
+                                // suit followed or BOUT on atout
+                            } else if(!hasCouleur) {
+                                if(hasAtout && !("ATOUT".equals(couleurCarte) || "BOUT".equals(couleurCarte))) {
+                                    error = true;
+                                }
+                            } else {
                                 error = true;
                             }
-                        } else {
-                            error = true;
                         }
                         if(!error) {
                             PreparedStatement stmt1 = this.connection.prepareStatement("UPDATE plis SET carte" + countJoueurTour + " = ? WHERE id = ? AND partie = ?");

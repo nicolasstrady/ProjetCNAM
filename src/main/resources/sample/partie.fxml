@@ -5,6 +5,7 @@
 <?import javafx.scene.image.Image?>
 <?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.FlowPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.Region?>
@@ -54,7 +55,13 @@
                <image><Image url="@img/carte.png"/></image>
             </ImageView>
          </VBox>
-         <Region HBox.hgrow="ALWAYS" />
+          <HBox fx:id="teamScoreBox" alignment="CENTER" spacing="10.0" visible="false" style="-fx-background-color: rgba(0,0,0,0.5); -fx-padding: 5; -fx-background-radius: 5;">
+              <children>
+                  <Label fx:id="attackScoreLabel" style="-fx-text-fill: red; -fx-font-size: 18px; -fx-font-weight: bold;" />
+                  <Label text="|" style="-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;" />
+                  <Label fx:id="defenseScoreLabel" style="-fx-text-fill: blue; -fx-font-size: 18px; -fx-font-weight: bold;" />
+              </children>
+          </HBox>
          <VBox alignment="CENTER" spacing="5">
             <Label fx:id="labelTopRight" style="-fx-text-fill: white; -fx-font-size: 1em; -fx-font-weight: bold;" />
             <Label fx:id="scoreTopRight" style="-fx-text-fill: white;" />

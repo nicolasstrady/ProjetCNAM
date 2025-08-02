@@ -652,7 +652,6 @@ public class ClientProcessor implements Runnable {
                 else if(responses.get(0).toString().toUpperCase().equals("PLAYTOUR")) {
                     String idCarte = (String) responses.get(1);
                     String idUser = (String) responses.get(2);
-                    int numeroCarte= (int) responses.get(3);
                     boolean error = false;
                     finTour = false;
                     String query = "SELECT * FROM carte WHERE id = " + idCarte;
@@ -695,10 +694,34 @@ public class ClientProcessor implements Runnable {
                         stmt1.setInt(2, currentPlis);
                         stmt1.setInt(3, currentPartie);
                         stmt1.executeUpdate();
-                        PreparedStatement stmt2 = this.connection.prepareStatement("UPDATE joueur SET carte" + numeroCarte + " = null WHERE utilisateur = ? AND partie = ?");
-                        stmt2.setString(1, idUser);
-                        stmt2.setInt(2, currentPartie);
-                        stmt2.executeUpdate();
+
+                        int slot = -1;
+                        PreparedStatement find = this.connection.prepareStatement("SELECT * FROM joueur WHERE utilisateur = ? AND partie = ?");
+                        find.setString(1, idUser);
+                        find.setInt(2, currentPartie);
+                        ResultSet rFind = find.executeQuery();
+                        if (rFind.next()) {
+                            for (int i = 1; i <= 15; i++) {
+                                String cid = rFind.getString("carte" + i);
+                                if (cid != null && cid.equals(idCarte)) {
+                                    slot = i;
+                                    break;
+                                }
+                            }
+                        }
+                        rFind.close();
+                        find.close();
+                        if (slot > 0) {
+                            PreparedStatement stmt2 = this.connection.prepareStatement("UPDATE joueur SET carte" + slot + " = null WHERE utilisateur = ? AND partie = ?");
+                            stmt2.setString(1, idUser);
+                            stmt2.setInt(2, currentPartie);
+                            stmt2.executeUpdate();
+                        }
+
+                        boolean kingPlayed = couleurAppel != null && couleurAppel.toUpperCase().equals(couleurCarte) && "14".equals(valeurCarte);
+                        if (kingPlayed) {
+                            broadcast(List.of("KING_PLAYED", currentJoueurTour));
+                        }
                     }
                     else {
                         int highestAtoutCenter = 0;
@@ -794,10 +817,34 @@ public class ClientProcessor implements Runnable {
                             stmt1.setInt(2, currentPlis);
                             stmt1.setInt(3, currentPartie);
                             stmt1.executeUpdate();
-                            PreparedStatement stmt2 = this.connection.prepareStatement("UPDATE joueur SET carte" + numeroCarte + " = null WHERE utilisateur = ? AND partie = ?");
-                            stmt2.setString(1, idUser);
-                            stmt2.setInt(2, currentPartie);
-                            stmt2.executeUpdate();
+
+                            int slot = -1;
+                            PreparedStatement find = this.connection.prepareStatement("SELECT * FROM joueur WHERE utilisateur = ? AND partie = ?");
+                            find.setString(1, idUser);
+                            find.setInt(2, currentPartie);
+                            ResultSet rFind = find.executeQuery();
+                            if (rFind.next()) {
+                                for (int i = 1; i <= 15; i++) {
+                                    String cid = rFind.getString("carte" + i);
+                                    if (cid != null && cid.equals(idCarte)) {
+                                        slot = i;
+                                        break;
+                                    }
+                                }
+                            }
+                            rFind.close();
+                            find.close();
+                            if (slot > 0) {
+                                PreparedStatement stmt2 = this.connection.prepareStatement("UPDATE joueur SET carte" + slot + " = null WHERE utilisateur = ? AND partie = ?");
+                                stmt2.setString(1, idUser);
+                                stmt2.setInt(2, currentPartie);
+                                stmt2.executeUpdate();
+                            }
+
+                            boolean kingPlayed = couleurAppel != null && couleurAppel.toUpperCase().equals(couleurCarte) && "14".equals(valeurCarte);
+                            if (kingPlayed) {
+                                broadcast(List.of("KING_PLAYED", currentJoueurTour));
+                            }
                         }
                     }
                     if(error == false) {

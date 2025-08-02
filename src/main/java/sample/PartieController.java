@@ -14,6 +14,7 @@ import javafx.scene.layout.VBox;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.Cursor;
 import javafx.scene.effect.ColorAdjust;
+import javafx.scene.Node;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -87,6 +88,7 @@ public class PartieController {
             cardRanks.put(ids.get(i), extractRank(liens.get(i)));
             main.getChildren().add(imageCarte);
         }
+        sortHand();
     }
 
     private int extractRank(String lien) {
@@ -97,6 +99,34 @@ public class PartieController {
         } catch (Exception e) {
             return 0;
         }
+    }
+
+    private void sortHand() {
+        List<Node> nodes = new ArrayList<>(main.getChildren());
+        nodes.sort((n1, n2) -> {
+            ImageView a = (ImageView) n1;
+            ImageView b = (ImageView) n2;
+            String idA = a.getId();
+            String idB = b.getId();
+            int colorA = getColorOrder(cardColors.get(idA));
+            int colorB = getColorOrder(cardColors.get(idB));
+            if (colorA != colorB) {
+                return Integer.compare(colorA, colorB);
+            }
+            int rankA = cardRanks.getOrDefault(idA, 0);
+            int rankB = cardRanks.getOrDefault(idB, 0);
+            return Integer.compare(rankB, rankA);
+        });
+        main.getChildren().setAll(nodes);
+    }
+
+    private int getColorOrder(String color) {
+        if ("ATOUT".equals(color) || "BOUT".equals(color)) return 0;
+        if ("PIQUE".equals(color)) return 1;
+        if ("COEUR".equals(color)) return 2;
+        if ("TREFLE".equals(color)) return 3;
+        if ("CARREAU".equals(color)) return 4;
+        return 5;
     }
 
     public void setPlayerNames(ArrayList<String> names) {
@@ -450,8 +480,10 @@ public class PartieController {
             ImageView handView = new ImageView(img);
             handView.setId(pendingDogIds.get(j));
             cardColors.put(pendingDogIds.get(j), pendingDogColors.get(j));
+            cardRanks.put(pendingDogIds.get(j), extractRank(pendingDogLiens.get(j)));
             main.getChildren().add(handView);
         }
+        sortHand();
         boxChien.getChildren().clear();
         retrieveDog.setVisible(false);
         enableDogSelection();

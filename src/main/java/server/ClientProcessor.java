@@ -103,7 +103,7 @@ public class ClientProcessor implements Runnable {
             PreparedStatement ps = this.connection.prepareStatement(query);
             ResultSet results = ps.executeQuery();
             if (results.next()) {
-                currentJoueurTour = results.getInt("num") + 1;
+                currentJoueurTour = results.getInt("num");
             }
         }
         ArrayList<String> idCartes= new ArrayList<>();
@@ -905,7 +905,7 @@ public class ClientProcessor implements Runnable {
                         PreparedStatement ps = this.connection.prepareStatement(query);
                         ResultSet results = ps.executeQuery();
                         if (results.next()) {
-                            currentJoueurTour = results.getInt("num") + 1;
+                            currentJoueurTour = results.getInt("num");
                         }
 
                     }

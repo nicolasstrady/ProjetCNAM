@@ -65,6 +65,12 @@ public class PartieController {
     private Label scoreSelf;
     @FXML
     private AnchorPane root;
+    @FXML
+    private HBox teamScoreBox;
+    @FXML
+    private Label attackScoreLabel;
+    @FXML
+    private Label defenseScoreLabel;
 
     private ServerListener listener;
     private int tourCount = 0;
@@ -80,6 +86,15 @@ public class PartieController {
     private List<String> pendingDogColors = new ArrayList<>();
     private static final String BASE_LABEL_STYLE = "-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;";
     private static final String CURRENT_LABEL_STYLE = "-fx-text-fill: orange; -fx-font-size: 20px; -fx-font-weight: bold;";
+    private static final String ATTACK_LABEL_STYLE = "-fx-text-fill: red; -fx-font-size: 18px; -fx-font-weight: bold;";
+    private static final String DEFENSE_LABEL_STYLE = "-fx-text-fill: blue; -fx-font-size: 18px; -fx-font-weight: bold;";
+    private final Map<Integer, Label> labelsByPlayer = new HashMap<>();
+    private final Map<Integer, String> baseStylesByPlayer = new HashMap<>();
+    private int takerNum = -1;
+    private int partnerNum = -1;
+    private String calledKingColor;
+    private List<Double> lastScores;
+    private int lastCurrentPlayer;
 
     @FXML
     public void initialize() {
@@ -100,7 +115,7 @@ public class PartieController {
             ImageView imageCarte = new ImageView(img);
             applyCardSize(imageCarte);
             imageCarte.setId(ids.get(i));
-            cardColors.put(ids.get(i), colors.get(i).toUpperCase());
+            cardColors.put(ids.get(i), normalizeColor(colors.get(i)));
             cardRanks.put(ids.get(i), extractRank(liens.get(i)));
             main.getChildren().add(imageCarte);
         }
@@ -169,12 +184,47 @@ public class PartieController {
     }
 
     private int getColorOrder(String color) {
-        if ("ATOUT".equals(color) || "BOUT".equals(color)) return 0;
-        if ("PIQUE".equals(color)) return 1;
-        if ("COEUR".equals(color)) return 2;
-        if ("TREFLE".equals(color)) return 3;
-        if ("CARREAU".equals(color)) return 4;
-        return 5;
+        color = normalizeColor(color);
+        switch (color) {
+            case "ATOUT":
+            case "BOUT":
+                return 0;
+            case "PIQUE":
+                return 1;
+            case "COEUR":
+                return 2;
+            case "TREFLE":
+                return 3;
+            case "CARREAU":
+                return 4;
+            default:
+                return 5;
+        }
+    }
+
+    private String normalizeColor(String color) {
+        if (color == null) return "";
+        color = color.toUpperCase();
+        switch (color) {
+            case "SPADE":
+            case "PIQUE":
+                return "PIQUE";
+            case "HEART":
+            case "COEUR":
+                return "COEUR";
+            case "CLOVER":
+            case "TREFLE":
+                return "TREFLE";
+            case "DIAMOND":
+            case "CARREAU":
+                return "CARREAU";
+            case "BOUT":
+                return "BOUT";
+            case "ATOUT":
+                return "ATOUT";
+            default:
+                return color;
+        }
     }
 
     public void setPlayerNames(ArrayList<String> names) {
@@ -182,10 +232,14 @@ public class PartieController {
         opponentLabels = List.of(labelLeft, labelTopLeft, labelTopRight, labelRight);
         opponentScoreLabels = List.of(scoreLeft, scoreTopLeft, scoreTopRight, scoreRight);
         int myNum = Integer.parseInt(AccueilController.numJoueur);
+        baseStylesByPlayer.put(myNum, BASE_LABEL_STYLE);
         for (int i = 1; i <= 4; i++) {
             int playerNum = ((myNum + i - 1) % 5) + 1;
-            opponentLabels.get(i - 1).setText(names.get(playerNum - 1));
-            opponentLabels.get(i - 1).setStyle(BASE_LABEL_STYLE);
+            Label lbl = opponentLabels.get(i - 1);
+            lbl.setText(names.get(playerNum - 1));
+            lbl.setStyle(BASE_LABEL_STYLE);
+            labelsByPlayer.put(playerNum, lbl);
+            baseStylesByPlayer.put(playerNum, BASE_LABEL_STYLE);
         }
     }
 
@@ -206,6 +260,9 @@ public class PartieController {
                         break;
                     case "TOUR_UPDATE":
                         handleTourUpdate(data.subList(1, data.size()));
+                        break;
+                    case "KING_PLAYED":
+                        handleKingPlayed(((Number) data.get(1)).intValue());
                         break;
                     default:
                         break;
@@ -230,9 +287,11 @@ public class PartieController {
 
     private void handleAnswerUpdate(List<Object> resp) {
         int current = (int) resp.get(0);
+        lastCurrentPlayer = current;
         String takeFlag = (String) resp.get(1);
         int numPlayerTake = (int) resp.get(2);
         if (takeFlag.equals("TAKE")) {
+            takerNum = numPlayerTake;
             String name = playerNames != null && numPlayerTake <= playerNames.size()
                     ? playerNames.get(numPlayerTake - 1)
                     : "Joueur " + numPlayerTake;
@@ -251,6 +310,7 @@ public class PartieController {
     }
 
     private void handleCallInfo(List<Object> resp) {
+        calledKingColor = normalizeColor((String) resp.get(4));
         statusLabel.setText("Le Roi de " + resp.get(4) + " a été appelé !");
         boxChien.getChildren().clear();
         ArrayList<Integer> idCartes = (ArrayList<Integer>) resp.get(1);
@@ -271,12 +331,14 @@ public class PartieController {
 
     private void handleTourUpdate(List<Object> resp) {
         int current = (int) resp.get(0);
+        lastCurrentPlayer = current;
         boolean finTour = (boolean) resp.get(1);
         boolean finPartie = (boolean) resp.get(2);
         ArrayList<String> idCartes = (ArrayList<String>) resp.get(3);
         ArrayList<String> lienCartes = (ArrayList<String>) resp.get(4);
-        String couleur = resp.size() > 5 ? (String) resp.get(5) : "";
+        String couleur = resp.size() > 5 ? normalizeColor((String) resp.get(5)) : "";
         ArrayList<Double> scores = resp.size() > 6 ? (ArrayList<Double>) resp.get(6) : null;
+        lastScores = scores;
         boxTour.getChildren().clear();
         highestAtoutCenter = 0;
         for (int i = 0; i < idCartes.size(); i++) {
@@ -300,6 +362,9 @@ public class PartieController {
             for (int i = 1; i <= 4; i++) {
                 int playerNum = ((myNum + i - 1) % 5) + 1;
                 opponentScoreLabels.get(i - 1).setText(String.format("%.1f", scores.get(playerNum - 1)));
+            }
+            if (partnerNum != -1) {
+                updateTeamScores(scores);
             }
         }
         if (current == myNum && !finTour && !finPartie) {
@@ -442,15 +507,48 @@ public class PartieController {
     }
 
     private void updateCurrentPlayerLabel(int current) {
-        if (opponentLabels == null || playerNames == null) return;
-        for (Label l : opponentLabels) {
-            l.setStyle(BASE_LABEL_STYLE);
+        for (Map.Entry<Integer, Label> e : labelsByPlayer.entrySet()) {
+            int p = e.getKey();
+            Label l = e.getValue();
+            l.setStyle(baseStylesByPlayer.getOrDefault(p, BASE_LABEL_STYLE));
         }
-        int myNum = Integer.parseInt(AccueilController.numJoueur);
-        int diff = (current - myNum + 5) % 5;
-        if (diff >= 1 && diff <= 4) {
-            opponentLabels.get(diff - 1).setStyle(CURRENT_LABEL_STYLE);
+        Label cur = labelsByPlayer.get(current);
+        if (cur != null) {
+            cur.setStyle(CURRENT_LABEL_STYLE);
         }
+    }
+
+    private void handleKingPlayed(int playerNum) {
+        partnerNum = playerNum;
+        updateTeamStyles();
+        if (lastScores != null) {
+            updateTeamScores(lastScores);
+        }
+        updateCurrentPlayerLabel(lastCurrentPlayer);
+    }
+
+    private void updateTeamStyles() {
+        for (int p = 1; p <= 5; p++) {
+            String style = (p == takerNum || p == partnerNum) ? ATTACK_LABEL_STYLE : DEFENSE_LABEL_STYLE;
+            baseStylesByPlayer.put(p, style);
+            Label lbl = labelsByPlayer.get(p);
+            if (lbl != null) {
+                lbl.setStyle(style);
+            }
+        }
+        if (teamScoreBox != null) {
+            teamScoreBox.setVisible(true);
+        }
+    }
+
+    private void updateTeamScores(List<Double> scores) {
+        if (takerNum == -1 || partnerNum == -1 || scores == null || scores.size() < 5) return;
+        double attack = scores.get(takerNum - 1) + scores.get(partnerNum - 1);
+        double defense = 0;
+        for (double s : scores) defense += s;
+        defense -= attack;
+        attackScoreLabel.setText(String.format("%.1f", attack));
+        defenseScoreLabel.setText(String.format("%.1f", defense));
     }
 
     public void playWithDog() throws InterruptedException {
@@ -555,7 +653,7 @@ public class PartieController {
             ImageView handView = new ImageView(img);
             applyCardSize(handView);
             handView.setId(pendingDogIds.get(j));
-            cardColors.put(pendingDogIds.get(j), pendingDogColors.get(j).toUpperCase());
+            cardColors.put(pendingDogIds.get(j), normalizeColor(pendingDogColors.get(j)));
             cardRanks.put(pendingDogIds.get(j), extractRank(pendingDogLiens.get(j)));
             main.getChildren().add(handView);
         }

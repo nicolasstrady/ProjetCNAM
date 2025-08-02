@@ -224,8 +224,12 @@ public class ClientProcessor implements Runnable {
                         cardsDealt = false;
                     }
 
-                    Statement stmt = this.connection.createStatement();
-                    stmt.executeUpdate("INSERT INTO joueur(utilisateur,num,partie) VALUES (" + idUser + ","+ ((currentnumJoueur%5)+1) + ","+ currentPartie +")");
+                    PreparedStatement ins = this.connection.prepareStatement(
+                            "INSERT INTO joueur(utilisateur,num,partie) VALUES (?,?,?)");
+                    ins.setString(1, idUser);
+                    ins.setInt(2, (currentnumJoueur % 5) + 1);
+                    ins.setInt(3, currentPartie);
+                    ins.executeUpdate();
 
                     toSend.add("JOINLOBBY");
                     toSend.add(currentnumJoueur+1);
@@ -280,24 +284,30 @@ public class ClientProcessor implements Runnable {
                         }
                     }
 
-                    String query2 = "SELECT *  FROM joueur WHERE utilisateur = " + idUser + " AND partie = "+ currentPartie;
+                    String query2 = "SELECT * FROM joueur WHERE utilisateur = ? AND partie = ?";
                     PreparedStatement ps2 = this.connection.prepareStatement(query2);
+                    ps2.setString(1, idUser);
+                    ps2.setInt(2, currentPartie);
                     ResultSet results2 = ps2.executeQuery();
                     String numJoueur = "";
                     ArrayList<String> idCartes = new ArrayList<>();
                     ArrayList<String> lienCartes = new ArrayList<>();
-                    if(results2.next()) {
+                    if (results2.next()) {
                         numJoueur = results2.getString("num");
-                        for(int i =1; i<=15;i++) {
-                            String query3 = "SELECT *  FROM carte WHERE id = " + results2.getString("carte" + i);
-                            PreparedStatement ps3 = this.connection.prepareStatement(query3);
-
+                        for (int i = 1; i <= 15; i++) {
+                            String cardId = results2.getString("carte" + i);
+                            if (cardId == null) continue;
+                            PreparedStatement ps3 = this.connection.prepareStatement(
+                                    "SELECT id,lien FROM carte WHERE id = ?");
+                            ps3.setInt(1, Integer.parseInt(cardId));
                             ResultSet results3 = ps3.executeQuery();
                             if (results3.next()) {
                                 idCartes.add(results3.getString("id"));
                                 lienCartes.add(results3.getString("lien"));
                             }
                         }
+                    } else {
+                        System.err.println("No player row found for utilisateur=" + idUser + " partie=" + currentPartie);
                     }
                     toSend.add(idCartes);
                     toSend.add(lienCartes);

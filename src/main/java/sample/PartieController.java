@@ -41,6 +41,8 @@ public class PartieController {
     private ImageView carteCenter;
     @FXML
     private ImageView dog;
+    @FXML
+    private Label tourLabel;
 
     public void play() throws InterruptedException {
         ArrayList<Object> waitsAnswer = new ArrayList<>();

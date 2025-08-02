@@ -416,7 +416,8 @@ public class ClientProcessor implements Runnable {
                                 }
                             }
                         }
-                        if((couleurCarte.equals(couleurTour) && hasCouleur == true) || (hasCouleur == false && couleurCarte.equals("ATOUT"))) {
+                        if ((couleurCarte.equals(couleurTour) && hasCouleur) ||
+                                (!hasCouleur && (couleurCarte.equals("ATOUT") || couleurCarte.equals("BOUT")))) {
                             Statement stmt1 = this.connection.createStatement();
                             stmt1.executeUpdate("UPDATE plis SET carte" + countJoueurTour + " = " + idCarte + " WHERE id = " + currentPlis);
                             Statement stmt2 = this.connection.createStatement();

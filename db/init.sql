@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS joueur (
     partie INT,
     reponse VARCHAR(20) DEFAULT 'WAIT',
     equipe INT DEFAULT 0,
+    score DOUBLE DEFAULT 0,
     carte1 INT NULL,
     carte2 INT NULL,
     carte3 INT NULL,
@@ -42,11 +43,13 @@ CREATE TABLE IF NOT EXISTS carte (
     id INT PRIMARY KEY,
     lien VARCHAR(100),
     couleur VARCHAR(20),
-    valeur VARCHAR(10)
+    valeur VARCHAR(10),
+    points DOUBLE DEFAULT 0.5
 );
 
 CREATE TABLE IF NOT EXISTS chien (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    partie INT,
     carte1 INT,
     carte2 INT,
     carte3 INT
@@ -54,12 +57,14 @@ CREATE TABLE IF NOT EXISTS chien (
 
 CREATE TABLE IF NOT EXISTS plis (
     id INT PRIMARY KEY,
+    partie INT,
     pliChien TINYINT(1),
     carte1 INT NULL,
     carte2 INT NULL,
     carte3 INT NULL,
     carte4 INT NULL,
-    carte5 INT NULL
+    carte5 INT NULL,
+    joueurGagnant INT NULL
 );
 
 CREATE TABLE IF NOT EXISTS main (
@@ -160,3 +165,10 @@ INSERT INTO carte (id,lien,couleur,valeur) VALUES (75, 'cards/Atout/card_19_atou
 INSERT INTO carte (id,lien,couleur,valeur) VALUES (76, 'cards/Atout/card_20_atout.png', 'ATOUT', '20');
 INSERT INTO carte (id,lien,couleur,valeur) VALUES (77, 'cards/Atout/card_21_atout.png', 'ATOUT', '21');
 INSERT INTO carte (id,lien,couleur,valeur) VALUES (78, 'cards/Atout/card_E_atout.png', 'BOUT', 'E');
+
+UPDATE carte SET points = 1.5 WHERE valeur = '11' AND couleur NOT IN ('ATOUT','BOUT');
+UPDATE carte SET points = 2.5 WHERE valeur = '12' AND couleur NOT IN ('ATOUT','BOUT');
+UPDATE carte SET points = 3.5 WHERE valeur = '13' AND couleur NOT IN ('ATOUT','BOUT');
+UPDATE carte SET points = 4.5 WHERE valeur = '14' AND couleur NOT IN ('ATOUT','BOUT');
+UPDATE carte SET points = 4.5 WHERE couleur = 'ATOUT' AND valeur IN ('1','21');
+UPDATE carte SET points = 4.5 WHERE couleur = 'BOUT';

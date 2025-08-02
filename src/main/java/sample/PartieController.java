@@ -52,6 +52,16 @@ public class PartieController {
     private Label labelTopRight;
     @FXML
     private Label labelRight;
+    @FXML
+    private Label scoreLeft;
+    @FXML
+    private Label scoreTopLeft;
+    @FXML
+    private Label scoreTopRight;
+    @FXML
+    private Label scoreRight;
+    @FXML
+    private Label scoreSelf;
 
     private ServerListener listener;
     private int tourCount = 0;
@@ -59,6 +69,7 @@ public class PartieController {
     private final Map<String, String> cardColors = new HashMap<>();
     private List<Label> opponentLabels;
     private List<String> playerNames;
+    private List<Label> opponentScoreLabels;
     private List<String> pendingDogIds = new ArrayList<>();
     private List<String> pendingDogLiens = new ArrayList<>();
     private List<String> pendingDogColors = new ArrayList<>();
@@ -80,6 +91,7 @@ public class PartieController {
     public void setPlayerNames(ArrayList<String> names) {
         this.playerNames = names;
         opponentLabels = List.of(labelLeft, labelTopLeft, labelTopRight, labelRight);
+        opponentScoreLabels = List.of(scoreLeft, scoreTopLeft, scoreTopRight, scoreRight);
         int myNum = Integer.parseInt(AccueilController.numJoueur);
         for (int i = 1; i <= 4; i++) {
             int playerNum = ((myNum + i - 1) % 5) + 1;
@@ -166,6 +178,7 @@ public class PartieController {
         ArrayList<String> idCartes = (ArrayList<String>) resp.get(3);
         ArrayList<String> lienCartes = (ArrayList<String>) resp.get(4);
         String couleur = resp.size() > 5 ? (String) resp.get(5) : "";
+        ArrayList<Double> scores = resp.size() > 6 ? (ArrayList<Double>) resp.get(6) : null;
         boxTour.getChildren().clear();
         for (int i = 0; i < idCartes.size(); i++) {
             InputStream is = getClass().getResourceAsStream("/sample/img/" + lienCartes.get(i));
@@ -174,6 +187,13 @@ public class PartieController {
         }
         updateCurrentPlayerLabel(current);
         int myNum = Integer.parseInt(AccueilController.numJoueur);
+        if (scores != null && playerNames != null && scores.size() == playerNames.size()) {
+            scoreSelf.setText(String.format("%.1f", scores.get(myNum - 1)));
+            for (int i = 1; i <= 4; i++) {
+                int playerNum = ((myNum + i - 1) % 5) + 1;
+                opponentScoreLabels.get(i - 1).setText(String.format("%.1f", scores.get(playerNum - 1)));
+            }
+        }
         if (current == myNum && !finTour && !finPartie) {
             statusLabel.setText("A votre tour !");
             tourLabel.setText("Tour " + tourCount + " : A votre tour");

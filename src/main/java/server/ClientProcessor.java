@@ -30,6 +30,7 @@ public class ClientProcessor implements Runnable {
     public static boolean finPartie = false;
     public static boolean finTour = false;
     public static String couleurTour = "";
+    public static int firstPlayer = 1;
 
     private static final CopyOnWriteArrayList<ObjectOutputStream> listeners = new CopyOnWriteArrayList<>();
 
@@ -104,8 +105,10 @@ public class ClientProcessor implements Runnable {
         }
         ArrayList<String> idCartes= new ArrayList<>();
         ArrayList<String> lienCartes= new ArrayList<>();
-        String query2 = "SELECT * FROM plis WHERE id = " + currentPlis + " AND pliChien = 0";
+        String query2 = "SELECT * FROM plis WHERE id = ? AND pliChien = 0 AND partie = ?";
         PreparedStatement ps2 = this.connection.prepareStatement(query2);
+        ps2.setInt(1, currentPlis);
+        ps2.setInt(2, currentPartie);
         ResultSet results2 = ps2.executeQuery();
         if (results2.next()) {
             for (int i = 1; i <= 5; i++) {
@@ -120,7 +123,105 @@ public class ClientProcessor implements Runnable {
                 }
             }
         }
-        broadcast(List.of("TOUR_UPDATE", currentJoueurTour, finTour, finPartie, idCartes, lienCartes, couleurTour));
+        ArrayList<Double> scores = new ArrayList<>();
+        String qs = "SELECT score FROM joueur WHERE partie = ? ORDER BY num";
+        PreparedStatement psScore = this.connection.prepareStatement(qs);
+        psScore.setInt(1, currentPartie);
+        ResultSet rsScore = psScore.executeQuery();
+        while (rsScore.next()) {
+            scores.add(rsScore.getDouble("score"));
+        }
+        broadcast(List.of("TOUR_UPDATE", currentJoueurTour, finTour, finPartie, idCartes, lienCartes, couleurTour, scores));
+    }
+
+    private int rank(String couleur, String valeur) {
+        if (couleur.equals("BOUT")) return -1;
+        try { return Integer.parseInt(valeur); } catch (NumberFormatException e) { return -1; }
+    }
+
+    private int determineWinner() throws SQLException {
+        String q = "SELECT carte1,carte2,carte3,carte4,carte5 FROM plis WHERE id = ? AND partie = ?";
+        PreparedStatement ps = this.connection.prepareStatement(q);
+        ps.setInt(1, currentPlis);
+        ps.setInt(2, currentPartie);
+        ResultSet rs = ps.executeQuery();
+        if (!rs.next()) {
+            rs.close();
+            ps.close();
+            return firstPlayer;
+        }
+        int[] ids = new int[5];
+        for (int i = 0; i < 5; i++) {
+            ids[i] = rs.getInt("carte" + (i + 1));
+        }
+        rs.close();
+        ps.close();
+        int winner = firstPlayer;
+        String bestColor = couleurTour;
+        int bestRank = -1;
+        int player = firstPlayer;
+        for (int i = 0; i < 5; i++) {
+            int cid = ids[i];
+            PreparedStatement pc = this.connection.prepareStatement("SELECT couleur,valeur FROM carte WHERE id = ?");
+            pc.setInt(1, cid);
+            ResultSet rc = pc.executeQuery();
+            if (rc.next()) {
+                String c = rc.getString("couleur");
+                String v = rc.getString("valeur");
+                int r = rank(c, v);
+                if (i == 0) {
+                    bestColor = c.equals("BOUT") ? couleurTour : c;
+                    bestRank = r;
+                    winner = player;
+                } else {
+                    if (!c.equals("BOUT")) {
+                        if (bestColor.equals("ATOUT")) {
+                            if (c.equals("ATOUT") && r > bestRank) {
+                                bestRank = r;
+                                winner = player;
+                            }
+                        } else {
+                            if (c.equals("ATOUT")) {
+                                bestColor = "ATOUT";
+                                bestRank = r;
+                                winner = player;
+                            } else if (c.equals(couleurTour) && r > bestRank) {
+                                bestRank = r;
+                                winner = player;
+                            }
+                        }
+                    }
+                }
+            }
+            rc.close();
+            pc.close();
+            player = player % 5 + 1;
+        }
+        return winner;
+    }
+
+    private double calculatePoints() throws SQLException {
+        String q = "SELECT carte1,carte2,carte3,carte4,carte5 FROM plis WHERE id = ? AND partie = ?";
+        PreparedStatement ps = this.connection.prepareStatement(q);
+        ps.setInt(1, currentPlis);
+        ps.setInt(2, currentPartie);
+        ResultSet rs = ps.executeQuery();
+        double total = 0;
+        if (rs.next()) {
+            for (int i = 1; i <= 5; i++) {
+                int cid = rs.getInt("carte" + i);
+                if (rs.wasNull()) continue;
+                PreparedStatement pc = this.connection.prepareStatement("SELECT points FROM carte WHERE id = ?");
+                pc.setInt(1, cid);
+                ResultSet rc = pc.executeQuery();
+                if (rc.next()) total += rc.getDouble("points");
+                rc.close();
+                pc.close();
+            }
+        }
+        rs.close();
+        ps.close();
+        return total;
     }
 
     //Le traitement lancé dans un thread séparé
@@ -225,7 +326,7 @@ public class ClientProcessor implements Runnable {
                     }
 
                     PreparedStatement ins = this.connection.prepareStatement(
-                            "INSERT INTO joueur(utilisateur,num,partie) VALUES (?,?,?)");
+                            "INSERT INTO joueur(utilisateur,num,partie,score) VALUES (?,?,?,0)");
                     ins.setString(1, idUser);
                     ins.setInt(2, (currentnumJoueur % 5) + 1);
                     ins.setInt(3, currentPartie);
@@ -274,10 +375,11 @@ public class ClientProcessor implements Runnable {
                                 upd.setInt(17, currentPartie);
                                 upd.executeUpdate();
                             }
-                            PreparedStatement dog = this.connection.prepareStatement("INSERT INTO chien(carte1,carte2,carte3) VALUES(?,?,?)");
-                            dog.setInt(1, ids.get(index++));
+                            PreparedStatement dog = this.connection.prepareStatement("INSERT INTO chien(partie,carte1,carte2,carte3) VALUES(?,?,?,?)");
+                            dog.setInt(1, currentPartie);
                             dog.setInt(2, ids.get(index++));
-                            dog.setInt(3, ids.get(index));
+                            dog.setInt(3, ids.get(index++));
+                            dog.setInt(4, ids.get(index));
                             dog.executeUpdate();
                             broadcastAnswerUpdate();
                             cardsDealt = true;
@@ -406,8 +508,9 @@ public class ClientProcessor implements Runnable {
                     Statement stmt2 = this.connection.createStatement();
                     stmt2.executeUpdate("UPDATE joueur SET equipe = 2 WHERE equipe != 1 AND partie = " + currentPartie) ;
 
-                    String query3 = "SELECT * FROM chien";
+                    String query3 = "SELECT * FROM chien WHERE partie = ?";
                     PreparedStatement ps3 = this.connection.prepareStatement(query3);
+                    ps3.setInt(1, currentPartie);
                     ResultSet results3 = ps3.executeQuery();
                     ArrayList<Integer> idCartes = new ArrayList<>();
                     ArrayList<String> lienCartes = new ArrayList<>();
@@ -441,8 +544,9 @@ public class ClientProcessor implements Runnable {
 
                 } else if(responses.get(0).toString().toUpperCase().equals("WAITCALL")) {
 
-                    String query = "SELECT * FROM chien";
+                    String query = "SELECT * FROM chien WHERE partie = ?";
                     PreparedStatement ps = this.connection.prepareStatement(query);
+                    ps.setInt(1, currentPartie);
                     ResultSet results = ps.executeQuery();
                     ArrayList<Integer> idCartes = new ArrayList<>();
                     ArrayList<String> lienCartes = new ArrayList<>();
@@ -481,19 +585,26 @@ public class ClientProcessor implements Runnable {
                         if(!couleur.equals("BOUT") && !couleur.equals("ATOUT") && !valeur.equals("R")) {
                             if(nbCartesChien == 1) {
 
-                                String query2 = "SELECT COUNT(id) AS\"nbPlis\"  FROM plis ";
+                                String query2 = "SELECT COUNT(id) AS\"nbPlis\"  FROM plis WHERE partie = ?";
                                 PreparedStatement ps2 = this.connection.prepareStatement(query2);
+                                ps2.setInt(1, currentPartie);
                                 ResultSet results2 = ps2.executeQuery();
                                 if(results2.next()) {
                                     currentPlis = results2.getInt("nbPlis") +1;
                                 }
-                                Statement stmt = this.connection.createStatement();
-                                stmt.executeUpdate("INSERT INTO plis(id,pliChien) VALUES("+ currentPlis +",1)");
+                                PreparedStatement stmt = this.connection.prepareStatement("INSERT INTO plis(id,pliChien,partie) VALUES(?,?,?)");
+                                stmt.setInt(1, currentPlis);
+                                stmt.setInt(2,1);
+                                stmt.setInt(3,currentPartie);
+                                stmt.executeUpdate();
 
 
                             }
-                            Statement stmt1 = this.connection.createStatement();
-                            stmt1.executeUpdate("UPDATE plis SET carte" + nbCartesChien + " = " + idCarte + " WHERE id = " + currentPlis);
+                            PreparedStatement stmt1 = this.connection.prepareStatement("UPDATE plis SET carte" + nbCartesChien + " = ? WHERE id = ? AND partie = ?");
+                            stmt1.setInt(1, Integer.parseInt(idCarte));
+                            stmt1.setInt(2, currentPlis);
+                            stmt1.setInt(3, currentPartie);
+                            stmt1.executeUpdate();
                             if(nbCartesChien == 3) {
                                 dogDone = true;
                                 broadcastDogReady();
@@ -515,6 +626,8 @@ public class ClientProcessor implements Runnable {
                 }
                 else if(responses.get(0).toString().toUpperCase().equals("BEGIN")) {
                     couleurTour = "";
+                    finTour = false;
+                    countJoueurTour = 1;
                     broadcastTourUpdate();
                 }
                 else if(responses.get(0).toString().toUpperCase().equals("PLAYTOUR")) {
@@ -535,19 +648,29 @@ public class ClientProcessor implements Runnable {
 
 
                     if(countJoueurTour == 1) {
-                        String query2 = "SELECT COUNT(id) AS\"nbPlis\"  FROM plis ";
+                        firstPlayer = currentJoueurTour;
+                        String query2 = "SELECT COUNT(id) AS\"nbPlis\"  FROM plis WHERE partie = ?";
                         PreparedStatement ps2 = this.connection.prepareStatement(query2);
+                        ps2.setInt(1, currentPartie);
                         ResultSet results2 = ps2.executeQuery();
                         if(results2.next()) {
                             currentPlis = results2.getInt("nbPlis") +1;
                         }
-                        Statement stmt = this.connection.createStatement();
-                        stmt.executeUpdate("INSERT INTO plis(id,pliChien) VALUES("+ currentPlis +",0)");
+                        PreparedStatement stmt = this.connection.prepareStatement("INSERT INTO plis(id,pliChien,partie) VALUES(?,?,?)");
+                        stmt.setInt(1, currentPlis);
+                        stmt.setInt(2,0);
+                        stmt.setInt(3,currentPartie);
+                        stmt.executeUpdate();
                         couleurTour = couleurCarte;
-                        Statement stmt1 = this.connection.createStatement();
-                        stmt1.executeUpdate("UPDATE plis SET carte" + countJoueurTour + " = " + idCarte + " WHERE id = " + currentPlis);
-                        Statement stmt2 = this.connection.createStatement();
-                        stmt2.executeUpdate("UPDATE joueur SET carte" + numeroCarte + " = null WHERE utilisateur = " + idUser + " AND partie = " + currentPartie);
+                        PreparedStatement stmt1 = this.connection.prepareStatement("UPDATE plis SET carte" + countJoueurTour + " = ? WHERE id = ? AND partie = ?");
+                        stmt1.setInt(1, Integer.parseInt(idCarte));
+                        stmt1.setInt(2, currentPlis);
+                        stmt1.setInt(3, currentPartie);
+                        stmt1.executeUpdate();
+                        PreparedStatement stmt2 = this.connection.prepareStatement("UPDATE joueur SET carte" + numeroCarte + " = null WHERE utilisateur = ? AND partie = ?");
+                        stmt2.setString(1, idUser);
+                        stmt2.setInt(2, currentPartie);
+                        stmt2.executeUpdate();
                     }
                     else {
                         String query3 = "SELECT * FROM joueur WHERE utilisateur = " + idUser + " AND partie = " + currentPartie;
@@ -567,10 +690,15 @@ public class ClientProcessor implements Runnable {
                             }
                         }
                         if((couleurCarte.equals(couleurTour) && hasCouleur == true) || (hasCouleur == false && couleurCarte.equals("ATOUT"))) {
-                            Statement stmt1 = this.connection.createStatement();
-                            stmt1.executeUpdate("UPDATE plis SET carte" + countJoueurTour + " = " + idCarte + " WHERE id = " + currentPlis);
-                            Statement stmt2 = this.connection.createStatement();
-                            stmt2.executeUpdate("UPDATE joueur SET carte" + numeroCarte + " = null WHERE utilisateur = " + idUser + " AND partie = " + currentPartie);
+                            PreparedStatement stmt1 = this.connection.prepareStatement("UPDATE plis SET carte" + countJoueurTour + " = ? WHERE id = ? AND partie = ?");
+                            stmt1.setInt(1, Integer.parseInt(idCarte));
+                            stmt1.setInt(2, currentPlis);
+                            stmt1.setInt(3, currentPartie);
+                            stmt1.executeUpdate();
+                            PreparedStatement stmt2 = this.connection.prepareStatement("UPDATE joueur SET carte" + numeroCarte + " = null WHERE utilisateur = ? AND partie = ?");
+                            stmt2.setString(1, idUser);
+                            stmt2.setInt(2, currentPartie);
+                            stmt2.executeUpdate();
                         } else {
                             error = true;
                         }
@@ -579,18 +707,26 @@ public class ClientProcessor implements Runnable {
                         if (countJoueurTour == 5) {
                             finTour = true;
                             countJoueurTour = 1;
+                            int gagnant = determineWinner();
+                            currentJoueurTour = gagnant;
+                            double pts = calculatePoints();
+                            PreparedStatement upScore = this.connection.prepareStatement("UPDATE joueur SET score = score + ? WHERE num = ? AND partie = ?");
+                            upScore.setDouble(1, pts);
+                            upScore.setInt(2, gagnant);
+                            upScore.setInt(3, currentPartie);
+                            upScore.executeUpdate();
+                            PreparedStatement upPli = this.connection.prepareStatement("UPDATE plis SET joueurGagnant = ? WHERE id = ? AND partie = ?");
+                            upPli.setInt(1, gagnant);
+                            upPli.setInt(2, currentPlis);
+                            upPli.setInt(3, currentPartie);
+                            upPli.executeUpdate();
                         } else {
                             countJoueurTour++;
+                            currentJoueurTour = currentJoueurTour == 5 ? 1 : currentJoueurTour + 1;
                         }
 
-                        if (currentPlis % 16 == 0) {
+                        if (currentPlis % 16 == 0 && finTour) {
                             finPartie = true;
-                        }
-
-                        if (currentJoueurTour == 5) {
-                            currentJoueurTour = 1;
-                        } else {
-                            currentJoueurTour++;
                         }
                     }
                     toSend.add(error);
@@ -609,8 +745,10 @@ public class ClientProcessor implements Runnable {
                     }
                     ArrayList<String> idCartes= new ArrayList<>();
                     ArrayList<String> lienCartes= new ArrayList<>();
-                    String query2 = "SELECT * FROM plis WHERE id = " + currentPlis + " AND pliChien = 0";
+                    String query2 = "SELECT * FROM plis WHERE id = ? AND pliChien = 0 AND partie = ?";
                     PreparedStatement ps2 = this.connection.prepareStatement(query2);
+                    ps2.setInt(1, currentPlis);
+                    ps2.setInt(2, currentPartie);
                     ResultSet results2 = ps2.executeQuery();
                     if (results2.next()) {
                             for (int i = 1; i <= 5; i++) {
@@ -626,12 +764,21 @@ public class ClientProcessor implements Runnable {
 
                             }
                     }
+                    ArrayList<Double> scores = new ArrayList<>();
+                    String qs = "SELECT score FROM joueur WHERE partie = ? ORDER BY num";
+                    PreparedStatement psScore = this.connection.prepareStatement(qs);
+                    psScore.setInt(1, currentPartie);
+                    ResultSet rsScore = psScore.executeQuery();
+                    while (rsScore.next()) {
+                        scores.add(rsScore.getDouble("score"));
+                    }
                     toSend.add(currentJoueurTour);
                     toSend.add(finTour);
                     toSend.add(finPartie);
                     toSend.add(idCartes);
                     toSend.add(lienCartes);
                     toSend.add(couleurTour);
+                    toSend.add(scores);
                 }
                 else if(responses.get(0).toString().toUpperCase().equals("FINTOUR")) {
                 }else {

@@ -67,6 +67,8 @@ public class PartieController {
     private int tourCount = 0;
     private boolean sendingTurn = false;
     private final Map<String, String> cardColors = new HashMap<>();
+    private final Map<String, Integer> cardRanks = new HashMap<>();
+    private int highestAtoutCenter = 0;
     private List<Label> opponentLabels;
     private List<String> playerNames;
     private List<Label> opponentScoreLabels;
@@ -84,7 +86,18 @@ public class PartieController {
             ImageView imageCarte = new ImageView(img);
             imageCarte.setId(ids.get(i));
             cardColors.put(ids.get(i), colors.get(i));
+            cardRanks.put(ids.get(i), extractRank(liens.get(i)));
             main.getChildren().add(imageCarte);
+        }
+    }
+
+    private int extractRank(String lien) {
+        try {
+            String file = lien.substring(lien.lastIndexOf('/') + 1);
+            String value = file.substring(5, file.indexOf('_', 5));
+            return Integer.parseInt(value);
+        } catch (Exception e) {
+            return 0;
         }
     }
 
@@ -180,10 +193,17 @@ public class PartieController {
         String couleur = resp.size() > 5 ? (String) resp.get(5) : "";
         ArrayList<Double> scores = resp.size() > 6 ? (ArrayList<Double>) resp.get(6) : null;
         boxTour.getChildren().clear();
+        highestAtoutCenter = 0;
         for (int i = 0; i < idCartes.size(); i++) {
             InputStream is = getClass().getResourceAsStream("/sample/img/" + lienCartes.get(i));
             Image img = new Image(is != null ? is : getClass().getResourceAsStream("/sample/img/carte.png"),60,100,false,false);
             boxTour.getChildren().add(new ImageView(img));
+            if (lienCartes.get(i).contains("Atout")) {
+                int r = extractRank(lienCartes.get(i));
+                if (r > highestAtoutCenter) {
+                    highestAtoutCenter = r;
+                }
+            }
         }
         updateCurrentPlayerLabel(current);
         int myNum = Integer.parseInt(AccueilController.numJoueur);
@@ -215,12 +235,22 @@ public class PartieController {
         int myNum = Integer.parseInt(AccueilController.numJoueur);
         boolean isMyTurn = current == myNum;
         boolean hasColor = false;
+        boolean hasAtout = false;
+        boolean hasHigherAtout = false;
         if (isMyTurn && !couleur.isEmpty()) {
             for (int i = 0; i < main.getChildren().size(); i++) {
                 ImageView img = (ImageView) main.getChildren().get(i);
-                if (couleur.equals(cardColors.get(img.getId()))) {
+                String id = img.getId();
+                String color = cardColors.get(id);
+                if (couleur.equals(color)) {
                     hasColor = true;
-                    break;
+                }
+                if ("ATOUT".equals(color) || "BOUT".equals(color)) {
+                    hasAtout = true;
+                    int r = cardRanks.getOrDefault(id, 0);
+                    if (r > highestAtoutCenter) {
+                        hasHigherAtout = true;
+                    }
                 }
             }
         }
@@ -241,8 +271,21 @@ public class PartieController {
                 continue;
             }
             boolean disable = false;
-            if (!couleur.isEmpty() && hasColor && !couleur.equals(cardColors.get(imageCarte.getId()))) {
-                disable = true;
+            String id = imageCarte.getId();
+            String color = cardColors.get(id);
+            int rank = cardRanks.getOrDefault(id, 0);
+            if (!couleur.isEmpty()) {
+                if (hasColor) {
+                    if (!couleur.equals(color)) {
+                        disable = true;
+                    }
+                } else if (hasAtout) {
+                    if (!("ATOUT".equals(color) || "BOUT".equals(color))) {
+                        disable = true;
+                    } else if (highestAtoutCenter > 0 && hasHigherAtout && rank < highestAtoutCenter) {
+                        disable = true;
+                    }
+                }
             }
             imageCarte.setDisable(disable);
             if (disable) {

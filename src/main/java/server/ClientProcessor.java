@@ -690,7 +690,7 @@ public class ClientProcessor implements Runnable {
                                         if(c.equals(couleurTour)) {
                                             hasCouleur = true;
                                         }
-                                        if(c.equals("ATOUT")) {
+                                        if(c.equals("ATOUT") || c.equals("BOUT")) {
                                             hasAtout = true;
                                         }
                                     }
@@ -699,9 +699,9 @@ public class ClientProcessor implements Runnable {
                                 }
                             }
                         }
-                        if(couleurCarte.equals(couleurTour)) {
+                        if(couleurCarte.equals(couleurTour) || ("ATOUT".equals(couleurTour) && "BOUT".equals(couleurCarte))) {
                             // ok, following the lead suit
-                        } else if(!hasCouleur && (!hasAtout || couleurCarte.equals("ATOUT"))) {
+                        } else if(!hasCouleur && (!hasAtout || couleurCarte.equals("ATOUT") || couleurCarte.equals("BOUT"))) {
                             // allowed to play any card when void in suit and either no trumps or playing a trump
                         } else {
                             error = true;

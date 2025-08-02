@@ -86,7 +86,12 @@ CREATE TABLE IF NOT EXISTS main (
     carte15 INT
 );
 
-INSERT INTO utilisateur (nom, prenom, email, pseudo, motdepasse) VALUES ('Doe','John','john@example.com','john','password');
+INSERT INTO `utilisateur` (`nom`, `prenom`, `email`, `pseudo`, `motdepasse`) VALUES ('Strady', 'Nicolas', 'nicostrady@gmail.com', 'nistra', 'pass');
+INSERT INTO `utilisateur` (`nom`, `prenom`, `email`, `pseudo`, `motdepasse`) VALUES ('Sönmez', 'Duygu', 'dodo@gmail.com', 'dodo', 'pass');
+INSERT INTO `utilisateur` (`nom`, `prenom`, `email`, `pseudo`, `motdepasse`) VALUES ('Wittmann', 'Hugo', 'hugo@gmail.com', 'hugo', 'pass');
+INSERT INTO `utilisateur` (`nom`, `prenom`, `email`, `pseudo`, `motdepasse`) VALUES ('Pottier', 'Domitille', 'dom@gmail.com', 'dom', 'pass');
+INSERT INTO `utilisateur` (`nom`, `prenom`, `email`, `pseudo`, `motdepasse`) VALUES ('Massicot', 'Hippolyte', 'ipo@gmail.com', 'ipo', 'pass');
+
 INSERT INTO carte (id,lien,couleur,valeur) VALUES (1, 'cards/Spade/card_1_spade.png', 'SPADE', '1');
 INSERT INTO carte (id,lien,couleur,valeur) VALUES (2, 'cards/Spade/card_2_spade.png', 'SPADE', '2');
 INSERT INTO carte (id,lien,couleur,valeur) VALUES (3, 'cards/Spade/card_3_spade.png', 'SPADE', '3');
@@ -163,7 +168,7 @@ INSERT INTO carte (id,lien,couleur,valeur) VALUES (73, 'cards/Atout/card_17_atou
 INSERT INTO carte (id,lien,couleur,valeur) VALUES (74, 'cards/Atout/card_18_atout.png', 'ATOUT', '18');
 INSERT INTO carte (id,lien,couleur,valeur) VALUES (75, 'cards/Atout/card_19_atout.png', 'ATOUT', '19');
 INSERT INTO carte (id,lien,couleur,valeur) VALUES (76, 'cards/Atout/card_20_atout.png', 'ATOUT', '20');
-INSERT INTO carte (id,lien,couleur,valeur) VALUES (77, 'cards/Atout/card_21_atout.png', 'ATOUT', '21');
+INSERT INTO carte (id,lien,couleur,valeur) VALUES (77, 'cards/Atout/card_21_atout.png', 'BOUT', '21');
 INSERT INTO carte (id,lien,couleur,valeur) VALUES (78, 'cards/Atout/card_E_atout.png', 'BOUT', 'E');
 
 UPDATE carte SET points = 1.5 WHERE valeur = '11' AND couleur NOT IN ('ATOUT','BOUT');

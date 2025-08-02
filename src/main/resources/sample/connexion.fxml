@@ -15,22 +15,24 @@
 <?import javafx.scene.text.Font?>
 
 
-<VBox maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="500.0" prefWidth="900.0" stylesheets="@style.css" xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="sample.ConnexionController">
+<AnchorPane prefHeight="500.0" prefWidth="900.0" stylesheets="@style.css" xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="sample.ConnexionController">
    <children>
-      <HBox prefHeight="150.0" prefWidth="900.0" style="-fx-background-color: darkgrey; -fx-border-color: darkgrey;">
+      <VBox AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="500.0" prefWidth="900.0">
          <children>
-            <ImageView fx:id="background" fitHeight="150.0" fitWidth="900.0" pickOnBounds="true" preserveRatio="true">
-               <image>
-                  <Image url="@img/header.png" />
-               </image>
-            </ImageView>
-         </children>
-      </HBox>
-      <HBox fx:id="box" prefHeight="300.0" prefWidth="900.0" styleClass="box">
-         <children>
-            <SplitPane dividerPositions="0.5" prefHeight="300.0" prefWidth="900.0">
-               <items>
-                  <AnchorPane prefHeight="350.0" prefWidth="450.0" styleClass="page">
+            <HBox prefHeight="150.0" style="-fx-background-color: darkgrey; -fx-border-color: darkgrey;">
+               <children>
+                  <ImageView fx:id="background" fitHeight="150.0" fitWidth="900.0" pickOnBounds="true" preserveRatio="true">
+                     <image>
+                        <Image url="@img/header.png" />
+                     </image>
+                  </ImageView>
+               </children>
+            </HBox>
+            <HBox fx:id="box" prefHeight="300.0" styleClass="box" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0">
+               <children>
+                  <SplitPane dividerPositions="0.5" prefHeight="300.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0">
+                   <items>
+                      <AnchorPane prefHeight="350.0" prefWidth="450.0" styleClass="page">
                      <children>
                         <VBox prefHeight="350.0" prefWidth="450.0" spacing="25.0">
                            <children>
@@ -113,8 +115,10 @@
                      </children>
                   </AnchorPane>
                </items>
-            </SplitPane>
+                  </SplitPane>
+               </children>
+            </HBox>
          </children>
-      </HBox>
+      </VBox>
    </children>
-</VBox>
+</AnchorPane>

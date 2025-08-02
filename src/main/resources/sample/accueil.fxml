@@ -13,20 +13,20 @@
         <items>
           <AnchorPane fx:id="anchorUser" minHeight="0.0" minWidth="0.0" prefHeight="150.0" prefWidth="900.0">
                <children>
-                  <Label fx:id="labelBonjour" alignment="CENTER" contentDisplay="CENTER" layoutX="207.0" layoutY="10.0" prefHeight="44.0" prefWidth="502.0" textAlignment="CENTER">
+                  <Label fx:id="labelBonjour" alignment="CENTER" contentDisplay="CENTER" prefHeight="44.0" prefWidth="502.0" textAlignment="CENTER" AnchorPane.leftAnchor="200.0" AnchorPane.rightAnchor="200.0" AnchorPane.topAnchor="10.0">
                      <font>
                         <Font size="29.0" />
                      </font>
                   </Label>
-                  <VBox fx:id="boxInfo" alignment="CENTER" layoutX="206.0" layoutY="54.0" prefHeight="114.0" prefWidth="502.0" style="-fx-border-color: black;" />
+                  <VBox fx:id="boxInfo" alignment="CENTER" prefHeight="114.0" prefWidth="502.0" style="-fx-border-color: black;" AnchorPane.leftAnchor="200.0" AnchorPane.rightAnchor="200.0" AnchorPane.topAnchor="54.0" />
                </children>
             </AnchorPane>
           <AnchorPane fx:id="anchorPlay" minHeight="0.0" minWidth="0.0" prefHeight="350.0" prefWidth="900.0">
                <children>
-                  <Button fx:id="playButton" alignment="CENTER" layoutX="398.0" layoutY="128.0" mnemonicParsing="false" onAction="#play" text="Jouer une partie" />
-                  <Button fx:id="scoreButton" alignment="CENTER" layoutX="406.0" layoutY="77.0" mnemonicParsing="false" text="Voir résultats" />
-                  <Button fx:id="disconnectButton" alignment="CENTER" layoutX="406.0" layoutY="187.0" mnemonicParsing="false" onAction="#disconnect" text="Deconnexion" />
-                  <Label fx:id="playStatus" layoutX="350.0" layoutY="240.0" prefWidth="200.0" />
+                  <Button fx:id="scoreButton" alignment="CENTER" mnemonicParsing="false" text="Voir résultats" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="77.0" />
+                  <Button fx:id="playButton" alignment="CENTER" mnemonicParsing="false" onAction="#play" text="Jouer une partie" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="128.0" />
+                  <Button fx:id="disconnectButton" alignment="CENTER" mnemonicParsing="false" onAction="#disconnect" text="Deconnexion" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="187.0" />
+                  <Label fx:id="playStatus" prefWidth="200.0" AnchorPane.leftAnchor="350.0" AnchorPane.rightAnchor="350.0" AnchorPane.topAnchor="240.0" />
                </children>
             </AnchorPane>
         </items>

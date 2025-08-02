@@ -473,7 +473,7 @@ public class ClientProcessor implements Runnable {
                     stmt.executeUpdate("UPDATE joueur SET reponse = 'REFUSE' , equipe = 2 WHERE utilisateur = " + idUser + " AND partie = " + currentPartie);
                     broadcastAnswerUpdate();
                 }  else if(responses.get(0).toString().toUpperCase().equals("ROIS")) {
-                    String query = "SELECT *  FROM carte WHERE valeur = 'R'";
+                    String query = "SELECT *  FROM carte WHERE valeur = '14' AND couleur != 'ATOUT'";
                     PreparedStatement ps = this.connection.prepareStatement(query);
                     ResultSet results = ps.executeQuery();
                     ArrayList<String> idCartes = new ArrayList<>();

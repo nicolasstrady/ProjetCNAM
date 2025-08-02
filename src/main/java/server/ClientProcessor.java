@@ -677,19 +677,36 @@ public class ClientProcessor implements Runnable {
                         PreparedStatement ps3 = this.connection.prepareStatement(query3);
                         ResultSet results3 = ps3.executeQuery();
                         boolean hasCouleur = false;
+                        boolean hasAtout = false;
                         if(results3.next()) {
                             for(int i = 1; i<=15; i++) {
-                                if(results3.getString("carte" +i) != null) {
-                                    String query4 = "SELECT * FROM carte WHERE id = " + results3.getInt("carte" + i) + " AND couleur = \"" + couleurTour  + "\"";
-                                    PreparedStatement ps4 = this.connection.prepareStatement(query4);
+                                String cid = results3.getString("carte" + i);
+                                if(cid != null) {
+                                    PreparedStatement ps4 = this.connection.prepareStatement("SELECT couleur FROM carte WHERE id = ?");
+                                    ps4.setInt(1, Integer.parseInt(cid));
                                     ResultSet results4 = ps4.executeQuery();
                                     if (results4.next()) {
-                                        hasCouleur = true;
+                                        String c = results4.getString("couleur");
+                                        if(c.equals(couleurTour)) {
+                                            hasCouleur = true;
+                                        }
+                                        if(c.equals("ATOUT")) {
+                                            hasAtout = true;
+                                        }
                                     }
+                                    results4.close();
+                                    ps4.close();
                                 }
                             }
                         }
-                        if((couleurCarte.equals(couleurTour) && hasCouleur == true) || (hasCouleur == false && couleurCarte.equals("ATOUT"))) {
+                        if(couleurCarte.equals(couleurTour)) {
+                            // ok, following the lead suit
+                        } else if(!hasCouleur && (!hasAtout || couleurCarte.equals("ATOUT"))) {
+                            // allowed to play any card when void in suit and either no trumps or playing a trump
+                        } else {
+                            error = true;
+                        }
+                        if(!error) {
                             PreparedStatement stmt1 = this.connection.prepareStatement("UPDATE plis SET carte" + countJoueurTour + " = ? WHERE id = ? AND partie = ?");
                             stmt1.setInt(1, Integer.parseInt(idCarte));
                             stmt1.setInt(2, currentPlis);
@@ -699,8 +716,6 @@ public class ClientProcessor implements Runnable {
                             stmt2.setString(1, idUser);
                             stmt2.setInt(2, currentPartie);
                             stmt2.executeUpdate();
-                        } else {
-                            error = true;
                         }
                     }
                     if(error == false) {

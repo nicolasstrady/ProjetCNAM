@@ -625,10 +625,15 @@ public class ClientProcessor implements Runnable {
                     toSend.add(dogDone);
                 }
                 else if(responses.get(0).toString().toUpperCase().equals("BEGIN")) {
-                    couleurTour = "";
-                    finTour = false;
-                    countJoueurTour = 1;
-                    broadcastTourUpdate();
+                    if (finTour) {
+                        couleurTour = "";
+                        finTour = false;
+                        countJoueurTour = 1;
+                        broadcastTourUpdate();
+                        toSend.add("OK");
+                    } else {
+                        toSend.add("WAIT");
+                    }
                 }
                 else if(responses.get(0).toString().toUpperCase().equals("PLAYTOUR")) {
                     String idCarte = (String) responses.get(1);
@@ -704,7 +709,23 @@ public class ClientProcessor implements Runnable {
                         }
                     }
                     if(error == false) {
-                        if (countJoueurTour == 5) {
+                        String checkQ = "SELECT carte1,carte2,carte3,carte4,carte5 FROM plis WHERE id = ? AND partie = ?";
+                        PreparedStatement checkStmt = this.connection.prepareStatement(checkQ);
+                        checkStmt.setInt(1, currentPlis);
+                        checkStmt.setInt(2, currentPartie);
+                        ResultSet checkRs = checkStmt.executeQuery();
+                        int filled = 0;
+                        if (checkRs.next()) {
+                            for (int i = 1; i <= 5; i++) {
+                                if (checkRs.getString("carte" + i) != null) {
+                                    filled++;
+                                }
+                            }
+                        }
+                        checkRs.close();
+                        checkStmt.close();
+
+                        if (filled == 5) {
                             finTour = true;
                             countJoueurTour = 1;
                             int gagnant = determineWinner();
@@ -721,7 +742,7 @@ public class ClientProcessor implements Runnable {
                             upPli.setInt(3, currentPartie);
                             upPli.executeUpdate();
                         } else {
-                            countJoueurTour++;
+                            countJoueurTour = filled + 1;
                             currentJoueurTour = currentJoueurTour == 5 ? 1 : currentJoueurTour + 1;
                         }
 

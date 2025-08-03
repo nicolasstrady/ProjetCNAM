@@ -99,12 +99,16 @@ public class ClientProcessor implements Runnable {
 
     private void broadcastTourUpdate() throws SQLException {
         if(currentJoueurTour == -1) {
-            String query = "SELECT * FROM joueur WHERE reponse = 'TAKE' AND partie = " + currentPartie;
+            String query = "SELECT num FROM joueur WHERE reponse = 'TAKE' AND partie = ?";
             PreparedStatement ps = this.connection.prepareStatement(query);
+            ps.setInt(1, currentPartie);
             ResultSet results = ps.executeQuery();
             if (results.next()) {
-                currentJoueurTour = results.getInt("num");
+                int takerNum = results.getInt("num");
+                currentJoueurTour = (takerNum % 5) + 1;
             }
+            results.close();
+            ps.close();
         }
         ArrayList<String> idCartes= new ArrayList<>();
         ArrayList<String> lienCartes= new ArrayList<>();
@@ -632,7 +636,6 @@ public class ClientProcessor implements Runnable {
                         String valeur = results.getString("valeur");
                         if(!couleur.equals("BOUT") && !couleur.equals("ATOUT") && !valeur.equals("R")) {
                             if(nbCartesChien == 1) {
-
                                 PreparedStatement stmt = this.connection.prepareStatement("INSERT INTO plis(pliChien,partie) VALUES(?,?)", Statement.RETURN_GENERATED_KEYS);
                                 stmt.setInt(1,1);
                                 stmt.setInt(2,currentPartie);
@@ -643,18 +646,49 @@ public class ClientProcessor implements Runnable {
                                 }
                                 gen.close();
                                 stmt.close();
-
-
                             }
+
                             PreparedStatement stmt1 = this.connection.prepareStatement("UPDATE plis SET carte" + nbCartesChien + " = ? WHERE id = ? AND partie = ?");
                             stmt1.setInt(1, Integer.parseInt(idCarte));
                             stmt1.setInt(2, currentPlis);
                             stmt1.setInt(3, currentPartie);
                             stmt1.executeUpdate();
+
+                            // Remove the discarded card from the taker's hand
+                            int slot = -1;
+                            PreparedStatement find = this.connection.prepareStatement("SELECT * FROM joueur WHERE reponse = 'TAKE' AND partie = ?");
+                            find.setInt(1, currentPartie);
+                            ResultSet rFind = find.executeQuery();
+                            if (rFind.next()) {
+                                for (int i = 1; i <= 15; i++) {
+                                    String cid = rFind.getString("carte" + i);
+                                    if (cid != null && cid.equals(idCarte)) {
+                                        slot = i;
+                                        break;
+                                    }
+                                }
+                            }
+                            rFind.close();
+                            find.close();
+                            if (slot > 0) {
+                                PreparedStatement up = this.connection.prepareStatement("UPDATE joueur SET carte" + slot + " = null WHERE reponse = 'TAKE' AND partie = ?");
+                                up.setInt(1, currentPartie);
+                                up.executeUpdate();
+                                up.close();
+                            }
+
                             if(nbCartesChien == 3) {
                                 dogDone = true;
-                                // Reset turn so the taker opens the first trick
-                                currentJoueurTour = -1;
+                                // Set next player after the taker
+                                PreparedStatement takerStmt = this.connection.prepareStatement("SELECT num FROM joueur WHERE reponse = 'TAKE' AND partie = ?");
+                                takerStmt.setInt(1, currentPartie);
+                                ResultSet takerRs = takerStmt.executeQuery();
+                                if(takerRs.next()) {
+                                    int takerNum = takerRs.getInt("num");
+                                    currentJoueurTour = (takerNum % 5) + 1;
+                                }
+                                takerRs.close();
+                                takerStmt.close();
                                 broadcastDogReady();
                             }
                             toSend.add(dogDone);
@@ -944,12 +978,16 @@ public class ClientProcessor implements Runnable {
                 }
                 else if(responses.get(0).toString().toUpperCase().equals("WAITTOUR")) {
                     if(currentJoueurTour == -1) {
-                        String query = "SELECT * FROM joueur WHERE reponse = 'TAKE' AND partie = " + currentPartie;
+                        String query = "SELECT num FROM joueur WHERE reponse = 'TAKE' AND partie = ?";
                         PreparedStatement ps = this.connection.prepareStatement(query);
+                        ps.setInt(1, currentPartie);
                         ResultSet results = ps.executeQuery();
                         if (results.next()) {
-                            currentJoueurTour = results.getInt("num");
+                            int takerNum = results.getInt("num");
+                            currentJoueurTour = (takerNum % 5) + 1;
                         }
+                        results.close();
+                        ps.close();
 
                     }
                     ArrayList<String> idCartes= new ArrayList<>();

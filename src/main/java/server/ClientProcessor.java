@@ -793,7 +793,7 @@ public class ClientProcessor implements Runnable {
                             String query3 = "SELECT * FROM joueur WHERE utilisateur = " + idUser + " AND partie = " + currentPartie;
                             PreparedStatement ps3 = this.connection.prepareStatement(query3);
                             ResultSet results3 = ps3.executeQuery();
-                            boolean hasCouleur = false;
+                            boolean hasCouleur = couleurCarte.equals(couleurTour);
                             boolean hasAtout = false;
                             boolean hasHigherAtout = false;
                             if(results3.next()) {

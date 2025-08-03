@@ -7,109 +7,133 @@
 <?import javafx.scene.layout.AnchorPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.FlowPane?>
-<?import javafx.scene.layout.Pane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.control.Label?>
 
-<AnchorPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="500.0" prefWidth="900.0" style="-fx-background-color: green;" xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="sample.PartieController">
-   <children>
-      <VBox prefHeight="500.0" prefWidth="900.0">
-         <children>
-            <HBox prefHeight="166.0" prefWidth="825.0" spacing="440.0">
-               <children>
-                  <VBox alignment="CENTER">
-                     <children>
-                        <Label fx:id="labelTopLeft" alignment="CENTER" />
-                        <Label fx:id="scoreTopLeft" alignment="CENTER" />
-                        <ImageView fitHeight="100.0" fitWidth="60.0" pickOnBounds="true" preserveRatio="true">
-                           <image>
-                              <Image url="@img/carte.png" />
-                           </image>
-                           <VBox.margin>
-                              <Insets top="5.0" />
-                           </VBox.margin>
-                        </ImageView>
-                     </children>
-                     <HBox.margin>
-                        <Insets left="20.0" />
-                     </HBox.margin>
-                  </VBox>
-                  <VBox alignment="CENTER">
-                     <children>
-                        <Label fx:id="labelTopRight" alignment="CENTER" />
-                        <Label fx:id="scoreTopRight" alignment="CENTER" />
-                        <ImageView fitHeight="100.0" fitWidth="60.0" pickOnBounds="true" preserveRatio="true">
-                           <image>
-                              <Image url="@img/carte.png" />
-                           </image>
-                           <VBox.margin>
-                              <Insets top="5.0" />
-                           </VBox.margin>
-                        </ImageView>
-                     </children>
-                  </VBox>
-               </children>
-               <VBox.margin>
-                  <Insets left="150.0" top="10.0" />
-               </VBox.margin>
-            </HBox>
-            <HBox prefHeight="166.0" prefWidth="900.0" spacing="50.0">
-               <children>
-                  <VBox alignment="CENTER">
-                     <children>
-                        <Label fx:id="labelLeft" alignment="CENTER" />
-                        <Label fx:id="scoreLeft" alignment="CENTER" />
-                        <ImageView fitHeight="100.0" fitWidth="60.0" pickOnBounds="true" preserveRatio="true">
-                           <image>
-                              <Image url="@img/carte.png" />
-                           </image>
-                        </ImageView>
-                     </children>
-                     <HBox.margin>
-                        <Insets left="70.0" />
-                     </HBox.margin>
-                  </VBox>
-                  <Button fx:id="take" mnemonicParsing="false" onAction="#playWithDog" prefHeight="30.0" prefWidth="116.0" text="Prendre le chien" visible="false">
-                     <HBox.margin>
-                        <Insets top="100.0" />
-                     </HBox.margin>
-                  </Button>
-                  <Pane prefHeight="200.0" prefWidth="200.0">
-                     <children>
-                        <HBox fx:id="boxTour" prefHeight="100.0" prefWidth="200.0" spacing="10.0" />
-                        <HBox fx:id="boxChien" layoutX="-23.0" prefHeight="100.0" prefWidth="223.0" spacing="20.0" />
-                        <ImageView fx:id="carteCenter" fitHeight="100.0" fitWidth="60.0" layoutX="78.0" layoutY="-5.0" pickOnBounds="true" preserveRatio="true">
-                           <image>
-                              <Image url="@img/carte.png" />
-                           </image>
-                        </ImageView>
-                        <HBox fx:id="boxRois" prefHeight="100.0" prefWidth="329.0" />
-                        <Button fx:id="retrieveDog" layoutX="60.0" layoutY="105.0" mnemonicParsing="false" onAction="#retrieveDogCards" text="Récupérer" visible="false" />
-                    </children>
-                  </Pane>
-                  <Button fx:id="refuse" mnemonicParsing="false" onAction="#playWithoutDog" prefHeight="30.0" prefWidth="130.0" text="Refuser le chien" visible="false">
-                     <HBox.margin>
-                        <Insets top="100.0" />
-                     </HBox.margin>
-                  </Button>
-                  <VBox alignment="CENTER">
-                     <children>
-                        <Label fx:id="labelRight" alignment="CENTER" />
-                        <Label fx:id="scoreRight" alignment="CENTER" />
-                        <ImageView fitHeight="100.0" fitWidth="60.0" pickOnBounds="true" preserveRatio="true">
-                           <image>
-                              <Image url="@img/carte.png" />
-                           </image>
-                        </ImageView>
-                     </children>
-                  </VBox>
-               </children>
-            </HBox>
-            <FlowPane fx:id="main" prefHeight="166.0" prefWidth="900.0" hgap="-40.0" vgap="0.0" prefWrapLength="900.0" />
-            <Label fx:id="scoreSelf" alignment="CENTER" />
-            <Label fx:id="tourLabel" alignment="CENTER" prefWidth="400.0" />
-            <Label fx:id="statusLabel" prefWidth="400.0" alignment="CENTER" />
-         </children>
-      </VBox>
-   </children>
+<AnchorPane fx:id="root"
+            prefWidth="900" prefHeight="500"
+            style="-fx-background-image: url('/sample/img/background.jpg');
+                   -fx-background-repeat: no-repeat;
+                   -fx-background-size: cover;
+                   -fx-background-position: center center;"
+            xmlns="http://javafx.com/javafx/11.0.1"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="sample.PartieController">
+
+   <!-- Top status label -->
+   <Label fx:id="statusLabel"
+          text="Tour 1"
+          alignment="CENTER"
+          style="-fx-text-fill: white;
+                  -fx-font-size: 1.5em;
+                  -fx-background-color: rgba(0,0,0,0.5);
+                  -fx-padding: 5;
+                  -fx-background-radius: 5;"
+          AnchorPane.topAnchor="10"
+          AnchorPane.leftAnchor="0"
+          AnchorPane.rightAnchor="0" />
+
+   <!-- Main content area -->
+   <VBox AnchorPane.topAnchor="60"
+         AnchorPane.bottomAnchor="150"
+         AnchorPane.leftAnchor="20"
+         AnchorPane.rightAnchor="20"
+         spacing="20">
+
+      <!-- Opponents row -->
+      <HBox fx:id="hboxTop"
+            alignment="CENTER"
+
+            spacing="20">
+         <Region HBox.hgrow="ALWAYS" />
+         <VBox alignment="CENTER" spacing="5">
+            <Label fx:id="labelTopLeft" style="-fx-text-fill: white; -fx-font-size: 1em; -fx-font-weight: bold;" />
+            <Label fx:id="scoreTopLeft" style="-fx-text-fill: white;" />
+            <ImageView fitWidth="60" fitHeight="100" preserveRatio="true">
+               <image><Image url="@img/carte.png"/></image>
+            </ImageView>
+         </VBox>
+         <Region HBox.hgrow="ALWAYS" />
+         <HBox fx:id="teamScoreBox" alignment="CENTER" spacing="10.0" visible="false" style="-fx-background-color: rgba(0,0,0,0.5); -fx-padding: 5; -fx-background-radius: 5;">
+              <children>
+                  <Label fx:id="attackScoreLabel" style="-fx-text-fill: #6c0303; -fx-font-size: 1em; -fx-font-weight: bold;" />
+                  <Label text="|" style="-fx-text-fill: white; -fx-font-size: 1em; -fx-font-weight: bold;" />
+                  <Label fx:id="defenseScoreLabel" style="-fx-text-fill: #2c2c85; -fx-font-size: 1em; -fx-font-weight: bold;" />
+              </children>
+          </HBox>
+         <Region HBox.hgrow="ALWAYS" />
+         <VBox alignment="CENTER" spacing="5">
+            <Label fx:id="labelTopRight" style="-fx-text-fill: white; -fx-font-size: 1em; -fx-font-weight: bold;" />
+            <Label fx:id="scoreTopRight" style="-fx-text-fill: white;" />
+            <ImageView fitWidth="60" fitHeight="100" preserveRatio="true">
+               <image><Image url="@img/carte.png"/></image>
+            </ImageView>
+         </VBox>
+         <Region HBox.hgrow="ALWAYS" />
+      </HBox>
+
+      <!-- Bottom row: left player, actions, right player -->
+      <HBox fx:id="hboxBottom"
+            alignment="CENTER"
+            spacing="20">
+         <!-- Left spacer -->
+         <Region HBox.hgrow="ALWAYS" />
+
+         <!-- Left player -->
+         <VBox alignment="CENTER" spacing="5">
+            <Label fx:id="labelLeft" style="-fx-text-fill: white; -fx-font-size: 1em; -fx-font-weight: bold;" />
+            <Label fx:id="scoreLeft" style="-fx-text-fill: white;" />
+            <ImageView fitWidth="60" fitHeight="100" preserveRatio="true">
+               <image><Image url="@img/carte.png"/></image>
+            </ImageView>
+         </VBox>
+
+         <!-- Middle spacer between left and actions -->
+         <Region HBox.hgrow="ALWAYS" />
+
+         <!-- Action buttons & central card area -->
+         <Button fx:id="take" text="Prendre le chien" onAction="#playWithDog" visible="false" />
+         <StackPane prefWidth="200" prefHeight="200">
+            <HBox fx:id="boxTour" alignment="CENTER" spacing="10" />
+            <HBox fx:id="boxChien" alignment="CENTER" spacing="20" />
+            <ImageView fx:id="carteCenter" fitWidth="60" fitHeight="100" preserveRatio="true" />
+            <HBox fx:id="boxRois" alignment="CENTER" />
+            <Button fx:id="retrieveDog" text="Récupérer" onAction="#retrieveDogCards" visible="false" StackPane.alignment="BOTTOM_CENTER"/>
+         </StackPane>
+         <Button fx:id="refuse" text="Refuser le chien" onAction="#playWithoutDog" visible="false" />
+
+         <!-- Middle spacer between actions and right player -->
+         <Region HBox.hgrow="ALWAYS" />
+
+         <!-- Right player -->
+         <VBox alignment="CENTER" spacing="5">
+            <Label fx:id="labelRight" style="-fx-text-fill: white; -fx-font-size: 1em; -fx-font-weight: bold;" />
+            <Label fx:id="scoreRight" style="-fx-text-fill: white;" />
+            <ImageView fitWidth="60" fitHeight="100" preserveRatio="true">
+               <image><Image url="@img/carte.png"/></image>
+            </ImageView>
+         </VBox>
+
+         <!-- Right spacer -->
+         <Region HBox.hgrow="ALWAYS" />
+      </HBox>
+
+   </VBox>
+
+   <!-- Self score at bottom center -->
+   <Label fx:id="scoreSelf" alignment="CENTER" style="-fx-text-fill: white;"
+          AnchorPane.bottomAnchor="130"
+          AnchorPane.leftAnchor="0"
+          AnchorPane.rightAnchor="0" />
+
+   <!-- Player hand or dynamic cards -->
+   <FlowPane fx:id="main"
+             AnchorPane.bottomAnchor="10"
+             AnchorPane.leftAnchor="20"
+             AnchorPane.rightAnchor="20"
+             hgap="-80.0"
+             alignment="CENTER"/>
 </AnchorPane>

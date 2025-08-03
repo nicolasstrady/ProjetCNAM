@@ -114,7 +114,7 @@ public class PartieController {
     }
 
     public void initHand(ArrayList<String> ids, ArrayList<String> liens, ArrayList<String> colors) {
-        main.setHgap(-80);
+        main.setHgap(-30);
         main.setVgap(0);
         for (int i = 0; i < ids.size(); i++) {
             InputStream is = getClass().getResourceAsStream("/sample/img/" + liens.get(i));
@@ -692,7 +692,6 @@ public class PartieController {
             cardRanks.put(pendingDogIds.get(j), extractRank(pendingDogLiens.get(j)));
             main.getChildren().add(handView);
         }
-        main.setHgap(-80);
         sortHand();
         boxChien.getChildren().clear();
         retrieveDog.setVisible(false);

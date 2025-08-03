@@ -96,12 +96,12 @@
 
          <!-- Central action area -->
          <StackPane prefWidth="200" prefHeight="200">
-            <HBox fx:id="boxTour" alignment="CENTER" spacing="10" visible="false" />
+            <HBox fx:id="boxTour" alignment="CENTER" spacing="10" />
             <HBox fx:id="boxChien" alignment="CENTER" spacing="20" visible="false" />
             <ImageView fx:id="carteCenter" fitWidth="60" fitHeight="100" preserveRatio="true" visible="false" />
             <HBox fx:id="boxRois" alignment="CENTER" visible="false" />
             <Button fx:id="retrieveDog" text="Récupérer" onAction="#retrieveDogCards" visible="false" StackPane.alignment="BOTTOM_CENTER"/>
-            <VBox fx:id="contractBox" alignment="CENTER" spacing="10" visible="false"
+            <VBox fx:id="contractBox" alignment="CENTER" spacing="10" visible="false" managed="false"
                   style="-fx-background-color: rgba(0,0,0,0.5); -fx-background-radius: 5; -fx-padding: 10;">
                <Button fx:id="petite" text="Petite" onAction="#choosePetite"
                        style="-fx-background-color: rgba(0,0,0,0.5); -fx-text-fill: white; -fx-background-radius: 5;" />

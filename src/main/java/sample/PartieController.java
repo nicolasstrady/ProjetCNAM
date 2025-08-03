@@ -298,7 +298,7 @@ public class PartieController {
         String takeFlag = (String) resp.get(1);
         int numPlayerTake = (int) resp.get(2);
         String contract = resp.size() > 3 ? (String) resp.get(3) : "";
-        contractBox.setVisible(false);
+        hideContractBox();
         if (takeFlag.equals("TAKE")) {
             takerNum = numPlayerTake;
             lastCurrentPlayer = numPlayerTake;
@@ -314,7 +314,7 @@ public class PartieController {
             updateCurrentPlayerLabel(current);
             if (current == Integer.parseInt(AccueilController.numJoueur)) {
                 statusLabel.setText("A votre tour !");
-                contractBox.setVisible(true);
+                showContractBox();
             } else {
                 String name = playerNames != null && current <= playerNames.size()
                         ? playerNames.get(current - 1)
@@ -357,6 +357,7 @@ public class PartieController {
         String couleur = resp.size() > 5 ? normalizeColor((String) resp.get(5)) : "";
         ArrayList<Double> scores = resp.size() > 6 ? (ArrayList<Double>) resp.get(6) : null;
         lastScores = scores;
+        boxTour.setVisible(true);
         boxTour.getChildren().clear();
         highestAtoutCenter = 0;
         for (int i = 0; i < idCartes.size(); i++) {
@@ -569,6 +570,16 @@ public class PartieController {
         defenseScoreLabel.setText(String.format("%.1f", defense));
     }
 
+    private void showContractBox() {
+        contractBox.setManaged(true);
+        contractBox.setVisible(true);
+    }
+
+    private void hideContractBox() {
+        contractBox.setVisible(false);
+        contractBox.setManaged(false);
+    }
+
     private void sendContract(String type) {
         ArrayList<Object> msg = new ArrayList<>();
         msg.add("CHIEN");
@@ -579,7 +590,7 @@ public class PartieController {
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
         }
-        contractBox.setVisible(false);
+        hideContractBox();
     }
 
     @FXML
@@ -604,7 +615,7 @@ public class PartieController {
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
         }
-        contractBox.setVisible(false);
+        hideContractBox();
     }
 
     public void take(int numPlayerTake) {

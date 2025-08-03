@@ -799,7 +799,7 @@ public class ClientProcessor implements Runnable {
                             if(results3.next()) {
                                 for(int i = 1; i<=15; i++) {
                                     String cid = results3.getString("carte" + i);
-                                    if(cid != null) {
+                                    if(cid != null && !cid.equals(idCarte)) {
                                         PreparedStatement ps4 = this.connection.prepareStatement("SELECT couleur,valeur FROM carte WHERE id = ?");
                                         ps4.setInt(1, Integer.parseInt(cid));
                                         ResultSet results4 = ps4.executeQuery();

@@ -327,6 +327,9 @@ public class PartieController {
     private void handleCallInfo(List<Object> resp) {
         calledKingColor = normalizeColor((String) resp.get(4));
         statusLabel.setText("Le Roi de " + resp.get(4) + " a été appelé !");
+        boxRois.setVisible(false);
+        boxRois.getChildren().clear();
+        boxChien.setVisible(true);
         boxChien.getChildren().clear();
         ArrayList<Integer> idCartes = (ArrayList<Integer>) resp.get(1);
         ArrayList<String> lienCartes = (ArrayList<String>) resp.get(2);
@@ -607,6 +610,9 @@ public class PartieController {
     public void take(int numPlayerTake) {
         if(numPlayerTake == Integer.parseInt(AccueilController.numJoueur)){
             carteCenter.setVisible(false);
+            boxChien.setVisible(false);
+            boxRois.setVisible(true);
+            boxRois.getChildren().clear();
             ArrayList<Object> rois = new ArrayList<>();
             rois.add("ROIS");
             rois.add(ConnexionController.idUser);
@@ -658,6 +664,7 @@ public class PartieController {
     }
     public void callKing(String idCarte) {
         boxRois.getChildren().clear();
+        boxRois.setVisible(false);
         boxRois.setSpacing(20);
         boxChien.setSpacing(20);
         ArrayList<Object> calls = new ArrayList<>();

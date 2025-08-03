@@ -704,6 +704,7 @@ public class ClientProcessor implements Runnable {
                     }
                     ps.close();
                     int rankCarte = "ATOUT".equals(couleurCarte) ? rank("ATOUT", valeurCarte) : -1;
+                    System.out.println("[PLAYTOUR] joueur " + idUser + " tente carte " + idCarte + " (" + couleurCarte + " " + valeurCarte + ") couleurTour=" + couleurTour + " rang=" + rankCarte);
                     if(countJoueurTour == 1) {
                         firstPlayer = currentJoueurTour;
                         PreparedStatement stmt = this.connection.prepareStatement("INSERT INTO plis(pliChien,partie) VALUES(?,?)", Statement.RETURN_GENERATED_KEYS);
@@ -825,20 +826,26 @@ public class ClientProcessor implements Runnable {
                             }
                             results3.close();
                             ps3.close();
+                            System.out.println("[PLAYTOUR] main joueur " + idUser + " hasCouleur=" + hasCouleur + ", hasAtout=" + hasAtout + ", hasHigherAtout=" + hasHigherAtout + ", highestAtoutCenter=" + highestAtoutCenter);
                             if(plisCount == 14 && "EXCUSE".equals(couleurCarte)) {
+                                System.out.println("[PLAYTOUR] refus : excuse au dernier pli");
                                 error = true;
                             } else if("EXCUSE".equals(couleurCarte)) {
                                 // always allowed
                             } else if(hasCouleur) {
                                 if(!couleurCarte.equals(couleurTour)) {
+                                    System.out.println("[PLAYTOUR] refus : doit fournir la couleur " + couleurTour);
                                     error = true;
                                 } else if("ATOUT".equals(couleurTour) && highestAtoutCenter > 0 && hasHigherAtout && rankCarte < highestAtoutCenter) {
+                                    System.out.println("[PLAYTOUR] refus : doit monter sur atout " + highestAtoutCenter);
                                     error = true;
                                 }
                             } else if(hasAtout) {
                                 if(!"ATOUT".equals(couleurCarte)) {
+                                    System.out.println("[PLAYTOUR] refus : doit couper");
                                     error = true;
                                 } else if("ATOUT".equals(couleurTour) && highestAtoutCenter > 0 && hasHigherAtout && rankCarte < highestAtoutCenter) {
+                                    System.out.println("[PLAYTOUR] refus : doit couper plus haut que " + highestAtoutCenter);
                                     error = true;
                                 }
                             }
@@ -927,6 +934,7 @@ public class ClientProcessor implements Runnable {
                             currentJoueurTour = currentJoueurTour == 5 ? 1 : currentJoueurTour + 1;
                         }
                     }
+                    System.out.println("[PLAYTOUR] resultat pour joueur " + idUser + " carte " + idCarte + " -> " + (error ? "REFUS" : "ACCEPTE"));
                     toSend.add(error);
                     broadcastTourUpdate();
 

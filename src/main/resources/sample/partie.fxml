@@ -94,21 +94,21 @@
          <!-- Middle spacer between left and actions -->
          <Region HBox.hgrow="ALWAYS" />
 
-         <!-- Action buttons & central card area -->
-         <VBox fx:id="contractBox" alignment="CENTER" spacing="10" visible="false"
-               style="-fx-background-color: rgba(0,0,0,0.5); -fx-background-radius: 5; -fx-padding: 10;">
-            <Button fx:id="petite" text="Petite" onAction="#choosePetite"
-                    style="-fx-background-color: rgba(0,0,0,0.5); -fx-text-fill: white; -fx-background-radius: 5;" />
-            <Button fx:id="garde" text="Garde" onAction="#chooseGarde"
-                    style="-fx-background-color: rgba(0,0,0,0.5); -fx-text-fill: white; -fx-background-radius: 5;" />
-            <Button fx:id="gardeContre" text="Garde contre" onAction="#chooseGardeContre"
-                    style="-fx-background-color: rgba(0,0,0,0.5); -fx-text-fill: white; -fx-background-radius: 5;" />
-            <Button fx:id="gardeSans" text="Garde sans" onAction="#chooseGardeSans"
-                    style="-fx-background-color: rgba(0,0,0,0.5); -fx-text-fill: white; -fx-background-radius: 5;" />
-            <Button fx:id="refuse" text="Refuser" onAction="#chooseRefuse"
-                    style="-fx-background-color: rgba(0,0,0,0.5); -fx-text-fill: white; -fx-background-radius: 5;" />
-         </VBox>
+         <!-- Central action area -->
          <StackPane prefWidth="200" prefHeight="200">
+            <VBox fx:id="contractBox" alignment="CENTER" spacing="10" visible="false"
+                  style="-fx-background-color: rgba(0,0,0,0.5); -fx-background-radius: 5; -fx-padding: 10;">
+               <Button fx:id="petite" text="Petite" onAction="#choosePetite"
+                       style="-fx-background-color: rgba(0,0,0,0.5); -fx-text-fill: white; -fx-background-radius: 5;" />
+               <Button fx:id="garde" text="Garde" onAction="#chooseGarde"
+                       style="-fx-background-color: rgba(0,0,0,0.5); -fx-text-fill: white; -fx-background-radius: 5;" />
+               <Button fx:id="gardeContre" text="Garde contre" onAction="#chooseGardeContre"
+                       style="-fx-background-color: rgba(0,0,0,0.5); -fx-text-fill: white; -fx-background-radius: 5;" />
+               <Button fx:id="gardeSans" text="Garde sans" onAction="#chooseGardeSans"
+                       style="-fx-background-color: rgba(0,0,0,0.5); -fx-text-fill: white; -fx-background-radius: 5;" />
+               <Button fx:id="refuse" text="Refuser" onAction="#chooseRefuse"
+                       style="-fx-background-color: rgba(0,0,0,0.5); -fx-text-fill: white; -fx-background-radius: 5;" />
+            </VBox>
             <HBox fx:id="boxTour" alignment="CENTER" spacing="10" />
             <HBox fx:id="boxChien" alignment="CENTER" spacing="20" />
             <ImageView fx:id="carteCenter" fitWidth="60" fitHeight="100" preserveRatio="true" />
@@ -145,6 +145,6 @@
              AnchorPane.bottomAnchor="10"
              AnchorPane.leftAnchor="20"
              AnchorPane.rightAnchor="20"
-             hgap="-80.0"
+             hgap="-20.0"
              alignment="CENTER"/>
 </AnchorPane>

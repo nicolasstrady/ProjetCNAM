@@ -114,7 +114,7 @@ public class PartieController {
     }
 
     public void initHand(ArrayList<String> ids, ArrayList<String> liens, ArrayList<String> colors) {
-        main.setHgap(-30);
+        main.setHgap(-20);
         main.setVgap(0);
         for (int i = 0; i < ids.size(); i++) {
             InputStream is = getClass().getResourceAsStream("/sample/img/" + liens.get(i));

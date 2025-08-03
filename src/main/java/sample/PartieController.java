@@ -295,26 +295,32 @@ public class PartieController {
 
     private void handleAnswerUpdate(List<Object> resp) {
         int current = (int) resp.get(0);
-        lastCurrentPlayer = current;
-        updateCurrentPlayerLabel(current);
         String takeFlag = (String) resp.get(1);
         int numPlayerTake = (int) resp.get(2);
+        String contract = resp.size() > 3 ? (String) resp.get(3) : "";
         contractBox.setVisible(false);
         if (takeFlag.equals("TAKE")) {
             takerNum = numPlayerTake;
+            lastCurrentPlayer = numPlayerTake;
+            updateCurrentPlayerLabel(numPlayerTake);
             String name = playerNames != null && numPlayerTake <= playerNames.size()
                     ? playerNames.get(numPlayerTake - 1)
                     : "Joueur " + numPlayerTake;
-            statusLabel.setText(name + " a pris le chien");
+            String contractDisplay = contract.toLowerCase().replace('_', ' ');
+            statusLabel.setText(name + " déclare une " + contractDisplay);
             take(numPlayerTake);
-        } else if (current == Integer.parseInt(AccueilController.numJoueur)) {
-            statusLabel.setText("A votre tour !");
-            contractBox.setVisible(true);
         } else {
-            String name = playerNames != null && current <= playerNames.size()
-                    ? playerNames.get(current - 1)
-                    : "Joueur " + current;
-            statusLabel.setText("Au tour de " + name);
+            lastCurrentPlayer = current;
+            updateCurrentPlayerLabel(current);
+            if (current == Integer.parseInt(AccueilController.numJoueur)) {
+                statusLabel.setText("A votre tour !");
+                contractBox.setVisible(true);
+            } else {
+                String name = playerNames != null && current <= playerNames.size()
+                        ? playerNames.get(current - 1)
+                        : "Joueur " + current;
+                statusLabel.setText("Au tour de " + name);
+            }
         }
     }
 

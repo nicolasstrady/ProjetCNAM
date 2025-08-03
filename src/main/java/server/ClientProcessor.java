@@ -653,6 +653,8 @@ public class ClientProcessor implements Runnable {
                             stmt1.executeUpdate();
                             if(nbCartesChien == 3) {
                                 dogDone = true;
+                                // Reset turn so the taker opens the first trick
+                                currentJoueurTour = -1;
                                 broadcastDogReady();
                             }
                             toSend.add(dogDone);
@@ -793,15 +795,16 @@ public class ClientProcessor implements Runnable {
                             String query3 = "SELECT * FROM joueur WHERE utilisateur = " + idUser + " AND partie = " + currentPartie;
                             PreparedStatement ps3 = this.connection.prepareStatement(query3);
                             ResultSet results3 = ps3.executeQuery();
-                            boolean hasCouleur = couleurCarte.equals(couleurTour);
+                            boolean hasCouleur = false;
                             boolean hasAtout = false;
                             boolean hasHigherAtout = false;
                             if(results3.next()) {
+                                int playedId = Integer.parseInt(idCarte);
                                 for(int i = 1; i<=15; i++) {
-                                    String cid = results3.getString("carte" + i);
-                                    if(cid != null && !cid.equals(idCarte)) {
+                                    int cid = results3.getInt("carte" + i);
+                                    if(!results3.wasNull() && cid != playedId) {
                                         PreparedStatement ps4 = this.connection.prepareStatement("SELECT couleur,valeur FROM carte WHERE id = ?");
-                                        ps4.setInt(1, Integer.parseInt(cid));
+                                        ps4.setInt(1, cid);
                                         ResultSet results4 = ps4.executeQuery();
                                         if (results4.next()) {
                                             String c = normalizeColor(results4.getString("couleur"));

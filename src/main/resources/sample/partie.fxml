@@ -38,7 +38,7 @@
 
    <!-- Main content area -->
    <VBox AnchorPane.topAnchor="60"
-         AnchorPane.bottomAnchor="150"
+         AnchorPane.bottomAnchor="200"
          AnchorPane.leftAnchor="20"
          AnchorPane.rightAnchor="20"
          spacing="20">
@@ -96,6 +96,11 @@
 
          <!-- Central action area -->
          <StackPane prefWidth="200" prefHeight="200">
+            <HBox fx:id="boxTour" alignment="CENTER" spacing="10" visible="false" />
+            <HBox fx:id="boxChien" alignment="CENTER" spacing="20" visible="false" />
+            <ImageView fx:id="carteCenter" fitWidth="60" fitHeight="100" preserveRatio="true" visible="false" />
+            <HBox fx:id="boxRois" alignment="CENTER" visible="false" />
+            <Button fx:id="retrieveDog" text="Récupérer" onAction="#retrieveDogCards" visible="false" StackPane.alignment="BOTTOM_CENTER"/>
             <VBox fx:id="contractBox" alignment="CENTER" spacing="10" visible="false"
                   style="-fx-background-color: rgba(0,0,0,0.5); -fx-background-radius: 5; -fx-padding: 10;">
                <Button fx:id="petite" text="Petite" onAction="#choosePetite"
@@ -109,11 +114,6 @@
                <Button fx:id="refuse" text="Refuser" onAction="#chooseRefuse"
                        style="-fx-background-color: rgba(0,0,0,0.5); -fx-text-fill: white; -fx-background-radius: 5;" />
             </VBox>
-            <HBox fx:id="boxTour" alignment="CENTER" spacing="10" />
-            <HBox fx:id="boxChien" alignment="CENTER" spacing="20" />
-            <ImageView fx:id="carteCenter" fitWidth="60" fitHeight="100" preserveRatio="true" />
-            <HBox fx:id="boxRois" alignment="CENTER" />
-            <Button fx:id="retrieveDog" text="Récupérer" onAction="#retrieveDogCards" visible="false" StackPane.alignment="BOTTOM_CENTER"/>
          </StackPane>
 
          <!-- Middle spacer between actions and right player -->
@@ -136,7 +136,7 @@
 
    <!-- Self score at bottom center -->
    <Label fx:id="scoreSelf" alignment="CENTER" style="-fx-text-fill: white;"
-          AnchorPane.bottomAnchor="130"
+          AnchorPane.bottomAnchor="180"
           AnchorPane.leftAnchor="0"
           AnchorPane.rightAnchor="0" />
 
@@ -145,6 +145,6 @@
              AnchorPane.bottomAnchor="10"
              AnchorPane.leftAnchor="20"
              AnchorPane.rightAnchor="20"
-             hgap="-20.0"
+             hgap="-80.0"
              alignment="CENTER"/>
 </AnchorPane>

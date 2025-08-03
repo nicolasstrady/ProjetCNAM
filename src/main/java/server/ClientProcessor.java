@@ -142,6 +142,31 @@ public class ClientProcessor implements Runnable {
         try { return Integer.parseInt(valeur); } catch (NumberFormatException e) { return -1; }
     }
 
+    private String normalizeColor(String color) {
+        if (color == null) return "";
+        color = color.toUpperCase();
+        switch (color) {
+            case "SPADE":
+            case "PIQUE":
+                return "PIQUE";
+            case "HEART":
+            case "COEUR":
+                return "COEUR";
+            case "CLOVER":
+            case "TREFLE":
+                return "TREFLE";
+            case "DIAMOND":
+            case "CARREAU":
+                return "CARREAU";
+            case "BOUT":
+                return "BOUT";
+            case "ATOUT":
+                return "ATOUT";
+            default:
+                return color;
+        }
+    }
+
     private int determineWinner() throws SQLException {
         String q = "SELECT carte1,carte2,carte3,carte4,carte5 FROM plis WHERE id = ? AND partie = ?";
         PreparedStatement ps = this.connection.prepareStatement(q);
@@ -169,7 +194,7 @@ public class ClientProcessor implements Runnable {
             pc.setInt(1, cid);
             ResultSet rc = pc.executeQuery();
             if (rc.next()) {
-                String c = rc.getString("couleur").toUpperCase();
+                String c = normalizeColor(rc.getString("couleur"));
                 String v = rc.getString("valeur").toUpperCase();
                 boolean isExc = c.equals("BOUT") && v.equals("E");
                 String eff = isExc ? "EXCUSE" : (c.equals("BOUT") ? "ATOUT" : c);
@@ -222,7 +247,7 @@ public class ClientProcessor implements Runnable {
                 pc.setInt(1, cid);
                 ResultSet rc = pc.executeQuery();
                 if (rc.next()) {
-                    String c = rc.getString("couleur").toUpperCase();
+                    String c = normalizeColor(rc.getString("couleur"));
                     String v = rc.getString("valeur").toUpperCase();
                     double p = rc.getDouble("points");
                     if (c.equals("BOUT") && v.equals("E")) {
@@ -423,7 +448,7 @@ public class ClientProcessor implements Runnable {
                             if (results3.next()) {
                                 idCartes.add(results3.getString("id"));
                                 lienCartes.add(results3.getString("lien"));
-                                couleurs.add(results3.getString("couleur"));
+                                couleurs.add(normalizeColor(results3.getString("couleur")));
                             }
                         }
                     } else {
@@ -539,7 +564,7 @@ public class ClientProcessor implements Runnable {
                             if(results4.next()) {
                                 idCartes.add(results4.getInt("id"));
                                 lienCartes.add(results4.getString("lien"));
-                                couleurCartes.add(results4.getString("couleur"));
+                                couleurCartes.add(normalizeColor(results4.getString("couleur")));
                             }
                         }
                     }
@@ -548,7 +573,7 @@ public class ClientProcessor implements Runnable {
                     PreparedStatement ps4 = this.connection.prepareStatement(query4);
                     ResultSet results4 = ps4.executeQuery();
                     if(results4.next()) {
-                        couleurAppel= results4.getString("couleur");
+                        couleurAppel= normalizeColor(results4.getString("couleur"));
                     }
                     toSend.add(idCartes);
                     toSend.add(lienCartes);
@@ -596,7 +621,7 @@ public class ClientProcessor implements Runnable {
                     PreparedStatement ps = this.connection.prepareStatement(query);
                     ResultSet results = ps.executeQuery();
                     if(results.next()) {
-                        String couleur = results.getString("couleur");
+                        String couleur = normalizeColor(results.getString("couleur"));
                         String valeur = results.getString("valeur");
                         if(!couleur.equals("BOUT") && !couleur.equals("ATOUT") && !valeur.equals("R")) {
                             if(nbCartesChien == 1) {
@@ -660,7 +685,7 @@ public class ClientProcessor implements Runnable {
                     String couleurCarte = "";
                     String valeurCarte = "";
                     if(results.next()) {
-                        couleurCarte = results.getString("couleur").toUpperCase();
+                        couleurCarte = normalizeColor(results.getString("couleur"));
                         valeurCarte = results.getString("valeur").toUpperCase();
                         if("BOUT".equals(couleurCarte)) {
                             if("E".equals(valeurCarte)) {
@@ -738,7 +763,7 @@ public class ClientProcessor implements Runnable {
                                     pc2.setInt(1, Integer.parseInt(cidStr));
                                     ResultSet rc2 = pc2.executeQuery();
                                     if(rc2.next()) {
-                                        String c = rc2.getString("couleur").toUpperCase();
+                                        String c = normalizeColor(rc2.getString("couleur"));
                                         String v = rc2.getString("valeur").toUpperCase();
                                         if(!(c.equals("BOUT") && v.equals("E")) && (c.equals("ATOUT") || c.equals("BOUT"))) {
                                             int r = rank("ATOUT", v);
@@ -771,7 +796,7 @@ public class ClientProcessor implements Runnable {
                                         ps4.setInt(1, Integer.parseInt(cid));
                                         ResultSet results4 = ps4.executeQuery();
                                         if (results4.next()) {
-                                            String c = results4.getString("couleur").toUpperCase();
+                                            String c = normalizeColor(results4.getString("couleur"));
                                             String v = results4.getString("valeur").toUpperCase();
                                             boolean isExc = c.equals("BOUT") && v.equals("E");
                                             String eff = isExc ? "EXCUSE" : (c.equals("BOUT") ? "ATOUT" : c);

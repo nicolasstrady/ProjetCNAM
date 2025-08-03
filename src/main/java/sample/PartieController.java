@@ -28,7 +28,15 @@ public class PartieController {
     @FXML
     private FlowPane main;
     @FXML
-    private Button take;
+    private VBox contractBox;
+    @FXML
+    private Button petite;
+    @FXML
+    private Button garde;
+    @FXML
+    private Button gardeContre;
+    @FXML
+    private Button gardeSans;
     @FXML
     private Button refuse;
     @FXML
@@ -106,7 +114,7 @@ public class PartieController {
     }
 
     public void initHand(ArrayList<String> ids, ArrayList<String> liens, ArrayList<String> colors) {
-        main.setHgap(-10);
+        main.setHgap(-80);
         main.setVgap(0);
         for (int i = 0; i < ids.size(); i++) {
             InputStream is = getClass().getResourceAsStream("/sample/img/" + liens.get(i));
@@ -288,8 +296,10 @@ public class PartieController {
     private void handleAnswerUpdate(List<Object> resp) {
         int current = (int) resp.get(0);
         lastCurrentPlayer = current;
+        updateCurrentPlayerLabel(current);
         String takeFlag = (String) resp.get(1);
         int numPlayerTake = (int) resp.get(2);
+        contractBox.setVisible(false);
         if (takeFlag.equals("TAKE")) {
             takerNum = numPlayerTake;
             String name = playerNames != null && numPlayerTake <= playerNames.size()
@@ -299,8 +309,7 @@ public class PartieController {
             take(numPlayerTake);
         } else if (current == Integer.parseInt(AccueilController.numJoueur)) {
             statusLabel.setText("A votre tour !");
-            take.setVisible(true);
-            refuse.setVisible(true);
+            contractBox.setVisible(true);
         } else {
             String name = playerNames != null && current <= playerNames.size()
                     ? playerNames.get(current - 1)
@@ -551,32 +560,42 @@ public class PartieController {
         defenseScoreLabel.setText(String.format("%.1f", defense));
     }
 
-    public void playWithDog() throws InterruptedException {
-        ArrayList<Object> chiens = new ArrayList<>();
-        chiens.add("CHIEN");
-        chiens.add(ConnexionController.idUser);
-
+    private void sendContract(String type) {
+        ArrayList<Object> msg = new ArrayList<>();
+        msg.add("CHIEN");
+        msg.add(type);
+        msg.add(ConnexionController.idUser);
         try {
-            ConnexionController.client.send(chiens);
+            ConnexionController.client.send(msg);
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
         }
-        refuse.setVisible(false);
-        take.setVisible(false);
+        contractBox.setVisible(false);
     }
 
-    public void playWithoutDog() throws InterruptedException {
+    @FXML
+    public void choosePetite() { sendContract("PETITE"); }
+
+    @FXML
+    public void chooseGarde() { sendContract("GARDE"); }
+
+    @FXML
+    public void chooseGardeContre() { sendContract("GARDE_CONTRE"); }
+
+    @FXML
+    public void chooseGardeSans() { sendContract("GARDE_SANS"); }
+
+    @FXML
+    public void chooseRefuse() {
         ArrayList<Object> refuses = new ArrayList<>();
         refuses.add("REFUSE");
         refuses.add(ConnexionController.idUser);
-
         try {
             ConnexionController.client.send(refuses);
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
         }
-        refuse.setVisible(false);
-        take.setVisible(false);
+        contractBox.setVisible(false);
     }
 
     public void take(int numPlayerTake) {
@@ -601,6 +620,16 @@ public class PartieController {
                     ImageView imageRoi = new ImageView(img);
                     applyCardSize(imageRoi);
                     int finalI = i;
+                    imageRoi.setOnMouseEntered(e -> {
+                        imageRoi.setScaleX(1.2);
+                        imageRoi.setScaleY(1.2);
+                        imageRoi.setCursor(Cursor.HAND);
+                    });
+                    imageRoi.setOnMouseExited(e -> {
+                        imageRoi.setScaleX(1);
+                        imageRoi.setScaleY(1);
+                        imageRoi.setCursor(Cursor.DEFAULT);
+                    });
                     imageRoi.addEventHandler(javafx.scene.input.MouseEvent.MOUSE_CLICKED, event -> {
                         callKing(idCartes.get(finalI));
                     });
@@ -657,6 +686,7 @@ public class PartieController {
             cardRanks.put(pendingDogIds.get(j), extractRank(pendingDogLiens.get(j)));
             main.getChildren().add(handView);
         }
+        main.setHgap(-80);
         sortHand();
         boxChien.getChildren().clear();
         retrieveDog.setVisible(false);
@@ -665,8 +695,33 @@ public class PartieController {
     }
 
     private void enableDogSelection() {
+        ColorAdjust gray = new ColorAdjust();
+        gray.setSaturation(-1);
+        gray.setBrightness(-0.3);
         for (int i = 0; i < main.getChildren().size(); i++) {
             ImageView imageCarte = (ImageView) main.getChildren().get(i);
+            String id = imageCarte.getId();
+            String color = cardColors.get(id);
+            int rank = cardRanks.getOrDefault(id, 0);
+            boolean isBout = "BOUT".equals(color);
+            boolean isKing = rank == 14 && !"ATOUT".equals(color);
+            if (isBout || isKing) {
+                imageCarte.setDisable(true);
+                imageCarte.setEffect(gray);
+                continue;
+            }
+            imageCarte.setOnMouseEntered(e -> {
+                imageCarte.setScaleX(1.2);
+                imageCarte.setScaleY(1.2);
+                imageCarte.setViewOrder(-1);
+                imageCarte.setCursor(Cursor.HAND);
+            });
+            imageCarte.setOnMouseExited(e -> {
+                imageCarte.setScaleX(1);
+                imageCarte.setScaleY(1);
+                imageCarte.setViewOrder(0);
+                imageCarte.setCursor(Cursor.DEFAULT);
+            });
             imageCarte.setOnMouseClicked((e) -> {
                 ArrayList<Object> addDogs = new ArrayList<>();
                 addDogs.add("ADDDOG");

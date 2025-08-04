@@ -70,8 +70,6 @@ public class PartieController {
     @FXML
     private Label scoreRight;
     @FXML
-    private Label scoreSelf;
-    @FXML
     private AnchorPane root;
     @FXML
     private HBox teamScoreBox;
@@ -110,6 +108,15 @@ public class PartieController {
             main.prefWrapLengthProperty().bind(root.widthProperty());
             root.widthProperty().addListener((o, ov, nv) -> resizeAllCards());
             root.heightProperty().addListener((o, ov, nv) -> resizeAllCards());
+        }
+        if (attackScoreLabel != null) {
+            attackScoreLabel.setText("?");
+        }
+        if (defenseScoreLabel != null) {
+            defenseScoreLabel.setText("?");
+        }
+        if (teamScoreBox != null) {
+            teamScoreBox.setVisible(true);
         }
     }
 
@@ -377,7 +384,6 @@ public class PartieController {
         updateCurrentPlayerLabel(current);
         int myNum = Integer.parseInt(AccueilController.numJoueur);
         if (scores != null && playerNames != null && scores.size() == playerNames.size()) {
-            scoreSelf.setText(String.format("%.1f", scores.get(myNum - 1)));
             for (int i = 1; i <= 4; i++) {
                 int playerNum = ((myNum + i - 1) % 5) + 1;
                 opponentScoreLabels.get(i - 1).setText(String.format("%.1f", scores.get(playerNum - 1)));

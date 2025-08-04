@@ -38,7 +38,7 @@
 
    <!-- Main content area -->
    <VBox AnchorPane.topAnchor="60"
-         AnchorPane.bottomAnchor="150"
+         AnchorPane.bottomAnchor="200"
          AnchorPane.leftAnchor="20"
          AnchorPane.rightAnchor="20"
          spacing="20">
@@ -57,13 +57,21 @@
             </ImageView>
          </VBox>
          <Region HBox.hgrow="ALWAYS" />
-         <HBox fx:id="teamScoreBox" alignment="CENTER" spacing="10.0" visible="false" style="-fx-background-color: rgba(0,0,0,0.5); -fx-padding: 5; -fx-background-radius: 5;">
-              <children>
-                  <Label fx:id="attackScoreLabel" style="-fx-text-fill: #6c0303; -fx-font-size: 1em; -fx-font-weight: bold;" />
-                  <Label text="|" style="-fx-text-fill: white; -fx-font-size: 1em; -fx-font-weight: bold;" />
-                  <Label fx:id="defenseScoreLabel" style="-fx-text-fill: #2c2c85; -fx-font-size: 1em; -fx-font-weight: bold;" />
-              </children>
-          </HBox>
+        <VBox fx:id="teamScoreBox" alignment="CENTER" spacing="5" visible="true"
+              style="-fx-background-color: rgba(0,0,0,0.5); -fx-padding: 5; -fx-background-radius: 5;">
+            <children>
+                <Label text="Score:" style="-fx-text-fill: white; -fx-font-size: 1em; -fx-font-weight: bold;" />
+                <HBox alignment="CENTER" spacing="10">
+                    <children>
+                        <Label fx:id="attackScoreLabel" text="?"
+                               style="-fx-text-fill: #6c0303; -fx-font-size: 1em; -fx-font-weight: bold;" />
+                        <Label text="|" style="-fx-text-fill: white; -fx-font-size: 1em; -fx-font-weight: bold;" />
+                        <Label fx:id="defenseScoreLabel" text="?"
+                               style="-fx-text-fill: #2c2c85; -fx-font-size: 1em; -fx-font-weight: bold;" />
+                    </children>
+                </HBox>
+            </children>
+        </VBox>
          <Region HBox.hgrow="ALWAYS" />
          <VBox alignment="CENTER" spacing="5">
             <Label fx:id="labelTopRight" style="-fx-text-fill: white; -fx-font-size: 1em; -fx-font-weight: bold;" />
@@ -94,16 +102,27 @@
          <!-- Middle spacer between left and actions -->
          <Region HBox.hgrow="ALWAYS" />
 
-         <!-- Action buttons & central card area -->
-         <Button fx:id="take" text="Prendre le chien" onAction="#playWithDog" visible="false" />
+         <!-- Central action area -->
          <StackPane prefWidth="200" prefHeight="200">
             <HBox fx:id="boxTour" alignment="CENTER" spacing="10" />
-            <HBox fx:id="boxChien" alignment="CENTER" spacing="20" />
-            <ImageView fx:id="carteCenter" fitWidth="60" fitHeight="100" preserveRatio="true" />
-            <HBox fx:id="boxRois" alignment="CENTER" />
+            <HBox fx:id="boxChien" alignment="CENTER" spacing="20" visible="false" />
+            <ImageView fx:id="carteCenter" fitWidth="60" fitHeight="100" preserveRatio="true" visible="false" />
+            <HBox fx:id="boxRois" alignment="CENTER" visible="false" />
             <Button fx:id="retrieveDog" text="Récupérer" onAction="#retrieveDogCards" visible="false" StackPane.alignment="BOTTOM_CENTER"/>
+            <VBox fx:id="contractBox" alignment="CENTER" spacing="10" visible="false" managed="false"
+                  style="-fx-background-color: rgba(0,0,0,0.5); -fx-background-radius: 5; -fx-padding: 10;">
+               <Button fx:id="petite" text="Petite" onAction="#choosePetite"
+                       style="-fx-background-color: rgba(0,0,0,0.5); -fx-text-fill: white; -fx-background-radius: 5;" />
+               <Button fx:id="garde" text="Garde" onAction="#chooseGarde"
+                       style="-fx-background-color: rgba(0,0,0,0.5); -fx-text-fill: white; -fx-background-radius: 5;" />
+               <Button fx:id="gardeContre" text="Garde contre" onAction="#chooseGardeContre"
+                       style="-fx-background-color: rgba(0,0,0,0.5); -fx-text-fill: white; -fx-background-radius: 5;" />
+               <Button fx:id="gardeSans" text="Garde sans" onAction="#chooseGardeSans"
+                       style="-fx-background-color: rgba(0,0,0,0.5); -fx-text-fill: white; -fx-background-radius: 5;" />
+               <Button fx:id="refuse" text="Refuser" onAction="#chooseRefuse"
+                       style="-fx-background-color: rgba(0,0,0,0.5); -fx-text-fill: white; -fx-background-radius: 5;" />
+            </VBox>
          </StackPane>
-         <Button fx:id="refuse" text="Refuser le chien" onAction="#playWithoutDog" visible="false" />
 
          <!-- Middle spacer between actions and right player -->
          <Region HBox.hgrow="ALWAYS" />
@@ -122,12 +141,6 @@
       </HBox>
 
    </VBox>
-
-   <!-- Self score at bottom center -->
-   <Label fx:id="scoreSelf" alignment="CENTER" style="-fx-text-fill: white;"
-          AnchorPane.bottomAnchor="130"
-          AnchorPane.leftAnchor="0"
-          AnchorPane.rightAnchor="0" />
 
    <!-- Player hand or dynamic cards -->
    <FlowPane fx:id="main"

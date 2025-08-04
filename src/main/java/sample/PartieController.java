@@ -28,7 +28,15 @@ public class PartieController {
     @FXML
     private FlowPane main;
     @FXML
-    private Button take;
+    private VBox contractBox;
+    @FXML
+    private Button petite;
+    @FXML
+    private Button garde;
+    @FXML
+    private Button gardeContre;
+    @FXML
+    private Button gardeSans;
     @FXML
     private Button refuse;
     @FXML
@@ -61,8 +69,6 @@ public class PartieController {
     private Label scoreTopRight;
     @FXML
     private Label scoreRight;
-    @FXML
-    private Label scoreSelf;
     @FXML
     private AnchorPane root;
     @FXML
@@ -103,10 +109,19 @@ public class PartieController {
             root.widthProperty().addListener((o, ov, nv) -> resizeAllCards());
             root.heightProperty().addListener((o, ov, nv) -> resizeAllCards());
         }
+        if (attackScoreLabel != null) {
+            attackScoreLabel.setText("?");
+        }
+        if (defenseScoreLabel != null) {
+            defenseScoreLabel.setText("?");
+        }
+        if (teamScoreBox != null) {
+            teamScoreBox.setVisible(true);
+        }
     }
 
     public void initHand(ArrayList<String> ids, ArrayList<String> liens, ArrayList<String> colors) {
-        main.setHgap(-10);
+        main.setHgap(-80);
         main.setVgap(0);
         for (int i = 0; i < ids.size(); i++) {
             InputStream is = getClass().getResourceAsStream("/sample/img/" + liens.get(i));
@@ -287,31 +302,41 @@ public class PartieController {
 
     private void handleAnswerUpdate(List<Object> resp) {
         int current = (int) resp.get(0);
-        lastCurrentPlayer = current;
         String takeFlag = (String) resp.get(1);
         int numPlayerTake = (int) resp.get(2);
+        String contract = resp.size() > 3 ? (String) resp.get(3) : "";
+        hideContractBox();
         if (takeFlag.equals("TAKE")) {
             takerNum = numPlayerTake;
+            lastCurrentPlayer = numPlayerTake;
+            updateCurrentPlayerLabel(numPlayerTake);
             String name = playerNames != null && numPlayerTake <= playerNames.size()
                     ? playerNames.get(numPlayerTake - 1)
                     : "Joueur " + numPlayerTake;
-            statusLabel.setText(name + " a pris le chien");
+            String contractDisplay = contract.toLowerCase().replace('_', ' ');
+            statusLabel.setText(name + " déclare une " + contractDisplay);
             take(numPlayerTake);
-        } else if (current == Integer.parseInt(AccueilController.numJoueur)) {
-            statusLabel.setText("A votre tour !");
-            take.setVisible(true);
-            refuse.setVisible(true);
         } else {
-            String name = playerNames != null && current <= playerNames.size()
-                    ? playerNames.get(current - 1)
-                    : "Joueur " + current;
-            statusLabel.setText("Au tour de " + name);
+            lastCurrentPlayer = current;
+            updateCurrentPlayerLabel(current);
+            if (current == Integer.parseInt(AccueilController.numJoueur)) {
+                statusLabel.setText("A votre tour !");
+                showContractBox();
+            } else {
+                String name = playerNames != null && current <= playerNames.size()
+                        ? playerNames.get(current - 1)
+                        : "Joueur " + current;
+                statusLabel.setText("Au tour de " + name);
+            }
         }
     }
 
     private void handleCallInfo(List<Object> resp) {
         calledKingColor = normalizeColor((String) resp.get(4));
         statusLabel.setText("Le Roi de " + resp.get(4) + " a été appelé !");
+        boxRois.setVisible(false);
+        boxRois.getChildren().clear();
+        boxChien.setVisible(true);
         boxChien.getChildren().clear();
         ArrayList<Integer> idCartes = (ArrayList<Integer>) resp.get(1);
         ArrayList<String> lienCartes = (ArrayList<String>) resp.get(2);
@@ -339,6 +364,7 @@ public class PartieController {
         String couleur = resp.size() > 5 ? normalizeColor((String) resp.get(5)) : "";
         ArrayList<Double> scores = resp.size() > 6 ? (ArrayList<Double>) resp.get(6) : null;
         lastScores = scores;
+        boxTour.setVisible(true);
         boxTour.getChildren().clear();
         highestAtoutCenter = 0;
         for (int i = 0; i < idCartes.size(); i++) {
@@ -358,7 +384,6 @@ public class PartieController {
         updateCurrentPlayerLabel(current);
         int myNum = Integer.parseInt(AccueilController.numJoueur);
         if (scores != null && playerNames != null && scores.size() == playerNames.size()) {
-            scoreSelf.setText(String.format("%.1f", scores.get(myNum - 1)));
             for (int i = 1; i <= 4; i++) {
                 int playerNum = ((myNum + i - 1) % 5) + 1;
                 opponentScoreLabels.get(i - 1).setText(String.format("%.1f", scores.get(playerNum - 1)));
@@ -551,37 +576,60 @@ public class PartieController {
         defenseScoreLabel.setText(String.format("%.1f", defense));
     }
 
-    public void playWithDog() throws InterruptedException {
-        ArrayList<Object> chiens = new ArrayList<>();
-        chiens.add("CHIEN");
-        chiens.add(ConnexionController.idUser);
+    private void showContractBox() {
+        contractBox.setManaged(true);
+        contractBox.setVisible(true);
+    }
 
+    private void hideContractBox() {
+        contractBox.setVisible(false);
+        contractBox.setManaged(false);
+    }
+
+    private void sendContract(String type) {
+        ArrayList<Object> msg = new ArrayList<>();
+        msg.add("CHIEN");
+        msg.add(type);
+        msg.add(ConnexionController.idUser);
         try {
-            ConnexionController.client.send(chiens);
+            ConnexionController.client.send(msg);
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
         }
-        refuse.setVisible(false);
-        take.setVisible(false);
+        hideContractBox();
     }
 
-    public void playWithoutDog() throws InterruptedException {
+    @FXML
+    public void choosePetite() { sendContract("PETITE"); }
+
+    @FXML
+    public void chooseGarde() { sendContract("GARDE"); }
+
+    @FXML
+    public void chooseGardeContre() { sendContract("GARDE_CONTRE"); }
+
+    @FXML
+    public void chooseGardeSans() { sendContract("GARDE_SANS"); }
+
+    @FXML
+    public void chooseRefuse() {
         ArrayList<Object> refuses = new ArrayList<>();
         refuses.add("REFUSE");
         refuses.add(ConnexionController.idUser);
-
         try {
             ConnexionController.client.send(refuses);
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
         }
-        refuse.setVisible(false);
-        take.setVisible(false);
+        hideContractBox();
     }
 
     public void take(int numPlayerTake) {
         if(numPlayerTake == Integer.parseInt(AccueilController.numJoueur)){
             carteCenter.setVisible(false);
+            boxChien.setVisible(false);
+            boxRois.setVisible(true);
+            boxRois.getChildren().clear();
             ArrayList<Object> rois = new ArrayList<>();
             rois.add("ROIS");
             rois.add(ConnexionController.idUser);
@@ -601,6 +649,16 @@ public class PartieController {
                     ImageView imageRoi = new ImageView(img);
                     applyCardSize(imageRoi);
                     int finalI = i;
+                    imageRoi.setOnMouseEntered(e -> {
+                        imageRoi.setScaleX(1.2);
+                        imageRoi.setScaleY(1.2);
+                        imageRoi.setCursor(Cursor.HAND);
+                    });
+                    imageRoi.setOnMouseExited(e -> {
+                        imageRoi.setScaleX(1);
+                        imageRoi.setScaleY(1);
+                        imageRoi.setCursor(Cursor.DEFAULT);
+                    });
                     imageRoi.addEventHandler(javafx.scene.input.MouseEvent.MOUSE_CLICKED, event -> {
                         callKing(idCartes.get(finalI));
                     });
@@ -623,6 +681,7 @@ public class PartieController {
     }
     public void callKing(String idCarte) {
         boxRois.getChildren().clear();
+        boxRois.setVisible(false);
         boxRois.setSpacing(20);
         boxChien.setSpacing(20);
         ArrayList<Object> calls = new ArrayList<>();
@@ -665,8 +724,33 @@ public class PartieController {
     }
 
     private void enableDogSelection() {
+        ColorAdjust gray = new ColorAdjust();
+        gray.setSaturation(-1);
+        gray.setBrightness(-0.3);
         for (int i = 0; i < main.getChildren().size(); i++) {
             ImageView imageCarte = (ImageView) main.getChildren().get(i);
+            String id = imageCarte.getId();
+            String color = cardColors.get(id);
+            int rank = cardRanks.getOrDefault(id, 0);
+            boolean isBout = "BOUT".equals(color);
+            boolean isKing = rank == 14 && !"ATOUT".equals(color);
+            if (isBout || isKing) {
+                imageCarte.setDisable(true);
+                imageCarte.setEffect(gray);
+                continue;
+            }
+            imageCarte.setOnMouseEntered(e -> {
+                imageCarte.setScaleX(1.2);
+                imageCarte.setScaleY(1.2);
+                imageCarte.setViewOrder(-1);
+                imageCarte.setCursor(Cursor.HAND);
+            });
+            imageCarte.setOnMouseExited(e -> {
+                imageCarte.setScaleX(1);
+                imageCarte.setScaleY(1);
+                imageCarte.setViewOrder(0);
+                imageCarte.setCursor(Cursor.DEFAULT);
+            });
             imageCarte.setOnMouseClicked((e) -> {
                 ArrayList<Object> addDogs = new ArrayList<>();
                 addDogs.add("ADDDOG");

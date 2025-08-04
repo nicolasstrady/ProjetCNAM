@@ -76,17 +76,19 @@ public class ClientProcessor implements Runnable {
         ResultSet rs = ps.executeQuery();
         rs.next();
         int nbJoueur = rs.getInt("nbJoueur") + 1;
-        String query2 = "SELECT num FROM joueur WHERE reponse = 'TAKE' AND partie = ?";
+        String query2 = "SELECT num, reponse FROM joueur WHERE reponse NOT IN ('WAIT','REFUSE') AND partie = ?";
         PreparedStatement ps2 = this.connection.prepareStatement(query2);
         ps2.setInt(1, currentPartie);
         ResultSet rs2 = ps2.executeQuery();
         String flag = "NOTAKE";
         int numPlayer = -1;
+        String contract = "";
         if (rs2.next()) {
             flag = "TAKE";
             numPlayer = rs2.getInt("num");
+            contract = rs2.getString("reponse");
         }
-        broadcast(List.of("ANSWER_UPDATE", nbJoueur, flag, numPlayer));
+        broadcast(List.of("ANSWER_UPDATE", nbJoueur, flag, numPlayer, contract));
     }
 
     private void broadcastCallInfo(ArrayList<Integer> ids, ArrayList<String> liens, ArrayList<String> couleurs, String couleur) {
@@ -99,7 +101,7 @@ public class ClientProcessor implements Runnable {
 
     private void broadcastTourUpdate() throws SQLException {
         if(currentJoueurTour == -1) {
-            String query = "SELECT num FROM joueur WHERE reponse = 'TAKE' AND partie = ?";
+            String query = "SELECT num FROM joueur WHERE reponse NOT IN ('WAIT','REFUSE') AND partie = ?";
             PreparedStatement ps = this.connection.prepareStatement(query);
             ps.setInt(1, currentPartie);
             ResultSet results = ps.executeQuery();
@@ -480,43 +482,45 @@ public class ClientProcessor implements Runnable {
                     toSend.add(noms);
 
                 } else if(responses.get(0).toString().toUpperCase().equals("WAITANSWER")) {
-                    String query = "SELECT COUNT(id) AS\"nbJoueur\"  FROM joueur WHERE reponse != 'WAIT' AND partie = "+ currentPartie;
+                    String query = "SELECT COUNT(id) AS\"nbJoueur\"  FROM joueur WHERE reponse != 'WAIT' AND partie = " + currentPartie;
                     PreparedStatement ps = this.connection.prepareStatement(query);
                     ResultSet results = ps.executeQuery();
                     results.next();
-                    int nbJoueur = results.getInt("nbJoueur")+1;
+                    int nbJoueur = results.getInt("nbJoueur") + 1;
 
-                    String query2 = "SELECT num FROM joueur WHERE reponse = 'TAKE' AND partie = ?";
+                    String query2 = "SELECT num, reponse FROM joueur WHERE reponse NOT IN ('WAIT','REFUSE') AND partie = ?";
                     PreparedStatement ps2 = this.connection.prepareStatement(query2);
                     ps2.setInt(1, currentPartie);
                     ResultSet results2 = ps2.executeQuery();
                     int hasTake = 0;
                     int numPlayer = -1;
-                    if(results2.next()) {
+                    String contract = "";
+                    if (results2.next()) {
                         hasTake = 1;
                         numPlayer = results2.getInt("num");
+                        contract = results2.getString("reponse");
                     }
 
                     toSend.add(nbJoueur);
-                    if(hasTake >0) {
+                    if (hasTake > 0) {
                         toSend.add("TAKE");
                         toSend.add(numPlayer);
+                        toSend.add(contract);
                     } else {
                         toSend.add("NOTAKE");
                         toSend.add(-1);
+                        toSend.add("");
                     }
-
-
 
                 }
                 else if(responses.get(0).toString().toUpperCase().equals("CHIEN")) {
-                    String idUser = (String) responses.get(1);
+                    String contract = (String) responses.get(1);
+                    String idUser = (String) responses.get(2);
 
                     Statement stmt2 = this.connection.createStatement();
-                    stmt2.executeUpdate("UPDATE joueur SET reponse = 'TAKE' , equipe = 1 WHERE utilisateur = " + idUser + " AND partie = " + currentPartie) ;
+                    stmt2.executeUpdate("UPDATE joueur SET reponse = '" + contract + "' , equipe = 1 WHERE utilisateur = " + idUser + " AND partie = " + currentPartie);
 
                     broadcastAnswerUpdate();
-
 
 
                 } else if(responses.get(0).toString().toUpperCase().equals("REFUSE")) {
@@ -656,7 +660,7 @@ public class ClientProcessor implements Runnable {
 
                             // Remove the discarded card from the taker's hand
                             int slot = -1;
-                            PreparedStatement find = this.connection.prepareStatement("SELECT * FROM joueur WHERE reponse = 'TAKE' AND partie = ?");
+                            PreparedStatement find = this.connection.prepareStatement("SELECT * FROM joueur WHERE reponse NOT IN ('WAIT','REFUSE') AND partie = ?");
                             find.setInt(1, currentPartie);
                             ResultSet rFind = find.executeQuery();
                             if (rFind.next()) {
@@ -671,7 +675,7 @@ public class ClientProcessor implements Runnable {
                             rFind.close();
                             find.close();
                             if (slot > 0) {
-                                PreparedStatement up = this.connection.prepareStatement("UPDATE joueur SET carte" + slot + " = null WHERE reponse = 'TAKE' AND partie = ?");
+                                PreparedStatement up = this.connection.prepareStatement("UPDATE joueur SET carte" + slot + " = null WHERE reponse NOT IN ('WAIT','REFUSE') AND partie = ?");
                                 up.setInt(1, currentPartie);
                                 up.executeUpdate();
                                 up.close();
@@ -680,7 +684,7 @@ public class ClientProcessor implements Runnable {
                             if(nbCartesChien == 3) {
                                 dogDone = true;
                                 // Set next player after the taker
-                                PreparedStatement takerStmt = this.connection.prepareStatement("SELECT num FROM joueur WHERE reponse = 'TAKE' AND partie = ?");
+                                PreparedStatement takerStmt = this.connection.prepareStatement("SELECT num FROM joueur WHERE reponse NOT IN ('WAIT','REFUSE') AND partie = ?");
                                 takerStmt.setInt(1, currentPartie);
                                 ResultSet takerRs = takerStmt.executeQuery();
                                 if(takerRs.next()) {
@@ -978,7 +982,7 @@ public class ClientProcessor implements Runnable {
                 }
                 else if(responses.get(0).toString().toUpperCase().equals("WAITTOUR")) {
                     if(currentJoueurTour == -1) {
-                        String query = "SELECT num FROM joueur WHERE reponse = 'TAKE' AND partie = ?";
+                        String query = "SELECT num FROM joueur WHERE reponse NOT IN ('WAIT','REFUSE') AND partie = ?";
                         PreparedStatement ps = this.connection.prepareStatement(query);
                         ps.setInt(1, currentPartie);
                         ResultSet results = ps.executeQuery();

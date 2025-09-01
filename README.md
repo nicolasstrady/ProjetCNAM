@@ -13,6 +13,7 @@ docker-compose up --build
 ```
 
 The server listens on port `3333` and connects to the MySQL container using the environment variables defined in `docker-compose.yml`.
+The database is exposed on host port `3307` by default to avoid conflicts with local MySQL installations.
 Clients open a second connection handled by `ServerListener` to receive real-time events like lobby updates.
 
 A basic database schema is provided in `db/init.sql` and loaded automatically when the database container starts.
@@ -34,7 +35,7 @@ on the host so Docker can display the window. On Linux you can run:
 ```bash
 DISPLAY=$DISPLAY docker-compose run --rm client
 ```
-The Docker image now installs the X11 and OpenGL libraries required by JavaFX
+The Docker image now installs the X11, GTK and OpenGL libraries required by JavaFX
 so the GUI can launch in the container.
 
 If you run Linux, you may need to allow Docker to access your X server with:

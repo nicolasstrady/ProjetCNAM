@@ -48,3 +48,23 @@ On Windows, install an X server such as VcXsrv and ensure the `DISPLAY` environm
 ### Should the client run in Docker?
 Running the GUI inside Docker guarantees the correct JavaFX dependencies are present and avoids configuring your local JVM. However it requires an X server on the host and may be less convenient during development. If you already have Java and JavaFX installed locally, you can run the client from your IDE or with `./gradlew run` without Docker.
 
+### Running the client in a web browser
+This project can also run the JavaFX client in a browser thanks to [JPro](https://www.jpro.one/).
+After installing the JPro Gradle plugin, launch the application on `http://localhost:8080` with:
+
+```bash
+./gradlew jproRun -PenableJPro
+```
+
+To embed the application in your portfolio, point an iframe to the deployed JPro instance:
+
+```html
+<iframe
+  src="https://play.example.com/app"
+  style="width:100%;height:100%;border:0;"
+  allow="fullscreen; autoplay; clipboard-read; clipboard-write">
+</iframe>
+```
+
+Replace `play.example.com` with your own domain when deploying.
+

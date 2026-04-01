@@ -3,7 +3,7 @@ services:
     image: mysql:8.0
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: example
+      MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: tarot_project
     ports:
       - "${MYSQL_PORT:-3307}:3306"
@@ -11,37 +11,5 @@ services:
       - db_data:/var/lib/mysql
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
 
-  server:
-    build: .
-    ports:
-      - "3333:3333"
-    depends_on:
-      - db
-    environment:
-      DB_URL: jdbc:mysql://db:3306/tarot_project
-      DB_USER: root
-      DB_PASSWORD: example
-
-  client:
-    build: .
-    depends_on:
-      - server
-    environment:
-      SERVER_HOST: server
-      DB_URL: jdbc:mysql://db:3306/tarot_project
-      DB_USER: root
-      DB_PASSWORD: example
-      DISPLAY: ${DISPLAY}
-    volumes:
-      - /tmp/.X11-unix:/tmp/.X11-unix
-    command:
-      - java
-      - --module-path
-      - /app/libs
-      - --add-modules
-      - javafx.controls,javafx.fxml,javafx.graphics,javafx.base
-      - -cp
-      - app.jar:/app/libs/*
-      - sample.ConnexionController
 volumes:
   db_data:

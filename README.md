@@ -1,71 +1,149 @@
-# ProjetCNAM Tarot Game
+# Jeu de Tarot - Nuxt 3 + Phaser.js
 
-This repository contains an old multiplayer Tarot project updated to run easily with Docker.
+Jeu de Tarot multijoueur en ligne développé avec Nuxt 3, Vue.js, Phaser.js et MySQL.
 
-## Prerequisites
-- Docker and Docker Compose installed
+## 🎮 Fonctionnalités
 
-## Usage
-Run the following command to start the MySQL database and the Java server:
+- **Authentification** : Système de connexion et d'inscription
+- **Lobby multijoueur** : Création et rejoindre des parties (5 joueurs)
+- **Jeu de Tarot complet** : 
+  - Phase d'enchères (Petite, Garde, Garde Sans, Garde Contre)
+  - Appel du Roi
+  - Échange avec le chien
+  - Jeu des 15 plis
+  - Calcul automatique des scores
+- **Rendu graphique Phaser.js** : Animations fluides des cartes
+- **Temps réel** : Mises à jour en temps réel de l'état du jeu
+
+## 🚀 Prérequis
+
+- Node.js 18+ et npm
+- Docker et Docker Compose (pour la base de données)
+
+## 📦 Installation
+
+1. **Cloner le projet**
+```bash
+git clone <repository-url>
+cd ProjetCNAM
+```
+
+2. **Installer les dépendances**
+```bash
+npm install
+```
+
+3. **Configurer les variables d'environnement**
+```bash
+cp env.example .env
+```
+
+Modifier `.env` si nécessaire :
+```env
+DB_HOST=localhost
+DB_PORT=3307
+DB_USER=root
+DB_PASSWORD=root
+DB_NAME=tarot_project
+```
+
+4. **Démarrer la base de données MySQL**
+```bash
+docker-compose up -d
+```
+
+La base de données sera accessible sur le port `3307` et sera initialisée automatiquement avec le schéma et les données de test depuis `db/init.sql`.
+
+## 🎯 Développement
+
+Démarrer le serveur de développement Nuxt :
 
 ```bash
-docker-compose up --build
+npm run dev
 ```
 
-The server listens on port `3333` and connects to the MySQL container using the environment variables defined in `docker-compose.yml`.
-The database is exposed on host port `3307` by default to avoid conflicts with local MySQL installations.
-Clients open a second connection handled by `ServerListener` to receive real-time events like lobby updates.
+L'application sera accessible sur `http://localhost:3000`
 
-A basic database schema is provided in `db/init.sql` and loaded automatically when the database container starts.
-
-## Development
-The project uses Gradle 8 and Java 17. To build the jar locally:
+## 🏗️ Build Production
 
 ```bash
-./gradlew jar
+npm run build
+npm run preview
 ```
 
-The main entry point of the server is `server.Server`.
+## 🗄️ Structure du Projet
 
-## Running the client with Docker
-An optional `client` service is defined in `docker-compose.yml`. It launches the
-JavaFX GUI and connects to the server container. An X server must be available
-on the host so Docker can display the window. On Linux you can run:
-
-```bash
-DISPLAY=$DISPLAY docker-compose run --rm client
 ```
-The Docker image now installs the X11, GTK and OpenGL libraries required by JavaFX
-so the GUI can launch in the container.
-
-If you run Linux, you may need to allow Docker to access your X server with:
-
-```bash
-xhost +local:
-```
-
-On Windows, install an X server such as VcXsrv and ensure the `DISPLAY` environment variable is set before running the command. The client container now bundles all required JavaFX libraries so the GUI starts without additional setup.
-
-### Should the client run in Docker?
-Running the GUI inside Docker guarantees the correct JavaFX dependencies are present and avoids configuring your local JVM. However it requires an X server on the host and may be less convenient during development. If you already have Java and JavaFX installed locally, you can run the client from your IDE or with `./gradlew run` without Docker.
-
-### Running the client in a web browser
-This project can also run the JavaFX client in a browser thanks to [JPro](https://www.jpro.one/).
-After installing the JPro Gradle plugin, launch the application on `http://localhost:8080` with:
-
-```bash
-./gradlew jproRun -PenableJPro
+ProjetCNAM/
+├── assets/              # CSS et ressources statiques
+├── components/          # Composants Vue réutilisables
+├── composables/         # Composables Vue (useAuth, useGame, usePhaser)
+├── pages/              # Pages de l'application
+│   ├── index.vue       # Page de connexion
+│   ├── lobby.vue       # Lobby multijoueur
+│   └── game/[id].vue   # Page de jeu
+├── phaser/             # Scènes Phaser.js
+│   └── scenes/
+│       └── GameScene.ts
+├── public/             # Fichiers publics (cartes, images)
+│   └── cards/          # Images des cartes
+├── server/             # API Nuxt Server
+│   ├── api/            # Routes API
+│   │   ├── auth/       # Authentification
+│   │   └── game/       # Logique de jeu
+│   └── utils/          # Utilitaires serveur (DB)
+├── types/              # Types TypeScript
+├── db/                 # Scripts SQL
+│   └── init.sql        # Initialisation de la DB
+├── docker-compose.yml  # Configuration Docker (MySQL)
+└── nuxt.config.ts      # Configuration Nuxt
 ```
 
-To embed the application in your portfolio, point an iframe to the deployed JPro instance:
+## 🎲 Comment Jouer
 
-```html
-<iframe
-  src="https://play.example.com/app"
-  style="width:100%;height:100%;border:0;"
-  allow="fullscreen; autoplay; clipboard-read; clipboard-write">
-</iframe>
-```
+1. **Créer un compte** ou se connecter
+2. **Créer une partie** ou rejoindre une partie existante
+3. **Attendre** que 5 joueurs rejoignent la partie
+4. **Phase d'enchères** : Choisir son contrat ou passer
+5. **Appel du Roi** : Le preneur appelle un Roi
+6. **Échange avec le chien** : Le preneur écarte 3 cartes
+7. **Jeu des plis** : Jouer les 15 plis
+8. **Scores** : Calcul automatique des points
 
-Replace `play.example.com` with your own domain when deploying.
+## 🛠️ Technologies Utilisées
+
+- **Frontend** : Nuxt 3, Vue.js 3, TypeScript
+- **Rendu Graphique** : Phaser.js 3
+- **Backend** : Nuxt Server API
+- **Base de données** : MySQL 8.0
+- **ORM** : mysql2 (driver Node.js)
+- **Containerisation** : Docker
+
+## 📝 Comptes de Test
+
+Plusieurs comptes sont disponibles dans `db/init.sql` :
+- Email: `nicostrady@gmail.com` / Password: `pass`
+- Email: `dodo@gmail.com` / Password: `pass`
+- Email: `hugo@gmail.com` / Password: `pass`
+- Email: `dom@gmail.com` / Password: `pass`
+- Email: `ipo@gmail.com` / Password: `pass`
+
+## 🔧 Configuration de la Base de Données
+
+La base de données est automatiquement créée et initialisée au premier lancement de Docker Compose. Le schéma inclut :
+- Table `utilisateur` : Comptes utilisateurs
+- Table `partie` : Parties de jeu
+- Table `joueur` : Joueurs dans les parties
+- Table `carte` : Toutes les cartes du jeu (78 cartes)
+- Table `chien` : Le chien (3 cartes)
+- Table `plis` : Les plis joués
+
+## 🚧 Migration depuis Java
+
+Ce projet a été migré depuis une architecture Java/Gradle/JavaFX vers Nuxt 3 + Phaser.js pour :
+- Meilleure accessibilité (navigateur web)
+- Interface moderne et responsive
+- Animations fluides avec Phaser.js
+- Architecture full-stack JavaScript/TypeScript
+- Déploiement simplifié
 

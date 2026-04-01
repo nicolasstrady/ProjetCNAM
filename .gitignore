@@ -1,5 +1,22 @@
+# Nuxt
+.nuxt
+.output
+dist
+node_modules
+*.log
+
+# Environment
+.env
+.env.*
+
+# IDE
+.idea/
+.vscode/
+
+# Database
+db_data/
+
+# Old Java/Gradle files (to be removed)
 build
 gradle-8.5
-.idea/
 .gradle/
-db_data/

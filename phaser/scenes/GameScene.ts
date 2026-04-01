@@ -211,7 +211,7 @@ export class GameScene extends Phaser.Scene {
     this.centerCards = []
   }
 
-  update() {
+  override update() {
     // Logique de mise à jour si nécessaire
   }
 }

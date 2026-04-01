@@ -1,5 +1,4 @@
 import { query } from '~/server/utils/db'
-import type { ContractType } from '~/types'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)

@@ -4,7 +4,7 @@ import type { RegisterData, User } from '~/types'
 export default defineEventHandler(async (event) => {
   const body = await readBody<RegisterData>(event)
   
-  if (!body.email || !body.password || !body.pseudo) {
+  if (!body.email || !body.motdepasse || !body.pseudo) {
     throw createError({
       statusCode: 400,
       message: 'Données incomplètes'

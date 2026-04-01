@@ -32,9 +32,9 @@ export default defineEventHandler(async (event) => {
   const couleur = cardData.length > 0 ? (cardData[0] as any).couleur : null
   
   return {
-    success: true,
-    partnerNum,
-    couleur,
+    success: true as const,
+    partnerNum: partnerNum as number | null,
+    couleur: couleur as string | null,
     cardId
   }
 })

@@ -1,5 +1,4 @@
 import Phaser from 'phaser'
-import type { Card } from '~/types'
 
 export const usePhaser = () => {
   let game: Phaser.Game | null = null

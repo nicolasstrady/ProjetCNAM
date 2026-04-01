@@ -4,12 +4,12 @@ export default defineEventHandler(async (event) => {
   // Créer une nouvelle partie
   const result = await query(
     'INSERT INTO partie () VALUES ()'
-  )
+  ) as any
   
-  const partieId = (result as any).insertId
+  const partieId = result.insertId as number
   
   return {
-    success: true,
+    success: true as const,
     partieId
   }
 })

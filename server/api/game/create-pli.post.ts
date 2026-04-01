@@ -14,12 +14,12 @@ export default defineEventHandler(async (event) => {
   const result = await query(
     'INSERT INTO plis (partie, pliChien) VALUES (?, ?)',
     [partieId, pliChien]
-  )
+  ) as any
   
-  const pliId = (result as any).insertId
+  const pliId = result.insertId as number
   
   return {
-    success: true,
+    success: true as const,
     pliId
   }
 })

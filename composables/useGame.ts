@@ -105,9 +105,9 @@ export const useGame = () => {
       })
       
       if (response.success) {
-        gameState.value.partnerNum = response.partnerNum
-        gameState.value.couleurAppel = response.couleur
-        return { success: true, partnerNum: response.partnerNum, couleur: response.couleur }
+        gameState.value.partnerNum = response.partnerNum ?? undefined
+        gameState.value.couleurAppel = response.couleur ?? undefined
+        return { success: true, partnerNum: response.partnerNum ?? undefined, couleur: response.couleur ?? undefined }
       }
       
       return { success: false, error: 'Échec d\'appel du roi' }
@@ -137,15 +137,15 @@ export const useGame = () => {
 
   const getGameState = async (partieId: number) => {
     try {
-      const response = await $fetch(`/api/game/state?partieId=${partieId}`)
+      const response = await $fetch(`/api/game/state?partieId=${partieId}`) as any
       
       if (response.success) {
-        return { success: true, data: response }
+        return { success: true as const, data: response }
       }
       
-      return { success: false, error: 'Échec de récupération de l\'état' }
+      return { success: false as const, error: 'Échec de récupération de l\'état' }
     } catch (error: any) {
-      return { success: false, error: error.data?.message || 'Erreur de récupération' }
+      return { success: false as const, error: error.data?.message || 'Erreur de récupération' }
     }
   }
 

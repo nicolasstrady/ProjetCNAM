@@ -1,5 +1,4 @@
 import { query } from '~/server/utils/db'
-import type { User } from '~/types'
 
 export default defineEventHandler(async (event) => {
   const queryParams = getQuery(event)
@@ -44,7 +43,7 @@ export default defineEventHandler(async (event) => {
   )
   
   return {
-    success: true,
+    success: true as const,
     players,
     answerCount: answerCount[0]?.count || 0,
     taker: taker.length > 0 ? taker[0] : null,

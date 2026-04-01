@@ -50,8 +50,8 @@ export default defineEventHandler(async (event) => {
   }
   
   return {
-    success: true,
-    playerNum: player.num,
+    success: true as const,
+    playerNum: player.num as number,
     cards
   }
 })

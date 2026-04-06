@@ -1,54 +1,40 @@
-import { query } from '~/server/utils/db'
-import type { Card } from '~/types'
+import { extractPlayerCardIds, getCardsByIds, getPlayerRow } from '~/server/utils/gameData'
+import { getGameSession } from '~/server/utils/gameSession'
 
 export default defineEventHandler(async (event) => {
   const queryParams = getQuery(event)
-  const { userId, partieId } = queryParams
-  
+  const userId = Number(queryParams.userId)
+  const partieId = Number(queryParams.partieId)
+
   if (!userId || !partieId) {
     throw createError({
       statusCode: 400,
       message: 'userId et partieId requis'
     })
   }
-  
-  // Récupérer les cartes du joueur
-  const playerData = await query(
-    `SELECT num, carte1, carte2, carte3, carte4, carte5, carte6, carte7, carte8, carte9, carte10,
-            carte11, carte12, carte13, carte14, carte15
-     FROM joueur WHERE utilisateur = ? AND partie = ?`,
-    [userId, partieId]
-  )
-  
-  if (playerData.length === 0) {
+
+  const player = await getPlayerRow(userId, partieId)
+
+  if (!player) {
     throw createError({
       statusCode: 404,
-      message: 'Joueur non trouvé'
+      message: 'Joueur non trouve'
     })
   }
-  
-  const player = playerData[0] as any
-  const cardIds: number[] = []
-  
-  for (let i = 1; i <= 15; i++) {
-    const cardId = player[`carte${i}`]
-    if (cardId) {
-      cardIds.push(cardId)
+
+  const session = getGameSession(partieId)
+  const cardIds = extractPlayerCardIds(player)
+
+  if (session.takerNum === player.num && session.dogRetrieved && session.discardedDogCardIds.length < 3) {
+    for (const dogCardId of session.dogCardIds) {
+      if (!session.discardedDogCardIds.includes(dogCardId)) {
+        cardIds.push(dogCardId)
+      }
     }
   }
-  
-  // Récupérer les détails des cartes
-  const cards: Card[] = []
-  for (const cardId of cardIds) {
-    const cardData = await query<Card>(
-      'SELECT id, lien, couleur, valeur, points FROM carte WHERE id = ?',
-      [cardId]
-    )
-    if (cardData.length > 0) {
-      cards.push(cardData[0])
-    }
-  }
-  
+
+  const cards = await getCardsByIds(cardIds)
+
   return {
     success: true as const,
     playerNum: player.num as number,

@@ -1,42 +1,86 @@
 import type { User, LoginCredentials, RegisterData } from '~/types'
 
+const AUTH_STORAGE_KEY = 'tarot-user-session'
+
+function readSessionUser() {
+  if (!import.meta.client) {
+    return null as User | null
+  }
+
+  const rawValue = window.sessionStorage.getItem(AUTH_STORAGE_KEY)
+
+  if (!rawValue) {
+    return null as User | null
+  }
+
+  try {
+    return JSON.parse(rawValue) as User
+  } catch {
+    window.sessionStorage.removeItem(AUTH_STORAGE_KEY)
+    return null as User | null
+  }
+}
+
+function writeSessionUser(user: User | null) {
+  if (!import.meta.client) {
+    return
+  }
+
+  if (user) {
+    window.sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user))
+    return
+  }
+
+  window.sessionStorage.removeItem(AUTH_STORAGE_KEY)
+}
+
 export const useAuth = () => {
-  const authCookie = useCookie<User | null>('tarot-user', {
+  const legacyAuthCookie = useCookie<User | null>('tarot-user', {
     default: () => null,
-    maxAge: 60 * 60 * 24 * 30,
+    maxAge: 0,
     sameSite: 'lax'
   })
 
-  const user = useState<User | null>('user', () => authCookie.value)
+  const user = useState<User | null>('user', () => null)
   const authSyncInitialized = useState<boolean>('auth-sync-initialized', () => false)
   const isAuthenticated = computed(() => !!user.value)
 
   if (!authSyncInitialized.value) {
     authSyncInitialized.value = true
 
-    watch(user, (value) => {
-      authCookie.value = value
-    }, { deep: true })
-  }
+    if (import.meta.client) {
+      legacyAuthCookie.value = null
 
-  if (!user.value && authCookie.value) {
-    user.value = authCookie.value
+      const restoredUser = readSessionUser()
+      if (restoredUser) {
+        user.value = restoredUser
+      }
+    }
+
+    watch(user, (value) => {
+      legacyAuthCookie.value = null
+      writeSessionUser(value)
+    }, { deep: true })
+  } else if (import.meta.client && !user.value) {
+    const restoredUser = readSessionUser()
+    if (restoredUser) {
+      user.value = restoredUser
+    }
   }
 
   const login = async (credentials: LoginCredentials) => {
     try {
-      const response = await $fetch('/api/auth/login', {
+      const response = await $fetch<{ success: boolean; user?: User }>('/api/auth/login', {
         method: 'POST',
         body: credentials
       })
-      
+
       if (response.success && response.user) {
         user.value = response.user
-        authCookie.value = response.user
         return { success: true, user: response.user }
       }
-      
-      return { success: false, error: 'Échec de la connexion' }
+
+      return { success: false, error: 'Echec de la connexion' }
     } catch (error: any) {
       return { success: false, error: error.data?.message || 'Erreur de connexion' }
     }
@@ -44,26 +88,24 @@ export const useAuth = () => {
 
   const register = async (data: RegisterData) => {
     try {
-      const response = await $fetch('/api/auth/register', {
+      const response = await $fetch<{ success: boolean; user?: User }>('/api/auth/register', {
         method: 'POST',
         body: data
       })
-      
+
       if (response.success && response.user) {
         user.value = response.user
-        authCookie.value = response.user
         return { success: true, user: response.user }
       }
-      
-      return { success: false, error: 'Échec de l\'inscription' }
+
+      return { success: false, error: "Echec de l'inscription" }
     } catch (error: any) {
-      return { success: false, error: error.data?.message || 'Erreur d\'inscription' }
+      return { success: false, error: error.data?.message || "Erreur d'inscription" }
     }
   }
 
   const logout = () => {
     user.value = null
-    authCookie.value = null
   }
 
   return {

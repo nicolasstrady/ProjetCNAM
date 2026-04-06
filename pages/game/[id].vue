@@ -2,165 +2,314 @@
   <div class="game-page">
     <div class="game-header">
       <div class="game-info">
-        <h2>Partie #{{ partieId }}</h2>
-        <span class="player-name">{{ user?.pseudo }} (Joueur {{ playerNum }})</span>
+        <h1>Partie #{{ partieId }}</h1>
+        <p>{{ user?.pseudo }} · Joueur {{ playerNum }}</p>
       </div>
-      <div class="game-status">
-        <span class="status-text">{{ statusText }}</span>
+
+      <div class="game-actions">
+        <span class="status-pill">{{ statusText }}</span>
         <button @click="handleLeaveGame" class="btn btn-secondary">Quitter</button>
       </div>
     </div>
 
-    <div class="game-container">
-      <!-- Zone Phaser.js -->
+    <div class="game-layout">
       <div id="phaser-game" class="phaser-container"></div>
 
-      <!-- Panneau de contrôle -->
-      <div class="control-panel">
-        <!-- Phase d'enchères -->
-        <div v-if="gamePhase === 'BIDDING'" class="bidding-panel">
-          <h3>Enchères</h3>
-          <div v-if="isMyTurn" class="contract-buttons">
-            <button @click="handleContract('PETITE')" class="btn btn-contract">Petite</button>
-            <button @click="handleContract('GARDE')" class="btn btn-contract">Garde</button>
-            <button @click="handleContract('GARDE_SANS')" class="btn btn-contract">Garde Sans</button>
-            <button @click="handleContract('GARDE_CONTRE')" class="btn btn-contract">Garde Contre</button>
-            <button @click="handleContract('REFUSE')" class="btn btn-refuse">Passer</button>
-          </div>
-          <div v-else class="waiting-message">
-            <p>En attente des autres joueurs...</p>
-          </div>
-        </div>
+      <aside class="side-panel">
+        <section class="panel">
+          <h2>Phase</h2>
+          <p>{{ phaseLabel }}</p>
 
-        <!-- Phase d'appel du roi -->
-        <div v-if="gamePhase === 'CALLING'" class="calling-panel">
-          <h3>Appeler un Roi</h3>
-          <div v-if="isTaker" class="king-buttons">
-            <button @click="handleCallKing('SPADE')" class="btn btn-king">Roi de Pique</button>
-            <button @click="handleCallKing('HEART')" class="btn btn-king">Roi de Cœur</button>
-            <button @click="handleCallKing('DIAMOND')" class="btn btn-king">Roi de Carreau</button>
-            <button @click="handleCallKing('CLOVER')" class="btn btn-king">Roi de Trèfle</button>
+          <div v-if="gamePhase === 'BIDDING'" class="actions-list">
+            <button @click="handleContract('PETITE')" class="btn btn-primary" :disabled="!isMyTurn">Petite</button>
+            <button @click="handleContract('GARDE')" class="btn btn-primary" :disabled="!isMyTurn">Garde</button>
+            <button @click="handleContract('GARDE_SANS')" class="btn btn-primary" :disabled="!isMyTurn">Garde sans</button>
+            <button @click="handleContract('GARDE_CONTRE')" class="btn btn-primary" :disabled="!isMyTurn">Garde contre</button>
+            <button @click="handleContract('REFUSE')" class="btn btn-danger" :disabled="!isMyTurn">Passer</button>
           </div>
-          <div v-else class="waiting-message">
-            <p>Le preneur appelle un roi...</p>
-          </div>
-        </div>
 
-        <!-- Scores -->
-        <div class="scores-panel">
-          <h3>Scores</h3>
-          <div class="scores-list">
-            <div v-for="(player, index) in players" :key="index" class="score-item">
-              <span class="player-label">{{ player.pseudo }}</span>
-              <span class="score-value">{{ player.score.toFixed(1) }}</span>
+          <div v-else-if="gamePhase === 'CALLING'" class="phase-help">
+            <p v-if="isTaker">Choisissez un roi directement sur le tapis.</p>
+            <p v-else>Le preneur appelle un roi.</p>
+          </div>
+
+          <div v-else-if="gamePhase === 'DOG_EXCHANGE'" class="phase-help">
+            <template v-if="isTaker">
+              <p v-if="!gameData?.dogRetrieved">Récupérez le chien, puis jetez 3 cartes depuis votre main.</p>
+              <p v-else>Sélectionnez {{ 3 - (gameData?.dogDiscardCount ?? 0) }} carte(s) dans votre main.</p>
+              <button
+                v-if="!gameData?.dogRetrieved"
+                @click="handleRetrieveDog"
+                class="btn btn-primary"
+              >
+                Récupérer le chien
+              </button>
+            </template>
+
+            <p v-else>Le preneur prépare le chien.</p>
+          </div>
+
+          <div v-else-if="gamePhase === 'PLAYING'" class="phase-help">
+            <p v-if="isMyTurn">Jouez une carte depuis votre main.</p>
+            <p v-else>Attendez votre tour.</p>
+          </div>
+
+          <div v-else class="phase-help">
+            <p>La partie est terminée.</p>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Scores</h2>
+          <div class="score-list">
+            <div
+              v-for="player in players"
+              :key="player.num"
+              class="score-row"
+              :class="{ active: player.num === currentTurn }"
+            >
+              <span>{{ player.pseudo }}</span>
+              <span>{{ player.score.toFixed(1) }}</span>
             </div>
           </div>
-        </div>
-      </div>
+        </section>
+      </aside>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import type { Card, GamePhase } from '~/types'
+import type { Card, GameApiState, GamePhase, SceneTableState, TablePlayer } from '~/types'
 import type { GameScene } from '~/phaser/scenes/GameScene'
+import { getPlayableCardIds, isDogDiscardForbidden, isKing, normalizeCardColor } from '~/utils/tarot'
 
 const route = useRoute()
 const router = useRouter()
 const { user } = useAuth()
-const { playerHand, playerNum, getPlayerHand, setContract, callKing, playCard, getGameState } = useGame()
+const {
+  playerHand,
+  playerNum,
+  getPlayerHand,
+  setContract,
+  callKing,
+  retrieveDog,
+  discardDog,
+  playCard,
+  getGameState
+} = useGame()
 const { initGame, destroyGame } = usePhaser()
 
-const partieId = computed(() => parseInt(route.params.id as string))
-const gamePhase = ref<GamePhase>('BIDDING')
-const statusText = ref('En attente...')
-const players = ref<any[]>([])
-const currentPliId = ref<number | null>(null)
-const cardsPlayed = ref(0)
-const currentTurn = ref<number>(1)
-const takerNum = ref<number | undefined>(undefined)
-const gameScene = ref<GameScene | null>(null)
+const partieId = computed(() => Number(route.params.id))
+const gameScene = shallowRef<GameScene | null>(null)
+const gameData = ref<GameApiState | null>(null)
+const allCards = ref<Card[]>([])
+const statusText = ref('Chargement...')
 
-// Computed pour savoir si c'est le tour du joueur
-const isMyTurn = computed(() => {
-  return currentTurn.value === playerNum.value
+const players = computed<TablePlayer[]>(() => gameData.value?.players ?? [])
+const gamePhase = computed<GamePhase>(() => gameData.value?.phase ?? 'BIDDING')
+const currentTurn = computed(() => gameData.value?.currentTurn ?? null)
+const isMyTurn = computed(() => currentTurn.value === playerNum.value)
+const isTaker = computed(() => gameData.value?.taker?.num === playerNum.value)
+
+const phaseLabel = computed(() => {
+  switch (gamePhase.value) {
+    case 'BIDDING':
+      return 'Enchères'
+    case 'CALLING':
+      return 'Appel du roi'
+    case 'DOG_EXCHANGE':
+      return 'Chien'
+    case 'PLAYING':
+      return 'Jeu de pli'
+    case 'FINISHED':
+      return 'Partie terminée'
+    default:
+      return 'En attente'
+  }
 })
 
-// Computed pour savoir si le joueur est le preneur
-const isTaker = computed(() => {
-  return takerNum.value === playerNum.value
+const kingChoices = computed(() => {
+  return allCards.value.filter((card) => {
+    return isKing(card) && !['ATOUT', 'BOUT'].includes(normalizeCardColor(card.couleur))
+  })
 })
+
+const selectableCardIds = computed(() => {
+  if (!gameData.value) {
+    return [] as number[]
+  }
+
+  if (
+    gameData.value.phase === 'DOG_EXCHANGE' &&
+    isTaker.value &&
+    gameData.value.dogRetrieved &&
+    gameData.value.dogDiscardCount < 3
+  ) {
+    return playerHand.value
+      .filter((card) => !isDogDiscardForbidden(card))
+      .map((card) => card.id)
+  }
+
+  if (gameData.value.phase === 'PLAYING' && isMyTurn.value && !gameData.value.finPartie) {
+    const currentTrickCards = gameData.value.finTour
+      ? []
+      : gameData.value.currentPliCards.map((playedCard) => playedCard.card)
+
+    return getPlayableCardIds(
+      playerHand.value,
+      currentTrickCards,
+      gameData.value.trickCount
+    )
+  }
+
+  return [] as number[]
+})
+
+const sceneTableState = computed<SceneTableState | null>(() => {
+  if (!gameData.value || !playerNum.value) {
+    return null
+  }
+
+  return {
+    phase: gameData.value.phase,
+    playerHand: playerHand.value,
+    players: gameData.value.players,
+    myPlayerNum: playerNum.value,
+    currentTurn: gameData.value.currentTurn,
+    takerNum: gameData.value.taker?.num ?? null,
+    partnerNum: gameData.value.partnerNum ?? null,
+    dogCards: gameData.value.dogCards,
+    dogRetrieved: gameData.value.dogRetrieved,
+    dogDiscardCount: gameData.value.dogDiscardCount,
+    currentPliCards: gameData.value.currentPliCards,
+    kingChoices: gameData.value.phase === 'CALLING' && isTaker.value ? kingChoices.value : [],
+    selectableCardIds: selectableCardIds.value,
+    statusText: statusText.value
+  }
+})
+
+watch([sceneTableState, gameScene], ([tableState, scene]) => {
+  if (tableState && scene) {
+    scene.setTableState(tableState)
+  }
+}, { immediate: true })
+
+let pollInterval: NodeJS.Timeout | null = null
 
 onMounted(async () => {
   if (!user.value) {
-    router.push('/')
+    await router.push('/')
     return
   }
 
-  // Attendre le prochain tick pour s'assurer qu'on est côté client
   await nextTick()
-  
-  console.log('onMounted - process.client:', process.client)
-  
-  // Initialiser Phaser AVANT de charger les cartes
-  if (process.client) {
-    console.log('Import de GameScene...')
-    const { GameScene } = await import('~/phaser/scenes/GameScene')
-    
-    console.log('Initialisation du jeu Phaser...')
-    const game = await initGame('phaser-game')
-
-    game.scene.add('GameScene', GameScene, true, {
-      onCardClick: handleCardClick
-    })
-
-    console.log('Jeu créé, nombre de scènes:', game.scene.scenes.length)
-    
-    if (game.scene.scenes.length > 0) {
-      gameScene.value = game.scene.getScene('GameScene') as GameScene
-      console.log('gameScene.value assigné:', !!gameScene.value)
-      
-      
-      // Attendre un peu que la scène soit complètement créée
-      
-      console.log('Phaser initialisé et prêt, gameScene.value:', !!gameScene.value, gameScene.value)
-    } else {
-      console.error('Aucune scène trouvée dans le jeu Phaser!')
-    }
-  } else {
-    console.log('Pas côté client, skip Phaser')
-  }
-
-  // Charger la main du joueur APRÈS l'initialisation complète de Phaser
-  await loadPlayerHand()
-
-  // Charger l'état du jeu
-  await loadGameState()
-
-  // Polling pour les mises à jour
+  await loadCardsCatalog()
+  await initPhaser()
+  await refreshGame()
   startGamePolling()
 })
 
 onUnmounted(() => {
-  destroyGame()
   stopGamePolling()
+  gameScene.value = null
+  destroyGame()
 })
 
-// Watch pour afficher les cartes dès qu'elles sont chargées ET que gameScene est prêt
-watch([playerHand, gameScene], ([newHand, scene]) => {
-  console.log('Watch déclenché:', newHand.length, 'cartes', 'gameScene:', !!scene)
-  if (scene && newHand.length > 0) {
-    console.log('Affichage de', newHand.length, 'cartes:', newHand)
-    scene.displayPlayerHand(newHand)
+const initPhaser = async () => {
+  if (!process.client) {
+    return
   }
-}, { deep: true, immediate: true })
 
-let pollInterval: NodeJS.Timeout | null = null
+  const { GameScene } = await import('~/phaser/scenes/GameScene')
+  const game = await initGame('phaser-game')
+
+  game.scene.add('GameScene', GameScene, true, {
+    onCardClick: handleSceneCardSelection,
+    onCallKing: handleCallKingCard,
+    onRetrieveDog: handleRetrieveDog
+  })
+
+  gameScene.value = markRaw(game.scene.getScene('GameScene') as GameScene)
+}
+
+const loadCardsCatalog = async () => {
+  const response = await $fetch<{ success: boolean; cards: Card[] }>('/api/game/cards' as string)
+
+  if (response.success) {
+    allCards.value = response.cards
+  }
+}
+
+const refreshGame = async () => {
+  if (!user.value) {
+    return
+  }
+
+  await loadPlayerCards()
+  await loadGameState()
+}
+
+const loadPlayerCards = async () => {
+  if (!user.value) {
+    return
+  }
+
+  await getPlayerHand(user.value.id, partieId.value)
+}
+
+const loadGameState = async () => {
+  const result = await getGameState(partieId.value)
+
+  if (!result.success || !result.data) {
+    return
+  }
+
+  gameData.value = result.data
+  updateStatusText(result.data)
+}
+
+const updateStatusText = (state: GameApiState) => {
+  const currentPlayer = state.players.find((player) => player.num === state.currentTurn)
+
+  switch (state.phase) {
+    case 'BIDDING':
+      statusText.value = isMyTurn.value ? 'A vous de declarer' : 'Phase dencheres'
+      break
+    case 'CALLING':
+      statusText.value = isTaker.value ? 'Choisissez un roi sur le tapis' : 'Le preneur appelle un roi'
+      break
+    case 'DOG_EXCHANGE':
+      if (!isTaker.value) {
+        statusText.value = 'Le preneur fait son chien'
+      } else if (!state.dogRetrieved) {
+        statusText.value = 'Recuperez le chien'
+      } else {
+        statusText.value = `Choisissez ${3 - state.dogDiscardCount} carte(s) pour le chien`
+      }
+      break
+    case 'PLAYING':
+      if (state.finPartie) {
+        statusText.value = 'Fin de partie'
+      } else if (state.finTour) {
+        statusText.value = 'Pli termine'
+      } else if (isMyTurn.value) {
+        statusText.value = 'A vous de jouer'
+      } else if (currentPlayer) {
+        statusText.value = `Au tour de ${currentPlayer.pseudo}`
+      } else {
+        statusText.value = 'Partie en cours'
+      }
+      break
+    case 'FINISHED':
+      statusText.value = 'Fin de partie'
+      break
+  }
+}
 
 const startGamePolling = () => {
   pollInterval = setInterval(async () => {
-    await loadGameState()
-  }, 2000)
+    await refreshGame()
+  }, 1500)
 }
 
 const stopGamePolling = () => {
@@ -170,313 +319,257 @@ const stopGamePolling = () => {
   }
 }
 
-const loadPlayerHand = async () => {
-  if (!user.value) return
-
-  console.log('loadPlayerHand appelé pour userId:', user.value.id, 'partieId:', partieId.value)
-  const result = await getPlayerHand(user.value.id, partieId.value)
-  console.log('getPlayerHand résultat:', result)
-  console.log('playerHand après chargement:', playerHand.value)
-  if (result.success && gameScene.value) {
-    gameScene.value.displayPlayerHand(playerHand.value)
-  }
-}
-
-const loadGameState = async () => {
-  const result = await getGameState(partieId.value)
-  
-  if (result.success && result.data) {
-    players.value = result.data.players || []
-    
-    // Mettre à jour le preneur
-    if (result.data.taker) {
-      takerNum.value = result.data.taker.num
-    }
-    
-    // Calculer le tour actuel pour les enchères (basé sur le nombre de réponses)
-    const answerCount = result.data.answerCount || 0
-    currentTurn.value = (answerCount % 5) + 1
-    
-    // Déterminer la phase du jeu
-    if (result.data.taker) {
-      if (result.data.currentPli) {
-        gamePhase.value = 'PLAYING'
-        currentPliId.value = result.data.currentPli.id
-      } else {
-        gamePhase.value = 'CALLING'
-      }
-    } else {
-      gamePhase.value = 'BIDDING'
-    }
-
-    updateStatusText()
-  }
-}
-
-const updateStatusText = () => {
-  switch (gamePhase.value) {
-    case 'BIDDING':
-      statusText.value = 'Phase d\'enchères'
-      break
-    case 'CALLING':
-      statusText.value = 'Appel du Roi'
-      break
-    case 'PLAYING':
-      statusText.value = 'Partie en cours'
-      break
-    default:
-      statusText.value = 'En attente...'
-  }
-}
-
 const handleContract = async (contract: string) => {
-  if (!user.value) return
+  if (!user.value || !isMyTurn.value) {
+    return
+  }
 
   const result = await setContract(user.value.id, partieId.value, contract as any)
-  
-  if (result.success) {
-    await loadGameState()
+
+  if (!result.success) {
+    statusText.value = result.error ?? 'Action impossible'
+    return
   }
+
+  await refreshGame()
 }
 
-const handleCallKing = async (color: string) => {
-  // Trouver l'ID de la carte du roi de la couleur demandée
-  const kingValue = '14'
-  const cards = await $fetch('/api/game/cards')
-  
-  if (cards.success) {
-    const kingCard = cards.cards.find((c: Card) => 
-      c.valeur === kingValue && c.couleur.toUpperCase().includes(color)
-    )
-    
-    if (kingCard) {
-      const result = await callKing(partieId.value, kingCard.id)
-      
-      if (result.success) {
-        gamePhase.value = 'PLAYING'
-        // Créer un nouveau pli
-        const pliResult = await $fetch('/api/game/create-pli', {
-          method: 'POST',
-          body: { partieId: partieId.value }
-        })
-        
-        if (pliResult.success) {
-          currentPliId.value = pliResult.pliId
-        }
-      }
+const handleCallKingCard = async (card: Card) => {
+  if (!isTaker.value) {
+    return
+  }
+
+  const result = await callKing(partieId.value, card.id)
+
+  if (!result.success) {
+    statusText.value = result.error ?? 'Impossible d appeler ce roi'
+    return
+  }
+
+  await refreshGame()
+}
+
+const handleRetrieveDog = async () => {
+  if (!user.value || !isTaker.value) {
+    return
+  }
+
+  const result = await retrieveDog(user.value.id, partieId.value)
+
+  if (!result.success) {
+    statusText.value = result.error ?? 'Impossible de recuperer le chien'
+    return
+  }
+
+  await refreshGame()
+}
+
+const handleSceneCardSelection = async (card: Card) => {
+  if (!user.value || !gameData.value) {
+    return
+  }
+
+  if (gameData.value.phase === 'DOG_EXCHANGE') {
+    const result = await discardDog(user.value.id, partieId.value, card.id)
+
+    if (!result.success) {
+      statusText.value = result.error ?? 'Carte invalide pour le chien'
+      return
+    }
+  } else if (gameData.value.phase === 'PLAYING') {
+    const result = await playCard(user.value.id, partieId.value, card.id)
+
+    if (!result.success) {
+      statusText.value = result.error ?? 'Carte invalide'
+      return
     }
   }
+
+  await refreshGame()
 }
 
-const handleCardClick = async (card: Card) => {
-  if (!user.value || !currentPliId.value) return
-
-  cardsPlayed.value++
-  const position = cardsPlayed.value
-
-  const result = await playCard(user.value.id, partieId.value, card.id, currentPliId.value, position)
-  
-  if (result.success && gameScene.value) {
-    // Mettre à jour l'affichage
-    gameScene.value.displayPlayerHand(playerHand.value)
-    
-    // Si 5 cartes ont été jouées, créer un nouveau pli
-    if (cardsPlayed.value >= 5) {
-      cardsPlayed.value = 0
-      gameScene.value.clearCenterCards()
-      
-      // Créer un nouveau pli
-      const pliResult = await $fetch('/api/game/create-pli', {
-        method: 'POST',
-        body: { partieId: partieId.value }
-      })
-      
-      if (pliResult.success) {
-        currentPliId.value = pliResult.pliId
-      }
-    }
-  }
-}
-
-const handleLeaveGame = () => {
-  router.push('/lobby')
+const handleLeaveGame = async () => {
+  await router.push('/lobby')
 }
 </script>
 
 <style scoped>
 .game-page {
   min-height: 100vh;
-  padding: 20px;
-  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  padding: 24px;
+  background:
+    radial-gradient(circle at top, rgba(237, 214, 154, 0.15), transparent 32%),
+    linear-gradient(160deg, #132d21 0%, #0a1913 100%);
 }
 
 .game-header {
-  max-width: 1400px;
-  margin: 0 auto 20px;
-  background: white;
-  border-radius: 12px;
-  padding: 20px 30px;
+  max-width: 1560px;
+  margin: 0 auto 22px;
+  padding: 22px 28px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  gap: 16px;
+  border: 1px solid rgba(231, 210, 155, 0.18);
+  border-radius: 18px;
+  background: rgba(7, 19, 14, 0.78);
+  backdrop-filter: blur(10px);
 }
 
-.game-info h2 {
-  margin: 0 0 5px 0;
-  color: #2d5016;
+.game-info h1 {
+  margin: 0;
+  color: #f4ead3;
+  font-size: 2rem;
 }
 
-.player-name {
-  color: #666;
-  font-size: 0.9rem;
+.game-info p {
+  margin: 6px 0 0;
+  color: #d8ccb0;
 }
 
-.game-status {
+.game-actions {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 14px;
 }
 
-.status-text {
-  color: #2d5016;
-  font-weight: 600;
-  font-size: 1.1rem;
-}
-
-.game-container {
-  max-width: 1400px;
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: 1fr 350px;
-  gap: 20px;
-}
-
-.phaser-container {
-  background: #2d5016;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  min-height: 800px;
-}
-
-.control-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.bidding-panel,
-.calling-panel,
-.scores-panel {
-  background: white;
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.bidding-panel h3,
-.calling-panel h3,
-.scores-panel h3 {
-  margin: 0 0 15px 0;
-  color: #2d5016;
-}
-
-.contract-buttons,
-.king-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.btn {
-  padding: 12px 20px;
-  border: none;
-  border-radius: 6px;
-  font-size: 0.95rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.btn-contract {
-  background: #2d5016;
-  color: white;
-}
-
-.btn-contract:hover {
-  background: #1f3810;
-  transform: translateX(5px);
-}
-
-.btn-refuse {
-  background: #dc3545;
-  color: white;
-}
-
-.btn-refuse:hover {
-  background: #c82333;
-}
-
-.btn-king {
-  background: #ffc107;
-  color: #333;
-}
-
-.btn-king:hover {
-  background: #e0a800;
-  transform: translateX(5px);
-}
-
-.btn-secondary {
-  background: #666;
-  color: white;
-  padding: 10px 20px;
-}
-
-.btn-secondary:hover {
-  background: #444;
-}
-
-.scores-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.score-item {
-  display: flex;
-  justify-content: space-between;
-  padding: 10px;
-  background: #f8f9fa;
-  border-radius: 6px;
-}
-
-.player-label {
-  color: #333;
-  font-weight: 500;
-}
-
-.score-value {
-  color: #2d5016;
+.status-pill {
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: rgba(229, 198, 128, 0.16);
+  border: 1px solid rgba(229, 198, 128, 0.22);
+  color: #f5e7bd;
   font-weight: 700;
 }
 
-@media (max-width: 1200px) {
-  .game-container {
+.game-layout {
+  max-width: 1560px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 330px;
+  gap: 22px;
+}
+
+.phaser-container {
+  min-height: 800px;
+  border-radius: 22px;
+  overflow: hidden;
+  border: 1px solid rgba(231, 210, 155, 0.18);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
+}
+
+.side-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.panel {
+  padding: 22px;
+  border-radius: 18px;
+  border: 1px solid rgba(231, 210, 155, 0.18);
+  background: rgba(7, 19, 14, 0.78);
+  color: #eee5ce;
+}
+
+.panel h2 {
+  margin: 0 0 14px;
+  font-size: 1.2rem;
+  color: #f7ebc7;
+}
+
+.actions-list {
+  display: grid;
+  gap: 10px;
+}
+
+.phase-help {
+  display: grid;
+  gap: 12px;
+  color: #d9ccb0;
+}
+
+.score-list {
+  display: grid;
+  gap: 10px;
+}
+
+.score-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #e9dec0;
+}
+
+.score-row.active {
+  border: 1px solid rgba(242, 163, 71, 0.55);
+  color: #ffd28d;
+}
+
+.btn {
+  border: 0;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease, background 0.2s ease;
+}
+
+.btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #d0a84a 0%, #b78327 100%);
+  color: #1a1204;
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, #b14438 0%, #8f2b23 100%);
+  color: #fff3ef;
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.12);
+  color: #f5ecd5;
+}
+
+@media (max-width: 1280px) {
+  .game-layout {
     grid-template-columns: 1fr;
   }
-  
-  .control-panel {
+
+  .side-panel {
     flex-direction: row;
     flex-wrap: wrap;
   }
-  
-  .bidding-panel,
-  .calling-panel,
-  .scores-panel {
-    flex: 1;
-    min-width: 250px;
+
+  .panel {
+    flex: 1 1 300px;
+  }
+}
+
+@media (max-width: 900px) {
+  .game-page {
+    padding: 14px;
+  }
+
+  .game-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .game-actions {
+    width: 100%;
+    justify-content: space-between;
   }
 }
 </style>

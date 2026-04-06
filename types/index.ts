@@ -14,9 +14,25 @@ export interface Card {
   points: number
 }
 
-export type CardColor = 'SPADE' | 'HEART' | 'DIAMOND' | 'CLOVER' | 'ATOUT' | 'BOUT' | 'PIQUE' | 'COEUR' | 'CARREAU' | 'TREFLE'
+export type CardColor =
+  | 'SPADE'
+  | 'HEART'
+  | 'DIAMOND'
+  | 'CLOVER'
+  | 'ATOUT'
+  | 'BOUT'
+  | 'PIQUE'
+  | 'COEUR'
+  | 'CARREAU'
+  | 'TREFLE'
 
-export type ContractType = 'PETITE' | 'GARDE' | 'GARDE_SANS' | 'GARDE_CONTRE' | 'WAIT' | 'REFUSE'
+export type ContractType =
+  | 'PETITE'
+  | 'GARDE'
+  | 'GARDE_SANS'
+  | 'GARDE_CONTRE'
+  | 'WAIT'
+  | 'REFUSE'
 
 export interface Player {
   id: number
@@ -27,6 +43,29 @@ export interface Player {
   equipe: number
   score: number
   cards: number[]
+}
+
+export interface TablePlayer {
+  id: number
+  utilisateur: number
+  num: number
+  partie: number
+  reponse: ContractType
+  equipe: number
+  score: number
+  pseudo: string
+  handCount: number
+}
+
+export interface CurrentPliCard {
+  position: number
+  playerNum: number | null
+  card: Card
+}
+
+export interface CurrentPliState {
+  id: number
+  joueurGagnant: number | null
 }
 
 export interface Game {
@@ -66,7 +105,7 @@ export interface WSMessage {
   data?: any
 }
 
-export type WSMessageType = 
+export type WSMessageType =
   | 'SUBSCRIBE'
   | 'ANSWER_UPDATE'
   | 'CALL_INFO'
@@ -99,6 +138,42 @@ export interface GameState {
   partnerNum?: number
   scores: number[]
   playerNames: string[]
+}
+
+export interface GameApiState {
+  success: true
+  players: TablePlayer[]
+  answerCount: number
+  taker: { num: number; reponse: ContractType } | null
+  currentTurn: number | null
+  trickCount: number
+  currentPli: CurrentPliState | null
+  currentPliCards: CurrentPliCard[]
+  partnerNum: number | null
+  calledKingColor: string | null
+  dogCards: Card[]
+  dogRetrieved: boolean
+  dogDiscardCount: number
+  finTour: boolean
+  finPartie: boolean
+  phase: GamePhase
+}
+
+export interface SceneTableState {
+  phase: GamePhase
+  playerHand: Card[]
+  players: TablePlayer[]
+  myPlayerNum: number
+  currentTurn: number | null
+  takerNum: number | null
+  partnerNum: number | null
+  dogCards: Card[]
+  dogRetrieved: boolean
+  dogDiscardCount: number
+  currentPliCards: CurrentPliCard[]
+  kingChoices: Card[]
+  selectableCardIds: number[]
+  statusText: string
 }
 
 export interface LoginCredentials {

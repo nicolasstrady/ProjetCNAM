@@ -47,22 +47,41 @@ DB_PASSWORD=root
 DB_NAME=tarot_project
 ```
 
-4. **Démarrer la base de données MySQL**
+4. **Démarrer avec Docker (Recommandé)**
+
+**Option A : Tout avec Docker (une seule commande)**
 ```bash
-docker-compose up -d
+docker-compose up --build
 ```
 
-La base de données sera accessible sur le port `3307` et sera initialisée automatiquement avec le schéma et les données de test depuis `db/init.sql`.
-
-## 🎯 Développement
-
-Démarrer le serveur de développement Nuxt :
-
+**Option B : Développement local (plus rapide)**
 ```bash
+# Démarrer uniquement MySQL
+docker-compose up -d db
+
+# Lancer Nuxt localement
 npm run dev
 ```
 
 L'application sera accessible sur `http://localhost:3000`
+
+📖 **Pour plus de détails sur Docker, consultez [DOCKER.md](DOCKER.md)**
+
+## 🎯 Développement
+
+### Avec Docker
+```bash
+docker-compose up
+```
+
+### Sans Docker (développement local)
+```bash
+# 1. Démarrer MySQL
+docker-compose up -d db
+
+# 2. Lancer Nuxt
+npm run dev
+```
 
 ## 🏗️ Build Production
 

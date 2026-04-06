@@ -1,10 +1,15 @@
-import Phaser from 'phaser'
-
 export const usePhaser = () => {
-  let game: Phaser.Game | null = null
+  let game: any = null
 
-  const initGame = (containerId: string, config?: Phaser.Types.Core.GameConfig) => {
-    const defaultConfig: Phaser.Types.Core.GameConfig = {
+  const initGame = async (containerId: string, config?: any) => {
+    if (game) {
+      game.destroy(true)
+      game = null
+    }
+
+    const Phaser = await import('phaser').then(m => m.default)
+
+    const defaultConfig = {
       type: Phaser.AUTO,
       parent: containerId,
       width: 1200,
@@ -18,6 +23,10 @@ export const usePhaser = () => {
     }
 
     game = new Phaser.Game(defaultConfig)
+    await new Promise<void>((resolve) => {
+      game.events.once(Phaser.Core.Events.READY, () => resolve())
+    })
+
     return game
   }
 

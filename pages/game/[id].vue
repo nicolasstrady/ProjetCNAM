@@ -20,23 +20,29 @@
         <!-- Phase d'enchères -->
         <div v-if="gamePhase === 'BIDDING'" class="bidding-panel">
           <h3>Enchères</h3>
-          <div class="contract-buttons">
+          <div v-if="isMyTurn" class="contract-buttons">
             <button @click="handleContract('PETITE')" class="btn btn-contract">Petite</button>
             <button @click="handleContract('GARDE')" class="btn btn-contract">Garde</button>
             <button @click="handleContract('GARDE_SANS')" class="btn btn-contract">Garde Sans</button>
             <button @click="handleContract('GARDE_CONTRE')" class="btn btn-contract">Garde Contre</button>
             <button @click="handleContract('REFUSE')" class="btn btn-refuse">Passer</button>
           </div>
+          <div v-else class="waiting-message">
+            <p>En attente des autres joueurs...</p>
+          </div>
         </div>
 
         <!-- Phase d'appel du roi -->
         <div v-if="gamePhase === 'CALLING'" class="calling-panel">
           <h3>Appeler un Roi</h3>
-          <div class="king-buttons">
+          <div v-if="isTaker" class="king-buttons">
             <button @click="handleCallKing('SPADE')" class="btn btn-king">Roi de Pique</button>
             <button @click="handleCallKing('HEART')" class="btn btn-king">Roi de Cœur</button>
             <button @click="handleCallKing('DIAMOND')" class="btn btn-king">Roi de Carreau</button>
             <button @click="handleCallKing('CLOVER')" class="btn btn-king">Roi de Trèfle</button>
+          </div>
+          <div v-else class="waiting-message">
+            <p>Le preneur appelle un roi...</p>
           </div>
         </div>
 
@@ -56,8 +62,8 @@
 </template>
 
 <script setup lang="ts">
-import { GameScene } from '~/phaser/scenes/GameScene'
 import type { Card, GamePhase } from '~/types'
+import type { GameScene } from '~/phaser/scenes/GameScene'
 
 const route = useRoute()
 const router = useRouter()
@@ -71,8 +77,19 @@ const statusText = ref('En attente...')
 const players = ref<any[]>([])
 const currentPliId = ref<number | null>(null)
 const cardsPlayed = ref(0)
+const currentTurn = ref<number>(1)
+const takerNum = ref<number | undefined>(undefined)
+const gameScene = ref<GameScene | null>(null)
 
-let gameScene: GameScene | null = null
+// Computed pour savoir si c'est le tour du joueur
+const isMyTurn = computed(() => {
+  return currentTurn.value === playerNum.value
+})
+
+// Computed pour savoir si le joueur est le preneur
+const isTaker = computed(() => {
+  return takerNum.value === playerNum.value
+})
 
 onMounted(async () => {
   if (!user.value) {
@@ -80,25 +97,42 @@ onMounted(async () => {
     return
   }
 
-  // Charger la main du joueur
-  await loadPlayerHand()
+  // Attendre le prochain tick pour s'assurer qu'on est côté client
+  await nextTick()
+  
+  console.log('onMounted - process.client:', process.client)
+  
+  // Initialiser Phaser AVANT de charger les cartes
+  if (process.client) {
+    console.log('Import de GameScene...')
+    const { GameScene } = await import('~/phaser/scenes/GameScene')
+    
+    console.log('Initialisation du jeu Phaser...')
+    const game = await initGame('phaser-game')
 
-  // Initialiser Phaser
-  const game = initGame('phaser-game', {
-    scene: [GameScene]
-  })
-
-  if (game.scene.scenes.length > 0) {
-    gameScene = game.scene.scenes[0] as GameScene
-    gameScene.scene.start('GameScene', {
+    game.scene.add('GameScene', GameScene, true, {
       onCardClick: handleCardClick
     })
 
-    // Afficher la main du joueur
-    if (playerHand.value.length > 0) {
-      gameScene.displayPlayerHand(playerHand.value)
+    console.log('Jeu créé, nombre de scènes:', game.scene.scenes.length)
+    
+    if (game.scene.scenes.length > 0) {
+      gameScene.value = game.scene.getScene('GameScene') as GameScene
+      console.log('gameScene.value assigné:', !!gameScene.value)
+      
+      
+      // Attendre un peu que la scène soit complètement créée
+      
+      console.log('Phaser initialisé et prêt, gameScene.value:', !!gameScene.value, gameScene.value)
+    } else {
+      console.error('Aucune scène trouvée dans le jeu Phaser!')
     }
+  } else {
+    console.log('Pas côté client, skip Phaser')
   }
+
+  // Charger la main du joueur APRÈS l'initialisation complète de Phaser
+  await loadPlayerHand()
 
   // Charger l'état du jeu
   await loadGameState()
@@ -111,6 +145,15 @@ onUnmounted(() => {
   destroyGame()
   stopGamePolling()
 })
+
+// Watch pour afficher les cartes dès qu'elles sont chargées ET que gameScene est prêt
+watch([playerHand, gameScene], ([newHand, scene]) => {
+  console.log('Watch déclenché:', newHand.length, 'cartes', 'gameScene:', !!scene)
+  if (scene && newHand.length > 0) {
+    console.log('Affichage de', newHand.length, 'cartes:', newHand)
+    scene.displayPlayerHand(newHand)
+  }
+}, { deep: true, immediate: true })
 
 let pollInterval: NodeJS.Timeout | null = null
 
@@ -130,9 +173,12 @@ const stopGamePolling = () => {
 const loadPlayerHand = async () => {
   if (!user.value) return
 
+  console.log('loadPlayerHand appelé pour userId:', user.value.id, 'partieId:', partieId.value)
   const result = await getPlayerHand(user.value.id, partieId.value)
-  if (result.success && gameScene) {
-    gameScene.displayPlayerHand(playerHand.value)
+  console.log('getPlayerHand résultat:', result)
+  console.log('playerHand après chargement:', playerHand.value)
+  if (result.success && gameScene.value) {
+    gameScene.value.displayPlayerHand(playerHand.value)
   }
 }
 
@@ -141,6 +187,15 @@ const loadGameState = async () => {
   
   if (result.success && result.data) {
     players.value = result.data.players || []
+    
+    // Mettre à jour le preneur
+    if (result.data.taker) {
+      takerNum.value = result.data.taker.num
+    }
+    
+    // Calculer le tour actuel pour les enchères (basé sur le nombre de réponses)
+    const answerCount = result.data.answerCount || 0
+    currentTurn.value = (answerCount % 5) + 1
     
     // Déterminer la phase du jeu
     if (result.data.taker) {
@@ -221,14 +276,14 @@ const handleCardClick = async (card: Card) => {
 
   const result = await playCard(user.value.id, partieId.value, card.id, currentPliId.value, position)
   
-  if (result.success && gameScene) {
+  if (result.success && gameScene.value) {
     // Mettre à jour l'affichage
-    gameScene.displayPlayerHand(playerHand.value)
+    gameScene.value.displayPlayerHand(playerHand.value)
     
     // Si 5 cartes ont été jouées, créer un nouveau pli
     if (cardsPlayed.value >= 5) {
       cardsPlayed.value = 0
-      gameScene.clearCenterCards()
+      gameScene.value.clearCenterCards()
       
       // Créer un nouveau pli
       const pliResult = await $fetch('/api/game/create-pli', {

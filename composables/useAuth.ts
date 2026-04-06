@@ -1,8 +1,27 @@
 import type { User, LoginCredentials, RegisterData } from '~/types'
 
 export const useAuth = () => {
-  const user = useState<User | null>('user', () => null)
+  const authCookie = useCookie<User | null>('tarot-user', {
+    default: () => null,
+    maxAge: 60 * 60 * 24 * 30,
+    sameSite: 'lax'
+  })
+
+  const user = useState<User | null>('user', () => authCookie.value)
+  const authSyncInitialized = useState<boolean>('auth-sync-initialized', () => false)
   const isAuthenticated = computed(() => !!user.value)
+
+  if (!authSyncInitialized.value) {
+    authSyncInitialized.value = true
+
+    watch(user, (value) => {
+      authCookie.value = value
+    }, { deep: true })
+  }
+
+  if (!user.value && authCookie.value) {
+    user.value = authCookie.value
+  }
 
   const login = async (credentials: LoginCredentials) => {
     try {
@@ -13,6 +32,7 @@ export const useAuth = () => {
       
       if (response.success && response.user) {
         user.value = response.user
+        authCookie.value = response.user
         return { success: true, user: response.user }
       }
       
@@ -31,6 +51,7 @@ export const useAuth = () => {
       
       if (response.success && response.user) {
         user.value = response.user
+        authCookie.value = response.user
         return { success: true, user: response.user }
       }
       
@@ -42,6 +63,7 @@ export const useAuth = () => {
 
   const logout = () => {
     user.value = null
+    authCookie.value = null
   }
 
   return {

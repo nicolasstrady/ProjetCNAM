@@ -29,12 +29,19 @@ export default defineNuxtConfig({
   
   vite: {
     optimizeDeps: {
-      exclude: ['phaser']
+      include: ['phaser']
+    },
+    build: {
+      rollupOptions: {
+        external: []
+      }
     }
   },
   
   typescript: {
     strict: true,
-    typeCheck: true
+    // vite-plugin-checker casse actuellement dans le conteneur dev
+    // on garde un typecheck manuel via `npm run typecheck`
+    typeCheck: false
   }
 })

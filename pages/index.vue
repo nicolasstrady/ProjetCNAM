@@ -118,7 +118,7 @@
 </template>
 
 <script setup lang="ts">
-const { login, register } = useAuth()
+const { login, register, user } = useAuth()
 const router = useRouter()
 
 const showRegister = ref(false)
@@ -136,6 +136,12 @@ const registerForm = reactive({
   email: '',
   pseudo: '',
   motdepasse: ''
+})
+
+onMounted(() => {
+  if (user.value) {
+    router.push('/lobby')
+  }
 })
 
 const handleLogin = async () => {

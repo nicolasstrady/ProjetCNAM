@@ -1,0 +1,28 @@
+{
+  "name": "tarot-game-nuxt",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "start": "node .output/server/index.mjs",
+    "db:init": "node scripts/init-db.mjs",
+    "typecheck": "nuxt typecheck",
+    "postinstall": "nuxt prepare"
+  },
+  "dependencies": {
+    "mysql2": "^3.11.5",
+    "nuxt": "^3.15.1",
+    "phaser": "^3.90.0",
+    "vue": "latest"
+  },
+  "devDependencies": {
+    "@nuxt/types": "^2.18.1",
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2",
+    "vue-tsc": "^2.1.10"
+  }
+}

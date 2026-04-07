@@ -79,6 +79,38 @@ export interface Game {
 }
 
 export type GamePhase = 'BIDDING' | 'CALLING' | 'DOG_EXCHANGE' | 'PLAYING' | 'FINISHED'
+export type TarotTeamSide = 'ATTACK' | 'DEFENSE'
+export type TarotPlayerRole = 'TAKER' | 'PARTNER' | 'DEFENDER'
+
+export interface TarotFinalPlayerResult {
+  playerNum: number
+  pseudo: string
+  side: TarotTeamSide
+  role: TarotPlayerRole
+  roleLabel: string
+  trickPoints: number
+  finalDelta: number
+}
+
+export interface TarotFinalResult {
+  contract: Extract<ContractType, 'PETITE' | 'GARDE' | 'GARDE_SANS' | 'GARDE_CONTRE'>
+  contractLabel: string
+  multiplier: number
+  takerNum: number
+  partnerNum: number | null
+  attackPoints: number
+  defensePoints: number
+  dogPoints: number
+  dogOwner: TarotTeamSide
+  bouts: number
+  requiredPoints: number
+  pointDifference: number
+  basePoints: number
+  totalScore: number
+  attackWon: boolean
+  bonusesHandled: boolean
+  playerResults: TarotFinalPlayerResult[]
+}
 
 export interface Pli {
   id: number
@@ -149,7 +181,9 @@ export interface GameApiState {
   trickCount: number
   currentPli: CurrentPliState | null
   currentPliCards: CurrentPliCard[]
+  discardedDogCards: Card[]
   partnerNum: number | null
+  teamsRevealed: boolean
   calledKingColor: string | null
   dogCards: Card[]
   dogRetrieved: boolean
@@ -157,6 +191,7 @@ export interface GameApiState {
   finTour: boolean
   finPartie: boolean
   phase: GamePhase
+  finalResult: TarotFinalResult | null
 }
 
 export interface SceneTableState {
@@ -165,9 +200,14 @@ export interface SceneTableState {
   players: TablePlayer[]
   myPlayerNum: number
   currentTurn: number | null
+  currentPliId: number | null
+  currentPliWinnerNum: number | null
+  finTour: boolean
   takerNum: number | null
   partnerNum: number | null
+  teamsRevealed: boolean
   dogCards: Card[]
+  discardedDogCards: Card[]
   dogRetrieved: boolean
   dogDiscardCount: number
   currentPliCards: CurrentPliCard[]

@@ -70,6 +70,7 @@ export default defineEventHandler(async (event) => {
   session.dogCardIds = dogCardIds
   session.dogRetrieved = false
   session.discardedDogCardIds = []
+  session.dogExchangeEndsAt = null
   session.currentPliId = null
   session.currentTurn = takerNum
   session.firstPlayer = null

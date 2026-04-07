@@ -141,6 +141,13 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  if (session.dogExchangeEndsAt && Date.now() < session.dogExchangeEndsAt) {
+    return {
+      success: false as const,
+      message: 'Le chien est en cours de validation'
+    }
+  }
+
   const player = await getPlayerRow(userId, partieId)
 
   if (!player) {
@@ -286,7 +293,6 @@ export default defineEventHandler(async (event) => {
     )
 
     session.currentTurn = winner
-    session.firstPlayer = winner
     session.ledColor = ''
     session.finTour = true
     session.trickCount += 1

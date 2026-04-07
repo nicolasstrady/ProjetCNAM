@@ -9,6 +9,8 @@ import { getGameSession } from '~/server/utils/gameSession'
 import { query } from '~/server/utils/db'
 import { isDogDiscardForbidden } from '~/utils/tarot'
 
+const DOG_EXCHANGE_COMPLETION_DELAY_MS = 1800
+
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
   const userId = Number(body.userId)
@@ -116,6 +118,7 @@ export default defineEventHandler(async (event) => {
     session.finTour = false
     session.finPartie = false
     session.trickCount = 0
+    session.dogExchangeEndsAt = Date.now() + DOG_EXCHANGE_COMPLETION_DELAY_MS
   }
 
   return {

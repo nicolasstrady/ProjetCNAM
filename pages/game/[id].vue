@@ -35,6 +35,23 @@
 
           <div v-else-if="gamePhase === 'DOG_EXCHANGE'" class="phase-help">
             <template v-if="isTaker">
+              <p v-if="!gameData?.dogRetrieved">Recuperez le chien, puis jetez 3 cartes depuis votre main.</p>
+              <p v-else-if="(gameData?.dogDiscardCount ?? 0) < 3">Selectionnez {{ 3 - (gameData?.dogDiscardCount ?? 0) }} carte(s) dans votre main.</p>
+              <p v-else>Le chien est valide.</p>
+              <button
+                v-if="!gameData?.dogRetrieved"
+                @click="handleRetrieveDog"
+                class="btn btn-primary"
+              >
+                Recuperer le chien
+              </button>
+            </template>
+
+            <p v-else>Le preneur prepare le chien.</p>
+          </div>
+
+          <div v-else-if="false" class="phase-help">
+            <template v-if="isTaker">
               <p v-if="!gameData?.dogRetrieved">Récupérez le chien, puis jetez 3 cartes depuis votre main.</p>
               <p v-else>Sélectionnez {{ 3 - (gameData?.dogDiscardCount ?? 0) }} carte(s) dans votre main.</p>
               <button
@@ -75,6 +92,85 @@
         </section>
       </aside>
     </div>
+
+    <section v-if="finalResult" class="final-summary" :class="finalOutcomeClass">
+      <div class="final-summary-header">
+        <div>
+          <h2>{{ finalOutcomeTitle }}</h2>
+          <p>{{ finalSummaryText }}</p>
+        </div>
+
+        <span class="final-summary-pill">{{ finalResult.attackWon ? 'Attaque gagnante' : 'Défense gagnante' }}</span>
+      </div>
+
+      <div class="final-stats-grid">
+        <div class="final-stat-card">
+          <span>Contrat</span>
+          <strong>{{ finalResult.contractLabel }} x{{ finalResult.multiplier }}</strong>
+        </div>
+        <div class="final-stat-card">
+          <span>Bouts attaque</span>
+          <strong>{{ finalResult.bouts }}</strong>
+        </div>
+        <div class="final-stat-card">
+          <span>Points attaque</span>
+          <strong>{{ formatScoreValue(finalResult.attackPoints) }}</strong>
+        </div>
+        <div class="final-stat-card">
+          <span>Points demandés</span>
+          <strong>{{ formatScoreValue(finalResult.requiredPoints) }}</strong>
+        </div>
+        <div class="final-stat-card">
+          <span>Ecart</span>
+          <strong>{{ formatSignedScore(finalResult.pointDifference) }}</strong>
+        </div>
+        <div class="final-stat-card">
+          <span>Base</span>
+          <strong>{{ formatScoreValue(finalResult.basePoints) }}</strong>
+        </div>
+        <div class="final-stat-card">
+          <span>Valeur du contrat</span>
+          <strong>{{ formatScoreValue(finalResult.totalScore) }}</strong>
+        </div>
+        <div class="final-stat-card">
+          <span>Chien</span>
+          <strong>{{ formatScoreValue(finalResult.dogPoints) }} pour {{ finalResult.dogOwner === 'ATTACK' ? 'attaque' : 'défense' }}</strong>
+        </div>
+      </div>
+
+      <p v-if="!finalResult.bonusesHandled" class="final-summary-note">
+        Le tableau applique le score contrat + bouts. Les bonus de poignée, chelem et petit au bout ne sont pas encore gérés.
+      </p>
+
+      <div class="final-table-wrapper">
+        <table class="final-table">
+          <thead>
+            <tr>
+              <th>Joueur</th>
+              <th>Rôle</th>
+              <th>Camp</th>
+              <th>Points de plis</th>
+              <th>Score final</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="result in finalResult.playerResults"
+              :key="result.playerNum"
+              :class="{ current: result.playerNum === playerNum }"
+            >
+              <td>{{ result.pseudo }}</td>
+              <td>{{ result.roleLabel }}</td>
+              <td>{{ result.side === 'ATTACK' ? 'Attaque' : 'Défense' }}</td>
+              <td>{{ formatScoreValue(result.trickPoints) }}</td>
+              <td :class="result.finalDelta >= 0 ? 'score-positive' : 'score-negative'">
+                {{ formatSignedScore(result.finalDelta) }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -110,6 +206,43 @@ const gamePhase = computed<GamePhase>(() => gameData.value?.phase ?? 'BIDDING')
 const currentTurn = computed(() => gameData.value?.currentTurn ?? null)
 const isMyTurn = computed(() => currentTurn.value === playerNum.value)
 const isTaker = computed(() => gameData.value?.taker?.num === playerNum.value)
+const finalResult = computed(() => gameData.value?.finalResult ?? null)
+const myFinalResult = computed(() => {
+  if (!finalResult.value) {
+    return null
+  }
+
+  return finalResult.value.playerResults.find((result) => result.playerNum === playerNum.value) ?? null
+})
+const finalOutcomeTitle = computed(() => {
+  if (!myFinalResult.value) {
+    return 'Fin de partie'
+  }
+
+  return myFinalResult.value.finalDelta >= 0 ? 'Victoire' : 'Défaite'
+})
+const finalOutcomeClass = computed(() => {
+  if (!myFinalResult.value) {
+    return 'outcome-neutral'
+  }
+
+  return myFinalResult.value.finalDelta >= 0 ? 'outcome-victory' : 'outcome-defeat'
+})
+const finalSummaryText = computed(() => {
+  if (!finalResult.value) {
+    return ''
+  }
+
+  const difference = formatScoreValue(Math.abs(finalResult.value.pointDifference))
+  const target = formatScoreValue(finalResult.value.requiredPoints)
+  const attackScore = formatScoreValue(finalResult.value.attackPoints)
+
+  if (finalResult.value.attackWon) {
+    return `L'attaque fait ${attackScore} pour ${target} demandés et passe le contrat de ${difference}.`
+  }
+
+  return `L'attaque fait ${attackScore} pour ${target} demandés et chute de ${difference}.`
+})
 
 const phaseLabel = computed(() => {
   switch (gamePhase.value) {
@@ -176,9 +309,14 @@ const sceneTableState = computed<SceneTableState | null>(() => {
     players: gameData.value.players,
     myPlayerNum: playerNum.value,
     currentTurn: gameData.value.currentTurn,
+    currentPliId: gameData.value.currentPli?.id ?? null,
+    currentPliWinnerNum: gameData.value.currentPli?.joueurGagnant ?? null,
+    finTour: gameData.value.finTour,
     takerNum: gameData.value.taker?.num ?? null,
     partnerNum: gameData.value.partnerNum ?? null,
+    teamsRevealed: gameData.value.teamsRevealed,
     dogCards: gameData.value.dogCards,
+    discardedDogCards: gameData.value.discardedDogCards,
     dogRetrieved: gameData.value.dogRetrieved,
     dogDiscardCount: gameData.value.dogDiscardCount,
     currentPliCards: gameData.value.currentPliCards,
@@ -258,7 +396,7 @@ const loadPlayerCards = async () => {
 }
 
 const loadGameState = async () => {
-  const result = await getGameState(partieId.value)
+  const result = await getGameState(partieId.value, user.value?.id)
 
   if (!result.success || !result.data) {
     return
@@ -280,9 +418,11 @@ const updateStatusText = (state: GameApiState) => {
       break
     case 'DOG_EXCHANGE':
       if (!isTaker.value) {
-        statusText.value = 'Le preneur fait son chien'
+        statusText.value = state.dogDiscardCount >= 3 ? 'Le chien est valide' : 'Le preneur fait son chien'
       } else if (!state.dogRetrieved) {
         statusText.value = 'Recuperez le chien'
+      } else if (state.dogDiscardCount >= 3) {
+        statusText.value = 'Le chien est valide'
       } else {
         statusText.value = `Choisissez ${3 - state.dogDiscardCount} carte(s) pour le chien`
       }
@@ -301,9 +441,23 @@ const updateStatusText = (state: GameApiState) => {
       }
       break
     case 'FINISHED':
-      statusText.value = 'Fin de partie'
+      if (state.finalResult) {
+        const currentPlayerResult = state.finalResult.playerResults.find((result) => result.playerNum === playerNum.value)
+        statusText.value = currentPlayerResult && currentPlayerResult.finalDelta >= 0 ? 'Victoire' : 'Défaite'
+      } else {
+        statusText.value = 'Fin de partie'
+      }
       break
   }
+}
+
+const formatScoreValue = (value: number) => {
+  return Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1)
+}
+
+const formatSignedScore = (value: number) => {
+  const formattedValue = formatScoreValue(Math.abs(value))
+  return `${value >= 0 ? '+' : '-'}${formattedValue}`
 }
 
 const startGamePolling = () => {
@@ -450,6 +604,121 @@ const handleLeaveGame = async () => {
   gap: 22px;
 }
 
+.final-summary {
+  max-width: 1560px;
+  margin: 24px auto 0;
+  padding: 24px 26px;
+  border-radius: 22px;
+  border: 1px solid rgba(231, 210, 155, 0.2);
+  background: rgba(7, 19, 14, 0.82);
+  color: #efe5ce;
+}
+
+.final-summary.outcome-victory {
+  box-shadow: 0 18px 48px rgba(51, 132, 79, 0.18);
+}
+
+.final-summary.outcome-defeat {
+  box-shadow: 0 18px 48px rgba(150, 58, 47, 0.18);
+}
+
+.final-summary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+.final-summary-header h2 {
+  margin: 0;
+  color: #f8edc8;
+  font-size: 2rem;
+}
+
+.final-summary-header p {
+  margin: 8px 0 0;
+  color: #ddd0b0;
+}
+
+.final-summary-pill {
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(231, 210, 155, 0.22);
+  background: rgba(229, 198, 128, 0.12);
+  color: #f9e7b5;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.final-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.final-stat-card {
+  padding: 16px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(231, 210, 155, 0.12);
+  display: grid;
+  gap: 8px;
+}
+
+.final-stat-card span {
+  color: #d6c8a5;
+  font-size: 0.92rem;
+}
+
+.final-stat-card strong {
+  color: #fff1c7;
+  font-size: 1.15rem;
+}
+
+.final-summary-note {
+  margin: 0 0 18px;
+  color: #cabd9d;
+}
+
+.final-table-wrapper {
+  overflow-x: auto;
+}
+
+.final-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.final-table th,
+.final-table td {
+  padding: 14px 12px;
+  text-align: left;
+  border-bottom: 1px solid rgba(231, 210, 155, 0.12);
+}
+
+.final-table th {
+  color: #f6eabf;
+  font-size: 0.92rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.final-table tbody tr.current {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.score-positive {
+  color: #93daaa;
+  font-weight: 700;
+}
+
+.score-negative {
+  color: #ef9b8f;
+  font-weight: 700;
+}
+
 .phaser-container {
   min-height: 800px;
   border-radius: 22px;
@@ -570,6 +839,10 @@ const handleLeaveGame = async () => {
   .game-actions {
     width: 100%;
     justify-content: space-between;
+  }
+
+  .final-summary-header {
+    flex-direction: column;
   }
 }
 </style>

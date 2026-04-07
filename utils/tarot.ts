@@ -2,6 +2,14 @@ import type { Card } from '~/types'
 
 export const PLAYER_COUNT = 5
 export const PLAYER_HAND_SIZE = 15
+export const CONTRACT_LABELS: Record<string, string> = {
+  PETITE: 'Petite',
+  GARDE: 'Garde',
+  GARDE_SANS: 'Garde sans',
+  GARDE_CONTRE: 'Garde contre',
+  WAIT: 'En attente',
+  REFUSE: 'Passer'
+}
 
 const COLOR_ALIASES: Record<string, string> = {
   SPADE: 'PIQUE',
@@ -64,6 +72,16 @@ export function sortHandCards(cards: Card[]) {
 
 export function isExcuse(card: Pick<Card, 'couleur' | 'valeur'>) {
   return normalizeCardColor(card.couleur) === 'BOUT' && String(card.valeur).toUpperCase() === 'E'
+}
+
+export function isBoutCard(card: Pick<Card, 'couleur' | 'valeur'>) {
+  const normalizedColor = normalizeCardColor(card.couleur)
+
+  if (normalizedColor === 'BOUT') {
+    return true
+  }
+
+  return normalizedColor === 'ATOUT' && getCardNumericValue(card.valeur) === 1
 }
 
 export function isTrump(card: Pick<Card, 'couleur' | 'valeur'>) {
@@ -201,4 +219,35 @@ export function getPlayableCardIds(
 
 export function getRelativePlayerOffset(myPlayerNum: number, playerNum: number) {
   return (playerNum - myPlayerNum + PLAYER_COUNT) % PLAYER_COUNT
+}
+
+export function getRequiredPointsForBouts(bouts: number) {
+  switch (bouts) {
+    case 0:
+      return 56
+    case 1:
+      return 51
+    case 2:
+      return 41
+    default:
+      return 36
+  }
+}
+
+export function getContractMultiplier(contract?: string | null) {
+  switch (String(contract ?? '').toUpperCase()) {
+    case 'GARDE':
+      return 2
+    case 'GARDE_SANS':
+      return 4
+    case 'GARDE_CONTRE':
+      return 6
+    case 'PETITE':
+    default:
+      return 1
+  }
+}
+
+export function getContractLabel(contract?: string | null) {
+  return CONTRACT_LABELS[String(contract ?? '').toUpperCase()] ?? String(contract ?? '')
 }

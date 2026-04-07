@@ -7,6 +7,7 @@ export interface GameSession {
   dogCardIds: number[]
   dogRetrieved: boolean
   discardedDogCardIds: number[]
+  dogExchangeEndsAt: number | null
   currentPliId: number | null
   currentTurn: number | null
   firstPlayer: number | null
@@ -28,6 +29,7 @@ function createSession(partieId: number): GameSession {
     dogCardIds: [],
     dogRetrieved: false,
     discardedDogCardIds: [],
+    dogExchangeEndsAt: null,
     currentPliId: null,
     currentTurn: null,
     firstPlayer: null,

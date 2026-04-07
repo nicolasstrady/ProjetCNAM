@@ -2,6 +2,11 @@
 export default defineNuxtConfig({
   compatibilityDate: '2024-04-03',
   devtools: { enabled: true },
+
+  devServer: {
+    host: process.env.NUXT_HOST || '0.0.0.0',
+    port: Number(process.env.NUXT_PORT || 3000)
+  },
   
   modules: [],
   
@@ -28,6 +33,20 @@ export default defineNuxtConfig({
   },
   
   vite: {
+    server: {
+      watch: process.env.CHOKIDAR_USEPOLLING === 'true'
+        ? {
+            usePolling: true,
+            interval: Number(process.env.CHOKIDAR_INTERVAL || 250)
+          }
+        : undefined,
+      hmr: {
+        host: process.env.NUXT_HMR_HOST || 'localhost',
+        port: Number(process.env.NUXT_HMR_PORT || process.env.NUXT_PORT || 3000),
+        clientPort: Number(process.env.NUXT_HMR_PORT || process.env.NUXT_PORT || 3000),
+        protocol: 'ws'
+      }
+    },
     optimizeDeps: {
       include: ['phaser']
     },

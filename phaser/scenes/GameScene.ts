@@ -8,11 +8,25 @@ interface SceneCallbacks {
   onRetrieveDog?: () => void
 }
 
+interface RenderOptions {
+  suppressTrickCards?: boolean
+  suppressPlayedCardId?: number | null
+  suppressDogDiscardedCardId?: number | null
+}
+
 type SeatKey = 'self' | 'left' | 'topLeft' | 'topRight' | 'right'
 
 export class GameScene extends Phaser.Scene {
+  private static readonly TRICK_COLLECTION_DELAY_MS = 1200
+  private static readonly DOG_RETRIEVE_DURATION_MS = 420
+  private static readonly DOG_DISCARD_DURATION_MS = 320
+
   private dynamicObjects: Phaser.GameObjects.GameObject[] = []
+  private transientObjects: Phaser.GameObjects.GameObject[] = []
   private tableState: SceneTableState | null = null
+  private collectedPliIds = new Set<number>()
+  private pendingTrickCollection: Phaser.Time.TimerEvent | null = null
+  private pendingTrickCollectionPliId: number | null = null
   private hoveredHandCard: {
     image: Phaser.GameObjects.Image
     baseY: number
@@ -66,19 +80,45 @@ export class GameScene extends Phaser.Scene {
   }
 
   setTableState(state: SceneTableState) {
-    this.tableState = {
-      ...state,
-      playerHand: [...state.playerHand],
-      players: [...state.players],
-      dogCards: [...state.dogCards],
-      currentPliCards: [...state.currentPliCards],
-      kingChoices: [...state.kingChoices],
-      selectableCardIds: [...state.selectableCardIds]
+    const previousState = this.tableState ? this.cloneState(this.tableState) : null
+    const nextState = this.cloneState(state)
+
+    if (
+      this.pendingTrickCollection &&
+      (nextState.currentPliId !== this.pendingTrickCollectionPliId || !nextState.finTour)
+    ) {
+      this.clearPendingTrickCollection()
     }
 
-    if (this.sceneReady) {
-      this.renderTable()
+    this.tableState = nextState
+
+    if (!this.sceneReady) {
+      return
     }
+
+    if (this.shouldAnimateDogRetrieve(previousState, nextState)) {
+      this.animateDogRetrieve(previousState as SceneTableState, nextState)
+      return
+    }
+
+    const newDiscardedDogCard = this.getNewDiscardedDogCard(previousState, nextState)
+    if (newDiscardedDogCard) {
+      this.animateDogDiscard(previousState as SceneTableState, nextState, newDiscardedDogCard)
+      return
+    }
+
+    const newPlayedCard = this.getNewPlayedCard(previousState, nextState)
+    if (newPlayedCard) {
+      this.animatePlayedCard(previousState, nextState, newPlayedCard)
+      return
+    }
+
+    if (this.shouldAnimateTrickCollection(previousState, nextState)) {
+      this.animateTrickCollection(nextState)
+      return
+    }
+
+    this.renderTable()
   }
 
   displayPlayerHand(cards: Card[]) {
@@ -111,10 +151,25 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private renderTable() {
+  private cloneState(state: SceneTableState): SceneTableState {
+    return {
+      ...state,
+      playerHand: [...state.playerHand],
+      players: [...state.players],
+      dogCards: [...state.dogCards],
+      discardedDogCards: [...state.discardedDogCards],
+      currentPliCards: [...state.currentPliCards],
+      kingChoices: [...state.kingChoices],
+      selectableCardIds: [...state.selectableCardIds]
+    }
+  }
+
+  private renderTable(options: RenderOptions = {}) {
     this.clearHoveredHandCard()
     this.dynamicObjects.forEach((gameObject) => gameObject.destroy())
     this.dynamicObjects = []
+    this.transientObjects.forEach((gameObject) => gameObject.destroy())
+    this.transientObjects = []
 
     if (!this.tableState) {
       return
@@ -122,7 +177,7 @@ export class GameScene extends Phaser.Scene {
 
     this.renderStatusBanner()
     this.renderPlayers()
-    this.renderCenterArea()
+    this.renderCenterArea(options)
     this.renderPlayerHand()
   }
 
@@ -150,14 +205,15 @@ export class GameScene extends Phaser.Scene {
     const myself = this.tableState.players.find((player) => player.num === this.tableState?.myPlayerNum)
 
     if (myself) {
-      const selfLabel = this.add.text(600, 620, `${myself.pseudo}  ${myself.score.toFixed(1)}`, {
+      const selfLabel = this.add.text(600, 558, `${myself.pseudo}  ${myself.score.toFixed(1)}`, {
         color: this.getPlayerColor(myself.num),
         fontFamily: 'Georgia',
-        fontSize: '24px',
+        fontSize: '22px',
         fontStyle: 'bold'
       }).setOrigin(0.5)
 
-      this.dynamicObjects.push(selfLabel)
+      const badge = this.addTextBadge([selfLabel], 220)
+      this.dynamicObjects.push(badge, selfLabel)
     }
 
     this.tableState.players
@@ -191,30 +247,66 @@ export class GameScene extends Phaser.Scene {
     const label = this.add.text(seatConfig.labelX, seatConfig.labelY, player.pseudo, {
       color: this.getPlayerColor(player.num),
       fontFamily: 'Georgia',
-      fontSize: '24px',
+      fontSize: '22px',
       fontStyle: 'bold'
     }).setOrigin(0.5)
 
-    const score = this.add.text(seatConfig.labelX, seatConfig.labelY + 26, `${player.score.toFixed(1)}  ${player.handCount} cartes`, {
+    const score = this.add.text(seatConfig.scoreX, seatConfig.scoreY, `${player.score.toFixed(1)}  ${player.handCount} cartes`, {
       color: '#f1ead9',
       fontFamily: 'Georgia',
       fontSize: '18px'
     }).setOrigin(0.5)
 
-    this.dynamicObjects.push(label, score)
+    const badge = this.addTextBadge([label, score], seatConfig.badgeWidth)
+    this.dynamicObjects.push(badge, label, score)
   }
 
-  private renderCenterArea() {
+  private addTextBadge(textObjects: Phaser.GameObjects.Text[], minWidth = 0) {
+    const bounds = textObjects.map((textObject) => textObject.getBounds())
+    const minX = Math.min(...bounds.map((bound) => bound.x))
+    const maxX = Math.max(...bounds.map((bound) => bound.right))
+    const minY = Math.min(...bounds.map((bound) => bound.y))
+    const maxY = Math.max(...bounds.map((bound) => bound.bottom))
+    const badge = this.add.rectangle(
+      (minX + maxX) / 2,
+      (minY + maxY) / 2,
+      Math.max(minWidth, maxX - minX + 26),
+      maxY - minY + 16,
+      0x06150e,
+      0.62
+    ).setStrokeStyle(1, 0xe4cb8a, 0.3)
+
+    badge.setDepth(6)
+    textObjects.forEach((textObject) => textObject.setDepth(7))
+
+    return badge
+  }
+
+  private renderCenterArea(options: RenderOptions) {
     if (!this.tableState) {
       return
     }
 
-    if (this.tableState.currentPliCards.length > 0) {
-      this.renderCurrentPliCards(this.tableState.currentPliCards)
+    const trickAlreadyCollected = Boolean(
+      this.tableState.currentPliId &&
+      this.tableState.finTour &&
+      this.collectedPliIds.has(this.tableState.currentPliId)
+    )
+
+    if (!options.suppressTrickCards && !trickAlreadyCollected && this.tableState.currentPliCards.length > 0) {
+      this.renderCurrentPliCards(this.tableState.currentPliCards, options.suppressPlayedCardId ?? null)
     }
 
-    if (this.tableState.dogCards.length > 0) {
-      this.renderDogCards()
+    if (this.tableState.phase === 'DOG_EXCHANGE') {
+      if (!this.tableState.dogRetrieved && this.tableState.dogCards.length > 0) {
+        this.renderDogCards('Chien', this.tableState.dogCards)
+      } else if (this.isTakerView(this.tableState)) {
+        if (this.tableState.discardedDogCards.length > 0) {
+          this.renderDogCards('Chien', this.tableState.discardedDogCards, options.suppressDogDiscardedCardId ?? null)
+        }
+      } else if (this.tableState.dogCards.length > 0) {
+        this.renderDogCards('Chien', this.tableState.dogCards)
+      }
     }
 
     if (this.tableState.phase === 'CALLING' && this.tableState.kingChoices.length > 0) {
@@ -224,6 +316,15 @@ export class GameScene extends Phaser.Scene {
     if (this.tableState.phase === 'DOG_EXCHANGE' && this.tableState.takerNum === this.tableState.myPlayerNum) {
       if (!this.tableState.dogRetrieved) {
         this.renderRetrieveDogButton()
+      } else if (this.tableState.dogDiscardCount >= 3) {
+        const info = this.add.text(600, 505, 'Chien valide', {
+          color: '#f5e2ac',
+          fontFamily: 'Georgia',
+          fontSize: '22px',
+          fontStyle: 'bold'
+        }).setOrigin(0.5)
+
+        this.dynamicObjects.push(info)
       } else {
         const info = this.add.text(600, 505, `Choisissez ${3 - this.tableState.dogDiscardCount} carte(s) pour le chien`, {
           color: '#f5e2ac',
@@ -237,13 +338,13 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private renderCurrentPliCards(cards: CurrentPliCard[]) {
-    const fallbackX = [480, 540, 600, 660, 720]
+  private renderCurrentPliCards(cards: CurrentPliCard[], suppressPlayedCardId: number | null) {
+    cards.forEach((playedCard) => {
+      if (suppressPlayedCardId && playedCard.card.id === suppressPlayedCardId) {
+        return
+      }
 
-    cards.forEach((playedCard, index) => {
-      const config = playedCard.playerNum
-        ? this.getTrickSeatConfig(this.getSeatKey(playedCard.playerNum))
-        : { x: fallbackX[index] ?? 600, y: 390, rotation: 0 }
+      const config = this.getTrickPosition(playedCard)
       const cardImage = this.add.image(config.x, config.y, this.getCardKey(playedCard.card))
 
       cardImage.setDisplaySize(92, 138)
@@ -253,12 +354,8 @@ export class GameScene extends Phaser.Scene {
     })
   }
 
-  private renderDogCards() {
-    if (!this.tableState) {
-      return
-    }
-
-    const label = this.add.text(600, 284, 'Chien', {
+  private renderDogCards(title: string, cards: Card[], suppressCardId: number | null = null) {
+    const label = this.add.text(600, 284, title, {
       color: '#f3e6bf',
       fontFamily: 'Georgia',
       fontSize: '24px',
@@ -267,11 +364,13 @@ export class GameScene extends Phaser.Scene {
 
     this.dynamicObjects.push(label)
 
-    const spacing = 86
-    const firstX = 600 - ((this.tableState.dogCards.length - 1) * spacing) / 2
+    cards.forEach((card, index) => {
+      if (suppressCardId && card.id === suppressCardId) {
+        return
+      }
 
-    this.tableState.dogCards.forEach((card, index) => {
-      const image = this.add.image(firstX + index * spacing, 360, this.getCardKey(card))
+      const position = this.getDogCardPosition(index, cards.length)
+      const image = this.add.image(position.x, position.y, this.getCardKey(card))
       image.setDisplaySize(78, 118)
       image.setDepth(18)
       this.dynamicObjects.push(image)
@@ -370,7 +469,10 @@ export class GameScene extends Phaser.Scene {
 
       image.setDisplaySize(baseWidth, baseHeight)
       image.setDepth(baseDepth)
-      image.setAlpha(selectable ? 1 : disableAllCards || selectableIds.size > 0 ? 0.42 : 1)
+
+      if (!selectable && (disableAllCards || selectableIds.size > 0)) {
+        image.setTint(0xb4bcc4)
+      }
 
       if (selectable) {
         image.setInteractive({ useHandCursor: true })
@@ -472,6 +574,281 @@ export class GameScene extends Phaser.Scene {
     image.setDepth(baseDepth)
   }
 
+  private isTakerView(state: SceneTableState | null) {
+    return Boolean(state && state.takerNum !== null && state.takerNum === state.myPlayerNum)
+  }
+
+  private shouldAnimateDogRetrieve(previousState: SceneTableState | null, nextState: SceneTableState) {
+    return Boolean(
+      previousState &&
+      this.isTakerView(nextState) &&
+      previousState.phase === 'DOG_EXCHANGE' &&
+      !previousState.dogRetrieved &&
+      nextState.phase === 'DOG_EXCHANGE' &&
+      nextState.dogRetrieved
+    )
+  }
+
+  private getNewDiscardedDogCard(previousState: SceneTableState | null, nextState: SceneTableState) {
+    if (
+      !previousState ||
+      !this.isTakerView(nextState) ||
+      nextState.phase !== 'DOG_EXCHANGE' ||
+      nextState.discardedDogCards.length === 0
+    ) {
+      return null
+    }
+
+    const previousDiscardIds = new Set(previousState.discardedDogCards.map((card) => card.id))
+    return nextState.discardedDogCards.find((card) => !previousDiscardIds.has(card.id)) ?? null
+  }
+
+  private animateDogRetrieve(previousState: SceneTableState, nextState: SceneTableState) {
+    if (previousState.dogCards.length === 0) {
+      this.renderTable()
+      return
+    }
+
+    this.renderTable()
+
+    let completedTweens = 0
+
+    previousState.dogCards.forEach((card, index) => {
+      const start = this.getDogCardPosition(index, previousState.dogCards.length)
+      const target = this.getRetrievedDogTargetPosition(index, previousState.dogCards.length)
+      const animationCard = this.add.image(start.x, start.y, this.getCardKey(card))
+
+      animationCard.setDisplaySize(78, 118)
+      animationCard.setDepth(220 + index)
+      this.transientObjects.push(animationCard)
+
+      this.tweens.add({
+        targets: animationCard,
+        x: target.x,
+        y: target.y,
+        alpha: 0.12,
+        duration: GameScene.DOG_RETRIEVE_DURATION_MS,
+        delay: index * 70,
+        ease: 'Cubic.InOut',
+        onComplete: () => {
+          animationCard.destroy()
+          this.transientObjects = this.transientObjects.filter((object) => object !== animationCard)
+          completedTweens += 1
+
+          if (completedTweens === previousState.dogCards.length) {
+            this.renderTable()
+          }
+        }
+      })
+    })
+  }
+
+  private animateDogDiscard(previousState: SceneTableState, nextState: SceneTableState, discardedCard: Card) {
+    const discardIndex = nextState.discardedDogCards.findIndex((card) => card.id === discardedCard.id)
+    const target = this.getDogCardPosition(
+      discardIndex >= 0 ? discardIndex : Math.max(nextState.discardedDogCards.length - 1, 0),
+      nextState.discardedDogCards.length
+    )
+    const origin = this.getHandCardPosition(previousState.playerHand, discardedCard.id)
+    const targetWidth = 78
+    const targetHeight = 118
+
+    this.renderTable({ suppressDogDiscardedCardId: discardedCard.id })
+
+    const animationCard = this.add.image(origin.x, origin.y, this.getCardKey(discardedCard))
+
+    animationCard.setDisplaySize(112, 168)
+    animationCard.setDepth(260)
+    this.transientObjects.push(animationCard)
+
+    const startScaleX = animationCard.scaleX
+    const startScaleY = animationCard.scaleY
+
+    this.tweens.add({
+      targets: animationCard,
+      x: target.x,
+      y: target.y,
+      scaleX: startScaleX * (targetWidth / 112),
+      scaleY: startScaleY * (targetHeight / 168),
+      duration: GameScene.DOG_DISCARD_DURATION_MS,
+      ease: 'Cubic.Out',
+      onComplete: () => {
+        animationCard.destroy()
+        this.transientObjects = this.transientObjects.filter((object) => object !== animationCard)
+        this.renderTable()
+      }
+    })
+  }
+
+  private getHandCardPosition(handCards: Card[], cardId: number) {
+    const sortedHand = sortHandCards(handCards)
+    const cardIndex = sortedHand.findIndex((card) => card.id === cardId)
+    const spacing = sortedHand.length > 1
+      ? Math.min(62, Math.max(28, Math.floor(920 / (sortedHand.length - 1))))
+      : 0
+    const firstX = 600 - ((sortedHand.length - 1) * spacing) / 2
+
+    return {
+      x: cardIndex >= 0 ? firstX + cardIndex * spacing : 600,
+      y: 704
+    }
+  }
+
+  private getDogCardPosition(index: number, totalCards: number) {
+    const spacing = 86
+    const firstX = 600 - ((totalCards - 1) * spacing) / 2
+
+    return {
+      x: firstX + index * spacing,
+      y: 360
+    }
+  }
+
+  private getRetrievedDogTargetPosition(index: number, totalCards: number) {
+    const spacing = 74
+    const firstX = 600 - ((totalCards - 1) * spacing) / 2
+
+    return {
+      x: firstX + index * spacing,
+      y: 636
+    }
+  }
+
+  private getNewPlayedCard(previousState: SceneTableState | null, nextState: SceneTableState) {
+    if (nextState.currentPliCards.length === 0) {
+      return null
+    }
+
+    const previousCardIds = new Set(previousState?.currentPliCards.map((playedCard) => playedCard.card.id) ?? [])
+    return nextState.currentPliCards.find((playedCard) => !previousCardIds.has(playedCard.card.id)) ?? null
+  }
+
+  private shouldAnimateTrickCollection(previousState: SceneTableState | null, nextState: SceneTableState) {
+    if (!nextState.finTour || !nextState.currentPliId || !nextState.currentPliWinnerNum || nextState.currentPliCards.length === 0) {
+      return false
+    }
+
+    if (this.collectedPliIds.has(nextState.currentPliId)) {
+      return false
+    }
+
+    return previousState?.currentPliId !== nextState.currentPliId || !previousState.finTour
+  }
+
+  private animatePlayedCard(previousState: SceneTableState | null, nextState: SceneTableState, playedCard: CurrentPliCard) {
+    this.renderTable({ suppressPlayedCardId: playedCard.card.id })
+
+    const seat = playedCard.playerNum ? this.getSeatKey(playedCard.playerNum) : 'self'
+    const origin = this.getCardOriginPosition(seat)
+    const target = this.getTrickPosition(playedCard)
+    const animationCard = this.add.image(origin.x, origin.y, this.getCardKey(playedCard.card))
+
+    animationCard.setDisplaySize(92, 138)
+    animationCard.setRotation(origin.rotation)
+    animationCard.setDepth(320)
+    this.transientObjects.push(animationCard)
+
+    this.tweens.add({
+      targets: animationCard,
+      x: target.x,
+      y: target.y,
+      angle: Phaser.Math.RadToDeg(target.rotation),
+      duration: 260,
+      ease: 'Cubic.Out',
+      onComplete: () => {
+        animationCard.destroy()
+        this.transientObjects = this.transientObjects.filter((object) => object !== animationCard)
+
+        if (this.shouldAnimateTrickCollection(previousState, nextState)) {
+          this.renderTable()
+          this.scheduleTrickCollection(nextState)
+          return
+        }
+
+        this.renderTable()
+      }
+    })
+  }
+
+  private scheduleTrickCollection(state: SceneTableState) {
+    if (!state.currentPliId || !state.currentPliWinnerNum || state.currentPliCards.length === 0) {
+      return
+    }
+
+    this.clearPendingTrickCollection()
+    this.pendingTrickCollectionPliId = state.currentPliId
+    this.pendingTrickCollection = this.time.delayedCall(GameScene.TRICK_COLLECTION_DELAY_MS, () => {
+      this.pendingTrickCollection = null
+      this.pendingTrickCollectionPliId = null
+
+      if (
+        !this.tableState ||
+        this.collectedPliIds.has(state.currentPliId as number) ||
+        this.tableState.currentPliId !== state.currentPliId ||
+        !this.tableState.finTour
+      ) {
+        return
+      }
+
+      this.animateTrickCollection(state)
+    })
+  }
+
+  private clearPendingTrickCollection() {
+    if (this.pendingTrickCollection) {
+      this.pendingTrickCollection.remove(false)
+      this.pendingTrickCollection = null
+    }
+
+    this.pendingTrickCollectionPliId = null
+  }
+
+  private animateTrickCollection(state: SceneTableState) {
+    if (!state.currentPliWinnerNum || !state.currentPliId) {
+      this.renderTable()
+      return
+    }
+
+    this.clearPendingTrickCollection()
+    this.renderTable({ suppressTrickCards: true })
+
+    const winnerSeat = this.getSeatKey(state.currentPliWinnerNum)
+    const destination = this.getCollectDestination(winnerSeat)
+    let completedTweens = 0
+
+    state.currentPliCards.forEach((playedCard, index) => {
+      const start = this.getTrickPosition(playedCard)
+      const animationCard = this.add.image(start.x, start.y, this.getCardKey(playedCard.card))
+
+      animationCard.setDisplaySize(92, 138)
+      animationCard.setRotation(start.rotation)
+      animationCard.setDepth(340 + index)
+      this.transientObjects.push(animationCard)
+
+      this.tweens.add({
+        targets: animationCard,
+        x: destination.x + index * destination.spreadX,
+        y: destination.y + index * destination.spreadY,
+        angle: Phaser.Math.RadToDeg(destination.rotation),
+        scaleX: 0.72,
+        scaleY: 0.72,
+        alpha: 0.94,
+        duration: 340,
+        ease: 'Cubic.InOut',
+        onComplete: () => {
+          animationCard.destroy()
+          this.transientObjects = this.transientObjects.filter((object) => object !== animationCard)
+          completedTweens += 1
+
+          if (completedTweens === state.currentPliCards.length) {
+            this.collectedPliIds.add(state.currentPliId as number)
+            this.renderTable()
+          }
+        }
+      })
+    })
+  }
+
   private getSeatKey(playerNum: number): SeatKey {
     if (!this.tableState) {
       return 'self'
@@ -500,28 +877,37 @@ export class GameScene extends Phaser.Scene {
           spreadX: 0,
           spreadY: 10,
           rotation: -Math.PI / 2,
-          labelX: 160,
-          labelY: 250
+          labelX: 156,
+          labelY: 248,
+          scoreX: 156,
+          scoreY: 274,
+          badgeWidth: 150
         }
       case 'topLeft':
         return {
           cardX: 362,
-          cardY: 132,
+          cardY: 148,
           spreadX: 12,
           spreadY: 0,
           rotation: 0,
-          labelX: 362,
-          labelY: 78
+          labelX: 206,
+          labelY: 94,
+          scoreX: 206,
+          scoreY: 120,
+          badgeWidth: 170
         }
       case 'topRight':
         return {
           cardX: 838,
-          cardY: 132,
+          cardY: 148,
           spreadX: 12,
           spreadY: 0,
           rotation: 0,
-          labelX: 838,
-          labelY: 78
+          labelX: 994,
+          labelY: 94,
+          scoreX: 994,
+          scoreY: 120,
+          badgeWidth: 170
         }
       case 'right':
         return {
@@ -530,8 +916,11 @@ export class GameScene extends Phaser.Scene {
           spreadX: 0,
           spreadY: 10,
           rotation: Math.PI / 2,
-          labelX: 1040,
-          labelY: 250
+          labelX: 1044,
+          labelY: 248,
+          scoreX: 1044,
+          scoreY: 274,
+          badgeWidth: 150
         }
       default:
         return {
@@ -541,9 +930,52 @@ export class GameScene extends Phaser.Scene {
           spreadY: 0,
           rotation: 0,
           labelX: 600,
-          labelY: 0
+          labelY: 0,
+          scoreX: 600,
+          scoreY: 0,
+          badgeWidth: 0
         }
     }
+  }
+
+  private getCardOriginPosition(seat: SeatKey) {
+    switch (seat) {
+      case 'left':
+        return { x: 160, y: 402, rotation: -Math.PI / 2 }
+      case 'topLeft':
+        return { x: 430, y: 170, rotation: 0 }
+      case 'topRight':
+        return { x: 770, y: 170, rotation: 0 }
+      case 'right':
+        return { x: 1040, y: 402, rotation: Math.PI / 2 }
+      default:
+        return { x: 600, y: 748, rotation: 0 }
+    }
+  }
+
+  private getCollectDestination(seat: SeatKey) {
+    switch (seat) {
+      case 'left':
+        return { x: 175, y: 390, spreadX: 0, spreadY: 5, rotation: -Math.PI / 2 }
+      case 'topLeft':
+        return { x: 395, y: 182, spreadX: 5, spreadY: 0, rotation: 0 }
+      case 'topRight':
+        return { x: 805, y: 182, spreadX: 5, spreadY: 0, rotation: 0 }
+      case 'right':
+        return { x: 1025, y: 390, spreadX: 0, spreadY: 5, rotation: Math.PI / 2 }
+      default:
+        return { x: 600, y: 640, spreadX: 14, spreadY: 0, rotation: 0 }
+    }
+  }
+
+  private getTrickPosition(playedCard: CurrentPliCard) {
+    const fallbackX = [480, 540, 600, 660, 720]
+
+    if (playedCard.playerNum) {
+      return this.getTrickSeatConfig(this.getSeatKey(playedCard.playerNum))
+    }
+
+    return { x: fallbackX[playedCard.position - 1] ?? 600, y: 390, rotation: 0 }
   }
 
   private getTrickSeatConfig(seat: SeatKey) {
@@ -570,7 +1002,7 @@ export class GameScene extends Phaser.Scene {
       return '#f2a347'
     }
 
-    if (this.tableState.takerNum !== null) {
+    if (this.tableState.teamsRevealed && this.tableState.takerNum !== null) {
       if (playerNum === this.tableState.takerNum || playerNum === this.tableState.partnerNum) {
         return '#db7660'
       }

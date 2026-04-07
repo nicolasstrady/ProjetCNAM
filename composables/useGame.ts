@@ -171,9 +171,14 @@ export const useGame = () => {
     }
   }
 
-  const getGameState = async (partieId: number) => {
+  const getGameState = async (partieId: number, userId?: number) => {
     try {
-      const url = `/api/game/state?partieId=${partieId}` as string
+      const searchParams = new URLSearchParams({ partieId: String(partieId) })
+      if (userId) {
+        searchParams.set('userId', String(userId))
+      }
+
+      const url = `/api/game/state?${searchParams.toString()}` as string
       const response = await $fetch<GameApiState>(url)
 
       if (response.success) {

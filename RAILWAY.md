@@ -35,6 +35,9 @@ DB_SEED_TEST_DATA=true
 NODE_ENV=production
 ```
 
+The server now reads these `DB_*` variables directly at runtime.
+This avoids the common Docker + Nuxt issue where database values get frozen during image build.
+
 Optional:
 
 ```env

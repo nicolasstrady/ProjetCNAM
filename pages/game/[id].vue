@@ -13,7 +13,171 @@
     </div>
 
     <div class="game-layout">
-      <div id="phaser-game" class="phaser-container"></div>
+      <div class="table-stage">
+        <div id="phaser-game" class="phaser-container"></div>
+
+        <section v-if="finalResult" class="final-summary-overlay">
+          <div class="final-summary" :class="finalOutcomeClass">
+            <div class="final-summary-header">
+              <div>
+                <h2>{{ finalOutcomeTitle }}</h2>
+                <p>{{ finalSummaryText }}</p>
+              </div>
+
+              <span class="final-summary-pill">{{ finalResult.attackWon ? 'Attaque gagnante' : 'Defense gagnante' }}</span>
+            </div>
+
+            <div class="final-stats-grid">
+              <div class="final-stat-card">
+                <span>Contrat</span>
+                <strong>{{ finalResult.contractLabel }} x{{ finalResult.multiplier }}</strong>
+              </div>
+              <div class="final-stat-card">
+                <span>Bouts attaque</span>
+                <strong>{{ finalResult.bouts }}</strong>
+              </div>
+              <div class="final-stat-card">
+                <span>Points attaque</span>
+                <strong>{{ formatScoreValue(finalResult.attackPoints) }}</strong>
+              </div>
+              <div class="final-stat-card">
+                <span>Points demandes</span>
+                <strong>{{ formatScoreValue(finalResult.requiredPoints) }}</strong>
+              </div>
+              <div class="final-stat-card">
+                <span>Ecart</span>
+                <strong>{{ formatSignedScore(finalResult.pointDifference) }}</strong>
+              </div>
+              <div class="final-stat-card">
+                <span>Base</span>
+                <strong>{{ formatScoreValue(finalResult.basePoints) }}</strong>
+              </div>
+              <div class="final-stat-card">
+                <span>Valeur du contrat</span>
+                <strong>{{ formatScoreValue(finalResult.totalScore) }}</strong>
+              </div>
+              <div class="final-stat-card">
+                <span>Chien</span>
+                <strong>{{ formatScoreValue(finalResult.dogPoints) }} pour {{ finalResult.dogOwner === 'ATTACK' ? 'attaque' : 'defense' }}</strong>
+              </div>
+            </div>
+
+            <p v-if="!finalResult.bonusesHandled" class="final-summary-note">
+              Le tableau applique le score contrat + bouts. Les bonus de poignee, chelem et petit au bout ne sont pas encore geres.
+            </p>
+
+            <div class="final-table-wrapper">
+              <table class="final-table">
+                <thead>
+                  <tr>
+                    <th>Joueur</th>
+                    <th>Role</th>
+                    <th>Camp</th>
+                    <th>Points de plis</th>
+                    <th>Score final</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="result in finalResult.playerResults"
+                    :key="result.playerNum"
+                    :class="{ current: result.playerNum === playerNum }"
+                  >
+                    <td>{{ result.pseudo }}</td>
+                    <td>{{ result.roleLabel }}</td>
+                    <td>{{ result.side === 'ATTACK' ? 'Attaque' : 'Defense' }}</td>
+                    <td>{{ formatScoreValue(result.trickPoints) }}</td>
+                    <td :class="result.finalDelta >= 0 ? 'score-positive' : 'score-negative'">
+                      {{ formatSignedScore(result.finalDelta) }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section v-if="finalResult" class="final-summary-overlay" style="display: none;" aria-hidden="true">
+          <div class="final-summary" :class="finalOutcomeClass">
+            <div class="final-summary-header">
+              <div>
+                <h2>{{ finalOutcomeTitle }}</h2>
+                <p>{{ finalSummaryText }}</p>
+              </div>
+
+              <span class="final-summary-pill">{{ finalResult.attackWon ? 'Attaque gagnante' : 'DÃ©fense gagnante' }}</span>
+            </div>
+
+            <div class="final-stats-grid">
+              <div class="final-stat-card">
+                <span>Contrat</span>
+                <strong>{{ finalResult.contractLabel }} x{{ finalResult.multiplier }}</strong>
+              </div>
+              <div class="final-stat-card">
+                <span>Bouts attaque</span>
+                <strong>{{ finalResult.bouts }}</strong>
+              </div>
+              <div class="final-stat-card">
+                <span>Points attaque</span>
+                <strong>{{ formatScoreValue(finalResult.attackPoints) }}</strong>
+              </div>
+              <div class="final-stat-card">
+                <span>Points demandÃ©s</span>
+                <strong>{{ formatScoreValue(finalResult.requiredPoints) }}</strong>
+              </div>
+              <div class="final-stat-card">
+                <span>Ecart</span>
+                <strong>{{ formatSignedScore(finalResult.pointDifference) }}</strong>
+              </div>
+              <div class="final-stat-card">
+                <span>Base</span>
+                <strong>{{ formatScoreValue(finalResult.basePoints) }}</strong>
+              </div>
+              <div class="final-stat-card">
+                <span>Valeur du contrat</span>
+                <strong>{{ formatScoreValue(finalResult.totalScore) }}</strong>
+              </div>
+              <div class="final-stat-card">
+                <span>Chien</span>
+                <strong>{{ formatScoreValue(finalResult.dogPoints) }} pour {{ finalResult.dogOwner === 'ATTACK' ? 'attaque' : 'dÃ©fense' }}</strong>
+              </div>
+            </div>
+
+            <p v-if="!finalResult.bonusesHandled" class="final-summary-note">
+              Le tableau applique le score contrat + bouts. Les bonus de poignÃ©e, chelem et petit au bout ne sont pas encore gÃ©rÃ©s.
+            </p>
+
+            <div class="final-table-wrapper">
+              <table class="final-table">
+                <thead>
+                  <tr>
+                    <th>Joueur</th>
+                    <th>RÃ´le</th>
+                    <th>Camp</th>
+                    <th>Points de plis</th>
+                    <th>Score final</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="result in finalResult.playerResults"
+                    :key="result.playerNum"
+                    :class="{ current: result.playerNum === playerNum }"
+                  >
+                    <td>{{ result.pseudo }}</td>
+                    <td>{{ result.roleLabel }}</td>
+                    <td>{{ result.side === 'ATTACK' ? 'Attaque' : 'DÃ©fense' }}</td>
+                    <td>{{ formatScoreValue(result.trickPoints) }}</td>
+                    <td :class="result.finalDelta >= 0 ? 'score-positive' : 'score-negative'">
+                      {{ formatSignedScore(result.finalDelta) }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </div>
 
       <aside class="side-panel">
         <section class="panel">
@@ -93,7 +257,7 @@
       </aside>
     </div>
 
-    <section v-if="finalResult" class="final-summary" :class="finalOutcomeClass">
+    <section v-if="finalResult" class="final-summary" :class="finalOutcomeClass" style="display: none;" aria-hidden="true">
       <div class="final-summary-header">
         <div>
           <h2>{{ finalOutcomeTitle }}</h2>
@@ -549,7 +713,11 @@ const handleLeaveGame = async () => {
 
 <style scoped>
 .game-page {
-  min-height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
   padding: 24px;
   background:
     radial-gradient(circle at top, rgba(237, 214, 154, 0.15), transparent 32%),
@@ -599,19 +767,45 @@ const handleLeaveGame = async () => {
 .game-layout {
   max-width: 1560px;
   margin: 0 auto;
+  width: 100%;
+  height: 100%;
+  flex: 1;
+  min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 330px;
   gap: 22px;
 }
 
+.table-stage {
+  position: relative;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.final-summary-overlay {
+  position: absolute;
+  inset: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  border-radius: 22px;
+  background: rgba(2, 9, 7, 0.52);
+  backdrop-filter: blur(6px);
+  z-index: 20;
+}
+
 .final-summary {
-  max-width: 1560px;
-  margin: 24px auto 0;
+  width: min(100%, 980px);
+  max-height: 100%;
+  overflow: auto;
   padding: 24px 26px;
   border-radius: 22px;
   border: 1px solid rgba(231, 210, 155, 0.2);
-  background: rgba(7, 19, 14, 0.82);
+  background: rgba(7, 19, 14, 0.94);
   color: #efe5ce;
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.34);
 }
 
 .final-summary.outcome-victory {
@@ -720,7 +914,8 @@ const handleLeaveGame = async () => {
 }
 
 .phaser-container {
-  min-height: 800px;
+  height: 100%;
+  min-height: 0;
   border-radius: 22px;
   overflow: hidden;
   border: 1px solid rgba(231, 210, 155, 0.18);
@@ -731,6 +926,8 @@ const handleLeaveGame = async () => {
   display: flex;
   flex-direction: column;
   gap: 18px;
+  min-height: 0;
+  overflow: auto;
 }
 
 .panel {
@@ -812,13 +1009,24 @@ const handleLeaveGame = async () => {
 }
 
 @media (max-width: 1280px) {
+  .game-page {
+    height: auto;
+    min-height: 100dvh;
+    overflow: auto;
+  }
+
   .game-layout {
     grid-template-columns: 1fr;
+  }
+
+  .table-stage {
+    min-height: 72vh;
   }
 
   .side-panel {
     flex-direction: row;
     flex-wrap: wrap;
+    overflow: visible;
   }
 
   .panel {
@@ -843,6 +1051,15 @@ const handleLeaveGame = async () => {
 
   .final-summary-header {
     flex-direction: column;
+  }
+
+  .final-summary-overlay {
+    inset: 10px;
+    padding: 10px;
+  }
+
+  .final-summary {
+    padding: 18px;
   }
 }
 </style>

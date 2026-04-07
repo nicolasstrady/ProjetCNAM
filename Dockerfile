@@ -1,24 +1,29 @@
-# Dockerfile pour l'application Nuxt 3 (Mode Développement)
-FROM node:20-alpine
+FROM node:20-alpine AS build
 
-# Définir le répertoire de travail
 WORKDIR /app
 
-# Copier les fichiers de dépendances
 COPY package*.json ./
+RUN npm ci
 
-# Installer les dépendances
-RUN npm install
-
-# Copier tout le code source
 COPY . .
+RUN npm run build
 
-# Exposer le port 3000
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV HOST=0.0.0.0
+ENV NITRO_HOST=0.0.0.0
+ENV PORT=3000
+
+COPY package*.json ./
+RUN npm ci --omit=dev --ignore-scripts
+
+COPY --from=build /app/.output ./.output
+COPY --from=build /app/public ./public
+COPY --from=build /app/scripts ./scripts
+
 EXPOSE 3000
 
-# Variables d'environnement par défaut
-ENV NUXT_HOST=0.0.0.0
-ENV NUXT_PORT=3000
-
-# Démarrer l'application en mode développement
-CMD ["npm", "run", "dev"]
+CMD ["npm", "run", "start"]

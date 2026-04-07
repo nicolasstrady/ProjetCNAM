@@ -14,11 +14,11 @@ export default defineNuxtConfig({
   
   runtimeConfig: {
     // Server-side only
-    dbHost: process.env.DB_HOST || 'localhost',
-    dbPort: process.env.DB_PORT || '3307',
-    dbUser: process.env.DB_USER || 'root',
-    dbPassword: process.env.DB_PASSWORD || 'root',
-    dbName: process.env.DB_NAME || 'tarot_project',
+    dbHost: process.env.DB_HOST || process.env.MYSQLHOST || 'localhost',
+    dbPort: process.env.DB_PORT || process.env.MYSQLPORT || '3307',
+    dbUser: process.env.DB_USER || process.env.MYSQLUSER || 'root',
+    dbPassword: process.env.DB_PASSWORD || process.env.MYSQLPASSWORD || 'root',
+    dbName: process.env.DB_NAME || process.env.MYSQLDATABASE || 'tarot_project',
     
     // Public (exposed to client)
     public: {

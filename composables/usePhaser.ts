@@ -1,5 +1,17 @@
 export const usePhaser = () => {
   let game: any = null
+  let resizeObserver: ResizeObserver | null = null
+  let observedElement: HTMLElement | null = null
+
+  const refreshScale = () => {
+    if (!game?.scale) {
+      return
+    }
+
+    requestAnimationFrame(() => {
+      game?.scale?.refresh()
+    })
+  }
 
   const initGame = async (containerId: string, config?: any) => {
     if (game) {
@@ -27,10 +39,28 @@ export const usePhaser = () => {
       game.events.once(Phaser.Core.Events.READY, () => resolve())
     })
 
+    const container = document.getElementById(containerId)
+    observedElement = container?.parentElement ?? container
+
+    if (typeof ResizeObserver !== 'undefined' && observedElement) {
+      resizeObserver = new ResizeObserver(() => {
+        refreshScale()
+      })
+      resizeObserver.observe(observedElement)
+    }
+
+    window.addEventListener('resize', refreshScale)
+    refreshScale()
+
     return game
   }
 
   const destroyGame = () => {
+    window.removeEventListener('resize', refreshScale)
+    resizeObserver?.disconnect()
+    resizeObserver = null
+    observedElement = null
+
     if (game) {
       game.destroy(true)
       game = null

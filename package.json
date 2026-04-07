@@ -8,6 +8,8 @@
     "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
+    "start": "node .output/server/index.mjs",
+    "db:init": "node scripts/init-db.mjs",
     "typecheck": "nuxt typecheck",
     "postinstall": "nuxt prepare"
   },

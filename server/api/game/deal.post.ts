@@ -1,5 +1,6 @@
 import { query } from '~/server/utils/db'
 import { resetGameSession } from '~/server/utils/gameSession'
+import { ensureLobbySchema } from '~/server/utils/lobbySchema'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
@@ -9,6 +10,20 @@ export default defineEventHandler(async (event) => {
     throw createError({
       statusCode: 400,
       message: 'partieId requis'
+    })
+  }
+
+  await ensureLobbySchema()
+
+  const playerCountRows = await query<{ count: number }>(
+    'SELECT COUNT(*) as count FROM joueur WHERE partie = ?',
+    [partieId]
+  )
+
+  if ((playerCountRows[0]?.count ?? 0) !== 5) {
+    throw createError({
+      statusCode: 400,
+      message: 'Il faut 5 joueurs pour lancer la partie'
     })
   }
 
@@ -43,6 +58,10 @@ export default defineEventHandler(async (event) => {
   await query(
     'INSERT INTO chien (partie, carte1, carte2, carte3) VALUES (?, ?, ?, ?)',
     [partieId, ...dogCards]
+  )
+  await query(
+    "UPDATE partie SET status = 'PLAYING', startedAt = NOW() WHERE id = ?",
+    [partieId]
   )
 
   return {

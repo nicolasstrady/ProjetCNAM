@@ -34,6 +34,55 @@ export type ContractType =
   | 'WAIT'
   | 'REFUSE'
 
+export type RoomVisibility = 'PRIVATE' | 'PUBLIC' | 'UNLISTED'
+export type RoomStatus = 'WAITING' | 'PLAYING' | 'FINISHED'
+export type RoomMode = 'CLASSIC' | 'QUICK_MATCH' | 'SOLO'
+
+export interface CreateRoomOptions {
+  visibility: RoomVisibility
+  allowQuickJoin: boolean
+  fillWithBots: boolean
+  mode: RoomMode
+}
+
+export interface LobbyRoomPlayer {
+  userId: number
+  pseudo: string
+  playerNum: number
+}
+
+export interface LobbyRoomSummary {
+  id: number
+  code: string | null
+  visibility: RoomVisibility
+  status: RoomStatus
+  mode: RoomMode
+  allowQuickJoin: boolean
+  fillWithBots: boolean
+  ownerUserId: number | null
+  playerCount: number
+  openSlots: number
+  createdAt: string | null
+  startedAt: string | null
+  players: LobbyRoomPlayer[]
+  myPlayerNum: number | null
+}
+
+export interface LobbyRoomsApiState {
+  success: true
+  activeRoom: LobbyRoomSummary | null
+  publicRooms: LobbyRoomSummary[]
+}
+
+export interface RoomActionResult {
+  success: boolean
+  partieId?: number
+  playerNum?: number
+  room?: LobbyRoomSummary
+  alreadyJoined?: boolean
+  error?: string
+}
+
 export interface Player {
   id: number
   utilisateur: number
@@ -174,6 +223,7 @@ export interface GameState {
 
 export interface GameApiState {
   success: true
+  roomStatus: RoomStatus
   players: TablePlayer[]
   answerCount: number
   taker: { num: number; reponse: ContractType } | null

@@ -1,12 +1,7 @@
-import { createRoomAndJoin } from '~/server/utils/lobby'
-import type { CreateRoomOptions } from '~/types'
+import { quickMatch } from '~/server/utils/lobby'
 
 export default defineEventHandler(async (event) => {
-  const body = await readBody<{
-    userId?: number
-    options?: Partial<CreateRoomOptions>
-  }>(event)
-
+  const body = await readBody<{ userId?: number }>(event)
   const userId = Number(body.userId)
 
   if (!userId) {
@@ -16,7 +11,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const result = await createRoomAndJoin(userId, body.options)
+  const result = await quickMatch(userId)
 
   return {
     success: true as const,

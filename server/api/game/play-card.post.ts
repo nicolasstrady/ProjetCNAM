@@ -7,6 +7,7 @@ import {
   getPlayerRow
 } from '~/server/utils/gameData'
 import { getGameSession } from '~/server/utils/gameSession'
+import { ensureLobbySchema } from '~/server/utils/lobbySchema'
 import { getCardPlayError, getCardRank, getEffectiveColor, getLedColorFromCards, isExcuse } from '~/utils/tarot'
 
 async function getCurrentPli(partieId: number, pliId: number | null) {
@@ -131,6 +132,8 @@ export default defineEventHandler(async (event) => {
       message: 'Donnees incompletes'
     })
   }
+
+  await ensureLobbySchema()
 
   const session = getGameSession(partieId)
 
@@ -297,6 +300,13 @@ export default defineEventHandler(async (event) => {
     session.finTour = true
     session.trickCount += 1
     session.finPartie = session.trickCount >= 15
+
+    if (session.finPartie) {
+      await query(
+        "UPDATE partie SET status = 'FINISHED' WHERE id = ?",
+        [partieId]
+      )
+    }
   } else {
     session.currentTurn = player.num === 5 ? 1 : player.num + 1
     session.finTour = false

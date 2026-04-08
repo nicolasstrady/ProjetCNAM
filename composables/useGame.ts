@@ -1,4 +1,12 @@
-import type { Card, ContractType, GameApiState, GameState } from '~/types'
+import type {
+  Card,
+  ContractType,
+  CreateRoomOptions,
+  GameApiState,
+  GameState,
+  LobbyRoomsApiState,
+  RoomActionResult
+} from '~/types'
 
 export const useGame = () => {
   const gameState = useState<GameState>('gameState', () => ({
@@ -19,39 +27,121 @@ export const useGame = () => {
   const playerHand = useState<Card[]>('playerHand', () => [])
   const playerNum = useState<number>('playerNum', () => 0)
 
-  const createGame = async () => {
+  const createGame = async (userId: number, options: Partial<CreateRoomOptions>) => {
     try {
-      const response = await $fetch('/api/game/create', {
-        method: 'POST'
+      const response = await $fetch<RoomActionResult>('/api/game/create', {
+        method: 'POST',
+        body: {
+          userId,
+          options
+        }
       })
 
       if (response.success) {
-        gameState.value.currentPartie = response.partieId
-        return { success: true, partieId: response.partieId }
+        if (response.partieId) {
+          gameState.value.currentPartie = response.partieId
+        }
+        if (response.playerNum) {
+          playerNum.value = response.playerNum
+        }
+
+        return {
+          success: true as const,
+          partieId: response.partieId,
+          playerNum: response.playerNum,
+          room: response.room,
+          alreadyJoined: response.alreadyJoined ?? false
+        }
       }
 
-      return { success: false, error: 'Echec de la creation de la partie' }
+      return { success: false as const, error: 'Echec de la creation du salon' }
     } catch (error: any) {
-      return { success: false, error: error.data?.message || 'Erreur de creation' }
+      return { success: false as const, error: error.data?.message || 'Erreur de creation' }
     }
   }
 
-  const joinGame = async (userId: number, partieId: number) => {
+  const joinGame = async (userId: number, roomRef: { partieId?: number; code?: string }) => {
     try {
-      const response = await $fetch('/api/game/join', {
+      const response = await $fetch<RoomActionResult>('/api/game/join', {
         method: 'POST',
-        body: { userId, partieId }
+        body: { userId, ...roomRef }
       })
 
       if (response.success) {
-        playerNum.value = response.playerNum
-        gameState.value.currentPartie = partieId
-        return { success: true, playerNum: response.playerNum }
+        if (response.playerNum) {
+          playerNum.value = response.playerNum
+        }
+        if (response.partieId) {
+          gameState.value.currentPartie = response.partieId
+        }
+
+        return {
+          success: true as const,
+          playerNum: response.playerNum,
+          partieId: response.partieId,
+          room: response.room,
+          alreadyJoined: response.alreadyJoined ?? false
+        }
       }
 
-      return { success: false, error: 'Echec de rejoindre la partie' }
+      return { success: false as const, error: 'Echec de rejoindre le salon' }
     } catch (error: any) {
-      return { success: false, error: error.data?.message || 'Erreur pour rejoindre' }
+      return { success: false as const, error: error.data?.message || 'Erreur pour rejoindre' }
+    }
+  }
+
+  const quickMatch = async (userId: number) => {
+    try {
+      const response = await $fetch<RoomActionResult>('/api/game/quick-match', {
+        method: 'POST',
+        body: { userId }
+      })
+
+      if (response.success) {
+        if (response.playerNum) {
+          playerNum.value = response.playerNum
+        }
+        if (response.partieId) {
+          gameState.value.currentPartie = response.partieId
+        }
+
+        return {
+          success: true as const,
+          playerNum: response.playerNum,
+          partieId: response.partieId,
+          room: response.room,
+          alreadyJoined: response.alreadyJoined ?? false
+        }
+      }
+
+      return { success: false as const, error: 'Echec de recherche rapide' }
+    } catch (error: any) {
+      return { success: false as const, error: error.data?.message || 'Erreur de recherche rapide' }
+    }
+  }
+
+  const listRooms = async (userId?: number) => {
+    try {
+      const searchParams = new URLSearchParams()
+      if (userId) {
+        searchParams.set('userId', String(userId))
+      }
+
+      const queryString = searchParams.toString()
+      const url = queryString ? `/api/game/rooms?${queryString}` : '/api/game/rooms'
+      const response = await $fetch<LobbyRoomsApiState>(url)
+
+      if (response.success) {
+        return {
+          success: true as const,
+          activeRoom: response.activeRoom,
+          publicRooms: response.publicRooms
+        }
+      }
+
+      return { success: false as const, error: 'Echec de recuperation des salons' }
+    } catch (error: any) {
+      return { success: false as const, error: error.data?.message || 'Erreur de recuperation des salons' }
     }
   }
 
@@ -65,6 +155,22 @@ export const useGame = () => {
       return { success: response.success }
     } catch (error: any) {
       return { success: false, error: error.data?.message || 'Erreur de distribution' }
+    }
+  }
+
+  const leaveGame = async (userId: number, partieId: number) => {
+    try {
+      const response = await $fetch<{ success: boolean; closedRoom?: boolean }>('/api/game/leave', {
+        method: 'POST',
+        body: { userId, partieId }
+      })
+
+      return {
+        success: response.success,
+        closedRoom: response.closedRoom ?? false
+      }
+    } catch (error: any) {
+      return { success: false, error: error.data?.message || 'Erreur de sortie' }
     }
   }
 
@@ -197,7 +303,10 @@ export const useGame = () => {
     playerNum,
     createGame,
     joinGame,
+    quickMatch,
+    listRooms,
     dealCards,
+    leaveGame,
     getPlayerHand,
     setContract,
     callKing,

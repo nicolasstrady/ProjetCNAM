@@ -355,7 +355,8 @@ const {
   retrieveDog,
   discardDog,
   playCard,
-  getGameState
+  getGameState,
+  leaveGame
 } = useGame()
 const { initGame, destroyGame } = usePhaser()
 
@@ -609,7 +610,7 @@ const updateStatusText = (state: GameApiState) => {
         const currentPlayerResult = state.finalResult.playerResults.find((result) => result.playerNum === playerNum.value)
         statusText.value = currentPlayerResult && currentPlayerResult.finalDelta >= 0 ? 'Victoire' : 'Défaite'
       } else {
-        statusText.value = 'Fin de partie'
+        statusText.value = 'Partie close'
       }
       break
   }
@@ -707,6 +708,10 @@ const handleSceneCardSelection = async (card: Card) => {
 }
 
 const handleLeaveGame = async () => {
+  if (user.value) {
+    await leaveGame(user.value.id, partieId.value)
+  }
+
   await router.push('/lobby')
 }
 </script>

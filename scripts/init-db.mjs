@@ -116,7 +116,16 @@ async function createTables(connection) {
       motdepasse VARCHAR(255)
     )`,
     `CREATE TABLE IF NOT EXISTS partie (
-      id INT AUTO_INCREMENT PRIMARY KEY
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      code VARCHAR(12) NULL,
+      visibility VARCHAR(20) NOT NULL DEFAULT 'PRIVATE',
+      status VARCHAR(20) NOT NULL DEFAULT 'WAITING',
+      ownerUserId INT NULL,
+      allowQuickJoin TINYINT(1) NOT NULL DEFAULT 0,
+      fillWithBots TINYINT(1) NOT NULL DEFAULT 0,
+      mode VARCHAR(20) NOT NULL DEFAULT 'CLASSIC',
+      createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      startedAt DATETIME NULL
     )`,
     `CREATE TABLE IF NOT EXISTS joueur (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -192,6 +201,39 @@ async function createTables(connection) {
   }
 }
 
+async function columnExists(connection, tableName, columnName) {
+  const [rows] = await connection.query(
+    `SELECT COUNT(*) as count
+     FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = ?
+       AND COLUMN_NAME = ?`,
+    [tableName, columnName]
+  )
+
+  return rows[0].count > 0
+}
+
+async function addColumnIfMissing(connection, tableName, columnName, definition) {
+  if (await columnExists(connection, tableName, columnName)) {
+    return
+  }
+
+  await connection.query(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`)
+}
+
+async function ensureLobbyColumns(connection) {
+  await addColumnIfMissing(connection, 'partie', 'code', 'VARCHAR(12) NULL')
+  await addColumnIfMissing(connection, 'partie', 'visibility', "VARCHAR(20) NOT NULL DEFAULT 'PRIVATE'")
+  await addColumnIfMissing(connection, 'partie', 'status', "VARCHAR(20) NOT NULL DEFAULT 'WAITING'")
+  await addColumnIfMissing(connection, 'partie', 'ownerUserId', 'INT NULL')
+  await addColumnIfMissing(connection, 'partie', 'allowQuickJoin', 'TINYINT(1) NOT NULL DEFAULT 0')
+  await addColumnIfMissing(connection, 'partie', 'fillWithBots', 'TINYINT(1) NOT NULL DEFAULT 0')
+  await addColumnIfMissing(connection, 'partie', 'mode', "VARCHAR(20) NOT NULL DEFAULT 'CLASSIC'")
+  await addColumnIfMissing(connection, 'partie', 'createdAt', 'DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP')
+  await addColumnIfMissing(connection, 'partie', 'startedAt', 'DATETIME NULL')
+}
+
 async function seedUsers(connection, users) {
   for (const user of users) {
     await connection.query(
@@ -250,6 +292,7 @@ async function main() {
 
   try {
     await createTables(dbConnection)
+    await ensureLobbyColumns(dbConnection)
 
     const cards = buildCards()
     await seedCards(dbConnection, cards)

@@ -1,6 +1,7 @@
 import { query, queryOne } from '~/server/utils/db'
 import { getCardsByIds, getDogCardIds } from '~/server/utils/gameData'
 import { getGameSession } from '~/server/utils/gameSession'
+import { ensureLobbySchema } from '~/server/utils/lobbySchema'
 import { calculateTarotFinalResult } from '~/server/utils/tarotScore'
 import type { ContractType, TarotFinalResult } from '~/types'
 
@@ -15,6 +16,20 @@ export default defineEventHandler(async (event) => {
     throw createError({
       statusCode: 400,
       message: 'partieId requis'
+    })
+  }
+
+  await ensureLobbySchema()
+
+  const room = await queryOne<{ status: 'WAITING' | 'PLAYING' | 'FINISHED' }>(
+    'SELECT status FROM partie WHERE id = ?',
+    [partieId]
+  )
+
+  if (!room) {
+    throw createError({
+      statusCode: 404,
+      message: 'Salon introuvable'
     })
   }
 
@@ -112,7 +127,9 @@ export default defineEventHandler(async (event) => {
 
   let phase: 'BIDDING' | 'CALLING' | 'DOG_EXCHANGE' | 'PLAYING' | 'FINISHED' = 'BIDDING'
 
-  if (taker) {
+  if (room.status === 'FINISHED') {
+    phase = 'FINISHED'
+  } else if (taker) {
     if (!session.calledKingColor) {
       phase = 'CALLING'
     } else if (session.discardedDogCardIds.length < 3) {
@@ -135,7 +152,9 @@ export default defineEventHandler(async (event) => {
     ? await getCardsByIds(session.discardedDogCardIds)
     : []
 
-  const currentTurn = phase === 'BIDDING'
+  const currentTurn = phase === 'FINISHED'
+    ? null
+    : phase === 'BIDDING'
     ? ((answerCount[0]?.count ?? 0) % 5) + 1
     : phase === 'CALLING' || phase === 'DOG_EXCHANGE'
       ? taker?.num ?? session.currentTurn
@@ -153,6 +172,7 @@ export default defineEventHandler(async (event) => {
 
   return {
     success: true as const,
+    roomStatus: room.status,
     players,
     answerCount: answerCount[0]?.count || 0,
     taker,
@@ -173,7 +193,7 @@ export default defineEventHandler(async (event) => {
     dogRetrieved: session.dogRetrieved,
     dogDiscardCount: session.discardedDogCardIds.length,
     finTour: session.finTour,
-    finPartie: session.finPartie,
+    finPartie: session.finPartie || room.status === 'FINISHED',
     phase,
     finalResult
   }

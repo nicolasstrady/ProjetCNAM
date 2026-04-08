@@ -146,7 +146,7 @@ export function getCardPlayError(
   const effectiveColor = getEffectiveColor(cardToPlay)
   const cardRank = getCardRank(cardToPlay)
 
-  if (trickCount >= 14 && effectiveColor === 'EXCUSE') {
+  if (trickCount >= 14 && effectiveColor === 'EXCUSE' && handCards.length > 1) {
     return 'Lexcuse ne peut pas etre jouee au dernier pli'
   }
 

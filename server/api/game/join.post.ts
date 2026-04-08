@@ -1,41 +1,33 @@
-import { query } from '~/server/utils/db'
+import { joinRoomByReference } from '~/server/utils/lobby'
 
 export default defineEventHandler(async (event) => {
-  const body = await readBody(event)
-  const { userId, partieId } = body
-  
-  if (!userId || !partieId) {
+  const body = await readBody<{
+    userId?: number
+    partieId?: number
+    code?: string
+  }>(event)
+
+  const userId = Number(body.userId)
+  const partieId = body.partieId ? Number(body.partieId) : null
+  const code = body.code?.trim() || null
+
+  if (!userId || (!partieId && !code)) {
     throw createError({
       statusCode: 400,
-      message: 'userId et partieId requis'
+      message: 'userId et partieId ou code requis'
     })
   }
-  
-  // Compter le nombre de joueurs dans la partie
-  const countResult = await query<{ count: number }>(
-    'SELECT COUNT(*) as count FROM joueur WHERE partie = ?',
-    [partieId]
-  )
-  
-  const playerCount = countResult[0].count
-  
-  if (playerCount >= 5) {
-    throw createError({
-      statusCode: 400,
-      message: 'La partie est complète'
-    })
-  }
-  
-  const playerNum = playerCount + 1
-  
-  // Ajouter le joueur à la partie
-  await query(
-    'INSERT INTO joueur (utilisateur, num, partie, reponse, equipe, score) VALUES (?, ?, ?, ?, ?, ?)',
-    [userId, playerNum, partieId, 'WAIT', 0, 0]
-  )
-  
+
+  const result = await joinRoomByReference(userId, {
+    partieId,
+    code
+  })
+
   return {
-    success: true,
-    playerNum
+    success: true as const,
+    partieId: result.partieId,
+    playerNum: result.playerNum ?? null,
+    room: result.room,
+    alreadyJoined: result.alreadyJoined
   }
 })

@@ -1,5 +1,5 @@
-import { query } from '~/server/utils/db'
-import { getGameSession } from '~/server/utils/gameSession'
+import { setPlayerContractAction } from '~/server/utils/gameActions'
+import { scheduleBotsIfNeeded } from '~/server/utils/bots'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
@@ -14,25 +14,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const equipe = contract === 'REFUSE' ? 2 : 1
-
-  await query(
-    'UPDATE joueur SET reponse = ?, equipe = ? WHERE utilisateur = ? AND partie = ?',
-    [contract, equipe, userId, partieId]
-  )
-
-  if (contract !== 'REFUSE') {
-    const takerRows = await query<{ num: number }>(
-      'SELECT num FROM joueur WHERE utilisateur = ? AND partie = ? LIMIT 1',
-      [userId, partieId]
-    )
-
-    const session = getGameSession(partieId)
-    session.takerNum = takerRows[0]?.num ?? null
-  }
-
-  return {
-    success: true,
-    message: 'Contrat enregistre'
-  }
+  const result = await setPlayerContractAction(userId, partieId, contract)
+  await scheduleBotsIfNeeded(partieId)
+  return result
 })

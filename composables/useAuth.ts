@@ -1,6 +1,7 @@
 import type { User, LoginCredentials, RegisterData } from '~/types'
 
 const AUTH_STORAGE_KEY = 'tarot-user-session'
+const LEGACY_AUTH_COOKIE = 'tarot-user'
 
 function readSessionUser() {
   if (!import.meta.client) {
@@ -34,13 +35,15 @@ function writeSessionUser(user: User | null) {
   window.sessionStorage.removeItem(AUTH_STORAGE_KEY)
 }
 
-export const useAuth = () => {
-  const legacyAuthCookie = useCookie<User | null>('tarot-user', {
-    default: () => null,
-    maxAge: 0,
-    sameSite: 'lax'
-  })
+function clearLegacyAuthCookie() {
+  if (!import.meta.client) {
+    return
+  }
 
+  document.cookie = `${LEGACY_AUTH_COOKIE}=; Max-Age=0; path=/; SameSite=Lax`
+}
+
+export const useAuth = () => {
   const user = useState<User | null>('user', () => null)
   const authSyncInitialized = useState<boolean>('auth-sync-initialized', () => false)
   const isAuthenticated = computed(() => !!user.value)
@@ -49,7 +52,7 @@ export const useAuth = () => {
     authSyncInitialized.value = true
 
     if (import.meta.client) {
-      legacyAuthCookie.value = null
+      clearLegacyAuthCookie()
 
       const restoredUser = readSessionUser()
       if (restoredUser) {
@@ -58,7 +61,7 @@ export const useAuth = () => {
     }
 
     watch(user, (value) => {
-      legacyAuthCookie.value = null
+      clearLegacyAuthCookie()
       writeSessionUser(value)
     }, { deep: true })
   } else if (import.meta.client && !user.value) {

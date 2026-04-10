@@ -1,4 +1,5 @@
 import { query, queryOne, txExecute, txQuery, txQueryOne, withTransaction } from '~/server/utils/db'
+import { clearScheduledBotAction } from '~/server/utils/bots'
 import { resetGameSession } from '~/server/utils/gameSession'
 import { ensureLobbySchema } from '~/server/utils/lobbySchema'
 
@@ -46,13 +47,16 @@ export default defineEventHandler(async (event) => {
         [userId, partieId]
       )
 
-      const remainingPlayers = await txQuery<{ utilisateur: number }>(
+      const remainingPlayers = await txQuery<{ utilisateur: number; playerType: string }>(
         connection,
-        'SELECT utilisateur FROM joueur WHERE partie = ? ORDER BY num ASC',
+        'SELECT utilisateur, playerType FROM joueur WHERE partie = ? ORDER BY num ASC',
         [partieId]
       )
 
-      if (remainingPlayers.length === 0) {
+      const remainingHumans = remainingPlayers.filter((player) => player.playerType !== 'BOT')
+
+      if (remainingHumans.length === 0) {
+        clearScheduledBotAction(partieId)
         await txExecute(
           connection,
           "UPDATE partie SET status = 'FINISHED' WHERE id = ?",
@@ -65,7 +69,7 @@ export default defineEventHandler(async (event) => {
         await txExecute(
           connection,
           'UPDATE partie SET ownerUserId = ? WHERE id = ?',
-          [remainingPlayers[0].utilisateur, partieId]
+          [remainingHumans[0].utilisateur, partieId]
         )
       }
     })
@@ -77,6 +81,7 @@ export default defineEventHandler(async (event) => {
   }
 
   if (room.status === 'PLAYING') {
+    clearScheduledBotAction(partieId)
     await query(
       "UPDATE partie SET status = 'FINISHED' WHERE id = ?",
       [partieId]

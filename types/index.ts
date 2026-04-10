@@ -37,6 +37,8 @@ export type ContractType =
 export type RoomVisibility = 'PRIVATE' | 'PUBLIC' | 'UNLISTED'
 export type RoomStatus = 'WAITING' | 'PLAYING' | 'FINISHED'
 export type RoomMode = 'CLASSIC' | 'QUICK_MATCH' | 'SOLO'
+export type PlayerType = 'HUMAN' | 'BOT'
+export type BotLevel = 'STANDARD'
 
 export interface CreateRoomOptions {
   visibility: RoomVisibility
@@ -49,6 +51,7 @@ export interface LobbyRoomPlayer {
   userId: number
   pseudo: string
   playerNum: number
+  playerType: PlayerType
 }
 
 export interface LobbyRoomSummary {
@@ -92,6 +95,8 @@ export interface Player {
   equipe: number
   score: number
   cards: number[]
+  playerType: PlayerType
+  botLevel: BotLevel | null
 }
 
 export interface TablePlayer {
@@ -104,6 +109,8 @@ export interface TablePlayer {
   score: number
   pseudo: string
   handCount: number
+  playerType: PlayerType
+  botLevel: BotLevel | null
 }
 
 export interface CurrentPliCard {

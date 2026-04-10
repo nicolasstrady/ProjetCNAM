@@ -14,6 +14,7 @@ export interface GameSession {
   ledColor: string
   trickCount: number
   finTour: boolean
+  finTourEndsAt: number | null
   finPartie: boolean
 }
 
@@ -36,6 +37,7 @@ function createSession(partieId: number): GameSession {
     ledColor: '',
     trickCount: 0,
     finTour: false,
+    finTourEndsAt: null,
     finPartie: false
   }
 }

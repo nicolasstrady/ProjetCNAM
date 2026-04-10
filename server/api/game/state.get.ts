@@ -1,4 +1,5 @@
 import { query, queryOne } from '~/server/utils/db'
+import { scheduleBotsIfNeeded } from '~/server/utils/bots'
 import { getCardsByIds, getDogCardIds } from '~/server/utils/gameData'
 import { getGameSession } from '~/server/utils/gameSession'
 import { ensureLobbySchema } from '~/server/utils/lobbySchema'
@@ -20,6 +21,7 @@ export default defineEventHandler(async (event) => {
   }
 
   await ensureLobbySchema()
+  await scheduleBotsIfNeeded(partieId)
 
   const room = await queryOne<{ status: 'WAITING' | 'PLAYING' | 'FINISHED' }>(
     'SELECT status FROM partie WHERE id = ?',
@@ -42,7 +44,7 @@ export default defineEventHandler(async (event) => {
     : null
 
   const players = await query(
-    `SELECT j.id, j.utilisateur, j.num, j.partie, j.reponse, j.equipe, j.score,
+    `SELECT j.id, j.utilisateur, j.num, j.partie, j.reponse, j.equipe, j.score, j.playerType, j.botLevel,
             u.pseudo,
             ((j.carte1 IS NOT NULL) + (j.carte2 IS NOT NULL) + (j.carte3 IS NOT NULL) + (j.carte4 IS NOT NULL) +
              (j.carte5 IS NOT NULL) + (j.carte6 IS NOT NULL) + (j.carte7 IS NOT NULL) + (j.carte8 IS NOT NULL) +

@@ -1,4 +1,5 @@
 import { query } from '~/server/utils/db'
+import { clearScheduledBotAction, fillRoomWithBots, scheduleBotsIfNeeded } from '~/server/utils/bots'
 import { resetGameSession } from '~/server/utils/gameSession'
 import { ensureLobbySchema } from '~/server/utils/lobbySchema'
 
@@ -15,6 +16,15 @@ export default defineEventHandler(async (event) => {
 
   await ensureLobbySchema()
 
+  const room = await query<{ fillWithBots: number; mode: string }>(
+    'SELECT fillWithBots, mode FROM partie WHERE id = ? LIMIT 1',
+    [partieId]
+  )
+
+  if (room[0] && (room[0].fillWithBots === 1 || room[0].mode === 'SOLO')) {
+    await fillRoomWithBots(partieId)
+  }
+
   const playerCountRows = await query<{ count: number }>(
     'SELECT COUNT(*) as count FROM joueur WHERE partie = ?',
     [partieId]
@@ -27,6 +37,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  clearScheduledBotAction(partieId)
   resetGameSession(partieId)
 
   await query('DELETE FROM plis WHERE partie = ?', [partieId])
@@ -63,6 +74,7 @@ export default defineEventHandler(async (event) => {
     "UPDATE partie SET status = 'PLAYING', startedAt = NOW() WHERE id = ?",
     [partieId]
   )
+  await scheduleBotsIfNeeded(partieId)
 
   return {
     success: true,

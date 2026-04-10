@@ -35,6 +35,8 @@ export async function ensureLobbySchema() {
       await addColumnIfMissing('partie', 'mode', "VARCHAR(20) NOT NULL DEFAULT 'CLASSIC'")
       await addColumnIfMissing('partie', 'createdAt', 'DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP')
       await addColumnIfMissing('partie', 'startedAt', 'DATETIME NULL')
+      await addColumnIfMissing('joueur', 'playerType', "VARCHAR(10) NOT NULL DEFAULT 'HUMAN'")
+      await addColumnIfMissing('joueur', 'botLevel', 'VARCHAR(20) NULL')
     })().catch((error) => {
       schemaReadyPromise = null
       throw error

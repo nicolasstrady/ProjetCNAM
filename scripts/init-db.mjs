@@ -135,6 +135,8 @@ async function createTables(connection) {
       reponse VARCHAR(20) DEFAULT 'WAIT',
       equipe INT DEFAULT 0,
       score DOUBLE DEFAULT 0,
+      playerType VARCHAR(10) NOT NULL DEFAULT 'HUMAN',
+      botLevel VARCHAR(20) NULL,
       carte1 INT NULL,
       carte2 INT NULL,
       carte3 INT NULL,
@@ -232,6 +234,8 @@ async function ensureLobbyColumns(connection) {
   await addColumnIfMissing(connection, 'partie', 'mode', "VARCHAR(20) NOT NULL DEFAULT 'CLASSIC'")
   await addColumnIfMissing(connection, 'partie', 'createdAt', 'DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP')
   await addColumnIfMissing(connection, 'partie', 'startedAt', 'DATETIME NULL')
+  await addColumnIfMissing(connection, 'joueur', 'playerType', "VARCHAR(10) NOT NULL DEFAULT 'HUMAN'")
+  await addColumnIfMissing(connection, 'joueur', 'botLevel', 'VARCHAR(20) NULL')
 }
 
 async function seedUsers(connection, users) {

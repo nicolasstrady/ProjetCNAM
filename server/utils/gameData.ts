@@ -77,10 +77,10 @@ export async function getDogCardIds(partieId: number) {
 }
 
 export async function writePlayerCardIds(userId: number, partieId: number, cardIds: number[]) {
-  const normalizedIds = [...cardIds]
-  normalizedIds.length = PLAYER_HAND_SIZE
-
-  const values = normalizedIds.map((cardId) => cardId ?? null)
+  const values = Array.from(
+    { length: PLAYER_HAND_SIZE },
+    (_, index) => cardIds[index] ?? null
+  )
   const assignments = PLAYER_CARD_COLUMNS.map((column) => `${column} = ?`).join(', ')
 
   await query(

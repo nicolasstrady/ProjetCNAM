@@ -497,7 +497,10 @@ watch([sceneTableState, gameScene], ([tableState, scene]) => {
   }
 }, { immediate: true })
 
-let pollInterval: NodeJS.Timeout | null = null
+let pollTimeout: ReturnType<typeof setTimeout> | null = null
+let refreshInFlight = false
+let refreshPromise: Promise<void> | null = null
+let pollingActive = false
 
 onMounted(async () => {
   if (!user.value) {
@@ -544,12 +547,25 @@ const loadCardsCatalog = async () => {
 }
 
 const refreshGame = async () => {
-  if (!user.value) {
+  if (refreshPromise) {
+    await refreshPromise
     return
   }
 
-  await loadPlayerCards()
-  await loadGameState()
+  refreshPromise = (async () => {
+    if (!user.value) {
+      return
+    }
+
+    await loadPlayerCards()
+    await loadGameState()
+  })()
+
+  try {
+    await refreshPromise
+  } finally {
+    refreshPromise = null
+  }
 }
 
 const loadPlayerCards = async () => {
@@ -626,16 +642,52 @@ const formatSignedScore = (value: number) => {
 }
 
 const startGamePolling = () => {
-  pollInterval = setInterval(async () => {
-    await refreshGame()
-  }, 1500)
+  stopGamePolling()
+  pollingActive = true
+
+  const scheduleNextPoll = () => {
+    if (!pollingActive) {
+      return
+    }
+
+    const hasBots = gameData.value?.players.some((player) => player.playerType === 'BOT') ?? false
+    const delayMs = hasBots ? 450 : 1200
+
+    pollTimeout = setTimeout(async () => {
+      if (!pollingActive) {
+        return
+      }
+
+      if (refreshInFlight) {
+        scheduleNextPoll()
+        return
+      }
+
+      refreshInFlight = true
+
+      try {
+        await refreshGame()
+      } finally {
+        refreshInFlight = false
+        if (pollingActive) {
+          scheduleNextPoll()
+        }
+      }
+    }, delayMs)
+  }
+
+  scheduleNextPoll()
 }
 
 const stopGamePolling = () => {
-  if (pollInterval) {
-    clearInterval(pollInterval)
-    pollInterval = null
+  pollingActive = false
+
+  if (pollTimeout) {
+    clearTimeout(pollTimeout)
+    pollTimeout = null
   }
+
+  refreshInFlight = false
 }
 
 const handleContract = async (contract: string) => {

@@ -2,7 +2,14 @@ import type mysql from 'mysql2/promise'
 import { createError } from 'h3'
 import { query, queryOne, txExecute, txQuery, txQueryOne, withTransaction } from '~/server/utils/db'
 import { ensureLobbySchema } from '~/server/utils/lobbySchema'
-import type { CreateRoomOptions, LobbyRoomPlayer, LobbyRoomSummary, RoomMode, RoomVisibility } from '~/types'
+import type {
+  CreateRoomOptions,
+  LobbyRoomPlayer,
+  LobbyRoomSummary,
+  PlayerType,
+  RoomMode,
+  RoomVisibility
+} from '~/types'
 
 interface RoomRow {
   id: number
@@ -82,8 +89,9 @@ async function getPlayersForRooms(roomIds: number[]) {
     userId: number
     pseudo: string
     playerNum: number
+    playerType: PlayerType
   }>(
-    `SELECT j.partie, j.utilisateur AS userId, u.pseudo, j.num AS playerNum
+    `SELECT j.partie, j.utilisateur AS userId, u.pseudo, j.num AS playerNum, j.playerType
      FROM joueur j
      JOIN utilisateur u ON u.id = j.utilisateur
      WHERE j.partie IN (${buildPlaceholders(roomIds.length)})
@@ -98,7 +106,8 @@ async function getPlayersForRooms(roomIds: number[]) {
     current.push({
       userId: player.userId,
       pseudo: player.pseudo,
-      playerNum: player.playerNum
+      playerNum: player.playerNum,
+      playerType: player.playerType
     })
     playersByRoom.set(player.partie, current)
   }

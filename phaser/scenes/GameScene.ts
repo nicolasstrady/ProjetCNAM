@@ -17,7 +17,8 @@ interface RenderOptions {
 type SeatKey = 'self' | 'left' | 'topLeft' | 'topRight' | 'right'
 
 export class GameScene extends Phaser.Scene {
-  private static readonly TRICK_COLLECTION_DELAY_MS = 1200
+  private static readonly TRICK_COLLECTION_DELAY_MS = 1500
+  private static readonly TRICK_COLLECTION_ANIMATION_DURATION_MS = 760
   private static readonly DOG_RETRIEVE_DURATION_MS = 420
   private static readonly DOG_DISCARD_DURATION_MS = 320
 
@@ -27,6 +28,8 @@ export class GameScene extends Phaser.Scene {
   private collectedPliIds = new Set<number>()
   private pendingTrickCollection: Phaser.Time.TimerEvent | null = null
   private pendingTrickCollectionPliId: number | null = null
+  private trickCollectionAnimating = false
+  private trickCollectionAnimatingPliId: number | null = null
   private hoveredHandCard: {
     image: Phaser.GameObjects.Image
     baseY: number
@@ -93,6 +96,13 @@ export class GameScene extends Phaser.Scene {
     this.tableState = nextState
 
     if (!this.sceneReady) {
+      return
+    }
+
+    const isUpdatingCollectedPli = this.trickCollectionAnimatingPliId !== null
+      && nextState.currentPliId === this.trickCollectionAnimatingPliId
+
+    if (this.trickCollectionAnimating || isUpdatingCollectedPli) {
       return
     }
 
@@ -810,6 +820,8 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.clearPendingTrickCollection()
+    this.trickCollectionAnimating = true
+    this.trickCollectionAnimatingPliId = state.currentPliId
     this.renderTable({ suppressTrickCards: true })
 
     const winnerSeat = this.getSeatKey(state.currentPliWinnerNum)
@@ -833,7 +845,7 @@ export class GameScene extends Phaser.Scene {
         scaleX: 0.72,
         scaleY: 0.72,
         alpha: 0.94,
-        duration: 340,
+        duration: GameScene.TRICK_COLLECTION_ANIMATION_DURATION_MS,
         ease: 'Cubic.InOut',
         onComplete: () => {
           animationCard.destroy()
@@ -841,6 +853,8 @@ export class GameScene extends Phaser.Scene {
           completedTweens += 1
 
           if (completedTweens === state.currentPliCards.length) {
+            this.trickCollectionAnimating = false
+            this.trickCollectionAnimatingPliId = null
             this.collectedPliIds.add(state.currentPliId as number)
             this.renderTable()
           }

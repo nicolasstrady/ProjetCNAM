@@ -158,6 +158,25 @@ export const useGame = () => {
     }
   }
 
+  const fillBots = async (userId: number, partieId: number) => {
+    try {
+      const response = await $fetch<{
+        success: boolean
+        addedCount?: number
+      }>('/api/game/fill-bots', {
+        method: 'POST',
+        body: { userId, partieId }
+      })
+
+      return {
+        success: response.success,
+        addedCount: response.addedCount ?? 0
+      }
+    } catch (error: any) {
+      return { success: false, error: error.data?.message || 'Erreur dajout de bots' }
+    }
+  }
+
   const leaveGame = async (userId: number, partieId: number) => {
     try {
       const response = await $fetch<{ success: boolean; closedRoom?: boolean }>('/api/game/leave', {
@@ -306,6 +325,7 @@ export const useGame = () => {
     quickMatch,
     listRooms,
     dealCards,
+    fillBots,
     leaveGame,
     getPlayerHand,
     setContract,

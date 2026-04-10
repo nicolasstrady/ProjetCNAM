@@ -66,6 +66,7 @@
                 >
                   <span class="player-num">J{{ player.playerNum }}</span>
                   <span>{{ player.pseudo }}</span>
+                  <span v-if="player.playerType === 'BOT'" class="bot-chip">IA</span>
                 </div>
               </div>
             </div>
@@ -82,10 +83,25 @@
               <button
                 v-else
                 class="btn btn-success"
-                :disabled="loadingState === 'start' || activeRoom.playerCount !== 5"
+                :disabled="loadingState === 'start' || (activeRoom.playerCount !== 5 && !activeRoom.fillWithBots)"
                 @click="handleStartGame"
               >
-                {{ loadingState === 'start' ? 'Lancement...' : 'Lancer la partie' }}
+                {{
+                  loadingState === 'start'
+                    ? 'Lancement...'
+                    : activeRoom.playerCount < 5 && activeRoom.fillWithBots
+                      ? 'Completer avec des bots et lancer'
+                      : 'Lancer la partie'
+                }}
+              </button>
+
+              <button
+                v-if="activeRoom.status === 'WAITING' && activeRoom.openSlots > 0"
+                class="btn btn-secondary room-fill-btn"
+                :disabled="loadingState === 'fill-bots'"
+                @click="handleFillBots"
+              >
+                {{ loadingState === 'fill-bots' ? 'Ajout des bots...' : 'Ajouter des bots' }}
               </button>
 
               <button
@@ -233,6 +249,7 @@
                 >
                   <span class="player-num">J{{ player.playerNum }}</span>
                   <span>{{ player.pseudo }}</span>
+                  <span v-if="player.playerType === 'BOT'" class="bot-chip">IA</span>
                 </div>
               </div>
 
@@ -258,11 +275,11 @@
 <script setup lang="ts">
 import type { CreateRoomOptions, LobbyRoomSummary } from '~/types'
 
-type PresetId = 'PRIVATE' | 'PUBLIC' | 'HYBRID'
-type LoadingState = '' | 'create' | 'join' | 'quick' | 'start' | 'leave' | `public-${number}`
+type PresetId = 'PRIVATE' | 'PUBLIC' | 'HYBRID' | 'SOLO'
+type LoadingState = '' | 'create' | 'join' | 'quick' | 'start' | 'leave' | 'fill-bots' | `public-${number}`
 
 const { user, logout } = useAuth()
-const { createGame, joinGame, quickMatch, listRooms, dealCards, leaveGame } = useGame()
+const { createGame, joinGame, quickMatch, listRooms, dealCards, fillBots, leaveGame } = useGame()
 const router = useRouter()
 
 const roomPresets: Array<{
@@ -306,6 +323,18 @@ const roomPresets: Array<{
       allowQuickJoin: true,
       fillWithBots: false,
       mode: 'CLASSIC'
+    }
+  },
+  {
+    id: 'SOLO',
+    label: 'Solo',
+    shortLabel: 'solo',
+    description: 'Une table privee pour toi, completee au lancement par quatre bots standard.',
+    options: {
+      visibility: 'PRIVATE',
+      allowQuickJoin: false,
+      fillWithBots: true,
+      mode: 'SOLO'
     }
   }
 ]
@@ -466,6 +495,26 @@ const handleStartGame = async () => {
     errorMessage.value = result.error || 'Erreur de lancement'
   }
 
+  loadingState.value = ''
+}
+
+const handleFillBots = async () => {
+  if (!user.value || !activeRoom.value || activeRoom.value.openSlots === 0) {
+    return
+  }
+
+  loadingState.value = 'fill-bots'
+  errorMessage.value = ''
+
+  const result = await fillBots(user.value.id, activeRoom.value.id)
+
+  if (!result.success) {
+    errorMessage.value = result.error || 'Impossible dajouter des bots'
+    loadingState.value = ''
+    return
+  }
+
+  await loadLobbyData()
   loadingState.value = ''
 }
 
@@ -737,10 +786,23 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
   color: #8a5d12;
 }
 
+.bot-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(127, 29, 29, 0.12);
+  color: #7f1d1d;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
 .room-actions {
   margin-top: 22px;
 }
 
+.room-fill-btn,
 .room-leave-btn {
   margin-top: 10px;
 }

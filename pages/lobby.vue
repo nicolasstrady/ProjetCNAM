@@ -130,7 +130,7 @@
           </div>
         </section>
 
-        <section class="panel">
+        <section class="panel panel-create">
           <div class="panel-head">
             <div>
               <p class="section-kicker">Creer</p>
@@ -147,15 +147,12 @@
               @click="createPreset = preset.id"
             >
               <strong>{{ preset.label }}</strong>
-              <span>{{ preset.description }}</span>
+              <span>{{ preset.cardDescription }}</span>
             </button>
           </div>
 
           <div class="preset-summary">
             <p>{{ selectedPreset.description }}</p>
-            <p class="helper-text">
-              Les IA et le remplissage automatique par bots seront branches dans une etape suivante.
-            </p>
           </div>
 
           <button
@@ -166,46 +163,44 @@
             {{ loadingState === 'create' ? 'Creation...' : `Creer un salon ${selectedPreset.shortLabel}` }}
           </button>
 
-          <div class="divider"></div>
+          <div class="create-tools">
+            <div class="quick-match compact-box">
+              <div>
+                <p class="section-kicker">Recherche rapide</p>
+                <h3>Table dispo</h3>
+                <p>Rejoint une table ouverte ou en cree une.</p>
+              </div>
 
-          <div class="quick-match">
-            <div>
-              <p class="section-kicker">Recherche rapide</p>
-              <h3>Entrer dans la premiere table disponible</h3>
-              <p>
-                Si aucune table compatible n existe, un nouveau salon public sera cree automatiquement.
-              </p>
+              <button
+                class="btn btn-accent"
+                :disabled="Boolean(activeRoom) || loadingState === 'quick'"
+                @click="handleQuickMatch"
+              >
+                {{ loadingState === 'quick' ? 'Recherche...' : 'Recherche rapide' }}
+              </button>
             </div>
 
-            <button
-              class="btn btn-accent"
-              :disabled="Boolean(activeRoom) || loadingState === 'quick'"
-              @click="handleQuickMatch"
-            >
-              {{ loadingState === 'quick' ? 'Recherche...' : 'Recherche rapide' }}
-            </button>
-          </div>
-
-          <div class="divider"></div>
-
-          <div class="join-by-code">
-            <p class="section-kicker">Code</p>
-            <h3>Rejoindre un salon prive ou partage</h3>
-            <div class="join-form">
-              <input
-                v-model="roomCode"
-                type="text"
-                maxlength="12"
-                placeholder="Ex: AB12CD"
-                class="game-input"
-              />
-              <button
-                class="btn btn-primary"
-                :disabled="Boolean(activeRoom) || loadingState === 'join' || !roomCode.trim()"
-                @click="handleJoinByCode"
-              >
-                Rejoindre
-              </button>
+            <div class="join-by-code compact-box">
+              <div>
+                <p class="section-kicker">Code</p>
+                <h3>Rejoindre</h3>
+              </div>
+              <div class="join-form">
+                <input
+                  v-model="roomCode"
+                  type="text"
+                  maxlength="12"
+                  placeholder="Ex: AB12CD"
+                  class="game-input"
+                />
+                <button
+                  class="btn btn-primary"
+                  :disabled="Boolean(activeRoom) || loadingState === 'join' || !roomCode.trim()"
+                  @click="handleJoinByCode"
+                >
+                  Rejoindre
+                </button>
+              </div>
             </div>
           </div>
         </section>
@@ -286,6 +281,7 @@ const roomPresets: Array<{
   id: PresetId
   label: string
   shortLabel: string
+  cardDescription: string
   description: string
   options: CreateRoomOptions
 }> = [
@@ -293,6 +289,7 @@ const roomPresets: Array<{
     id: 'PRIVATE',
     label: 'Prive',
     shortLabel: 'prive',
+    cardDescription: 'Code uniquement',
     description: 'Salon reserve a tes invites. On entre uniquement avec le code partage.',
     options: {
       visibility: 'PRIVATE',
@@ -305,6 +302,7 @@ const roomPresets: Array<{
     id: 'PUBLIC',
     label: 'Public',
     shortLabel: 'public',
+    cardDescription: 'Visible par tous',
     description: 'Salon visible dans la liste publique et accessible aussi a la recherche rapide.',
     options: {
       visibility: 'PUBLIC',
@@ -317,6 +315,7 @@ const roomPresets: Array<{
     id: 'HYBRID',
     label: 'Code + rapide',
     shortLabel: 'hybride',
+    cardDescription: 'Amis + remplissage',
     description: 'Tu invites tes amis avec le code, mais les places restantes peuvent etre remplies par la recherche rapide.',
     options: {
       visibility: 'UNLISTED',
@@ -329,6 +328,7 @@ const roomPresets: Array<{
     id: 'SOLO',
     label: 'Solo',
     shortLabel: 'solo',
+    cardDescription: 'Toi + 4 bots',
     description: 'Une table privee pour toi, completee au lancement par quatre bots standard.',
     options: {
       visibility: 'PRIVATE',
@@ -583,17 +583,21 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
 
 <style scoped>
 .lobby-page {
-  min-height: 100vh;
-  padding: 24px;
+  height: 100dvh;
+  overflow: hidden;
+  padding: clamp(10px, 1.6vw, 20px);
   background:
-    radial-gradient(circle at top left, rgba(212, 180, 111, 0.22), transparent 28%),
-    radial-gradient(circle at top right, rgba(32, 88, 52, 0.18), transparent 30%),
-    linear-gradient(180deg, #f6f0df 0%, #efe4c8 100%);
+    radial-gradient(circle at top, rgba(237, 214, 154, 0.15), transparent 32%),
+    linear-gradient(160deg, #132d21 0%, #0a1913 100%);
 }
 
 .lobby-shell {
+  height: 100%;
   max-width: 1440px;
   margin: 0 auto;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 16px;
 }
 
 .lobby-header {
@@ -651,13 +655,18 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
 }
 
 .lobby-grid {
+  min-height: 0;
   display: grid;
-  grid-template-columns: 1.2fr 1fr;
-  gap: 20px;
-  margin-top: 20px;
+  grid-template-columns: minmax(0, 1.15fr) minmax(340px, 0.85fr);
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
 }
 
 .panel {
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   padding: 26px;
   border-radius: 26px;
   background: rgba(255, 251, 240, 0.94);
@@ -666,11 +675,16 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
 }
 
 .panel-primary {
-  min-height: 420px;
+  grid-row: 1 / span 2;
+}
+
+.panel-create {
+  padding: 20px 22px;
 }
 
 .panel-wide {
-  grid-column: 1 / -1;
+  grid-column: 2;
+  grid-row: 2;
 }
 
 .panel-head {
@@ -679,6 +693,10 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
   gap: 16px;
   align-items: flex-start;
   margin-bottom: 22px;
+}
+
+.panel-create .panel-head {
+  margin-bottom: 14px;
 }
 
 .status-badge,
@@ -712,6 +730,12 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+
+.active-room {
+  min-height: 0;
+  overflow: auto;
+  padding-right: 4px;
 }
 
 .meta-card {
@@ -811,7 +835,8 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
 .empty-public {
   display: grid;
   gap: 10px;
-  min-height: 180px;
+  min-height: 0;
+  height: 100%;
   align-content: center;
   text-align: center;
   border-radius: 20px;
@@ -822,6 +847,10 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
+}
+
+.panel-create .preset-grid {
+  gap: 10px;
 }
 
 .preset-card {
@@ -836,15 +865,30 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
   transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
+.panel-create .preset-card {
+  gap: 4px;
+  padding: 11px 12px;
+  border-radius: 16px;
+}
+
 .preset-card:hover {
   transform: translateY(-1px);
   border-color: rgba(32, 88, 52, 0.32);
   box-shadow: 0 10px 24px rgba(32, 88, 52, 0.08);
 }
 
+.panel-create .preset-card strong {
+  font-size: 0.92rem;
+}
+
 .preset-card span {
   color: #655e52;
   font-size: 0.92rem;
+}
+
+.panel-create .preset-card span {
+  font-size: 0.76rem;
+  line-height: 1.2;
 }
 
 .preset-card-active {
@@ -858,10 +902,23 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
   padding: 18px 0;
 }
 
+.panel-create .preset-summary {
+  gap: 0;
+  padding: 12px 0 14px;
+  font-size: 0.92rem;
+}
+
 .divider {
   height: 1px;
   margin: 22px 0;
   background: linear-gradient(90deg, rgba(98, 66, 27, 0.04), rgba(98, 66, 27, 0.18), rgba(98, 66, 27, 0.04));
+}
+
+.create-tools {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
 }
 
 .join-by-code,
@@ -870,8 +927,35 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
   gap: 14px;
 }
 
+.compact-box {
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(249, 242, 223, 0.7);
+  border: 1px solid rgba(98, 66, 27, 0.1);
+}
+
+.panel-create .quick-match,
+.panel-create .join-by-code {
+  gap: 10px;
+}
+
+.panel-create .quick-match h3,
+.panel-create .join-by-code h3 {
+  font-size: 1rem;
+}
+
+.panel-create .quick-match p,
+.panel-create .join-by-code p {
+  font-size: 0.88rem;
+  line-height: 1.3;
+}
+
 .join-form {
   align-items: stretch;
+}
+
+.panel-create .join-form {
+  gap: 10px;
 }
 
 .game-input {
@@ -884,6 +968,11 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
   text-transform: uppercase;
 }
 
+.panel-create .game-input {
+  padding: 12px 14px;
+  font-size: 0.95rem;
+}
+
 .game-input:focus {
   outline: none;
   border-color: rgba(32, 88, 52, 0.42);
@@ -891,6 +980,9 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
 }
 
 .public-room-list {
+  min-height: 0;
+  overflow: auto;
+  padding-right: 4px;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 16px;
@@ -924,6 +1016,12 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
   font-weight: 700;
   cursor: pointer;
   transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+}
+
+.panel-create .btn {
+  padding: 11px 14px;
+  border-radius: 14px;
+  font-size: 0.92rem;
 }
 
 .btn:hover:not(:disabled) {
@@ -976,16 +1074,19 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
 @media (max-width: 1120px) {
   .lobby-grid {
     grid-template-columns: 1fr;
+    grid-template-rows: repeat(3, minmax(0, 1fr));
   }
 
+  .panel-primary,
   .panel-wide {
     grid-column: auto;
+    grid-row: auto;
   }
 }
 
 @media (max-width: 820px) {
   .lobby-page {
-    padding: 16px;
+    padding: 10px;
   }
 
   .lobby-header,
@@ -1005,6 +1106,15 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
   .preset-grid,
   .room-meta-grid {
     grid-template-columns: 1fr;
+  }
+
+  .create-tools {
+    grid-template-columns: 1fr;
+  }
+
+  .panel {
+    padding: 18px;
+    border-radius: 20px;
   }
 }
 </style>

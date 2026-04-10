@@ -4,11 +4,21 @@ export const usePhaser = () => {
   let observedElement: HTMLElement | null = null
 
   const refreshScale = () => {
-    if (!game?.scale) {
+    if (!game?.scale || !observedElement) {
       return
     }
 
     requestAnimationFrame(() => {
+      const element = observedElement
+
+      if (!element) {
+        return
+      }
+
+      const width = Math.max(element.clientWidth, 1)
+      const height = Math.max(element.clientHeight, 1)
+
+      game?.scale?.resize(width, height)
       game?.scale?.refresh()
     })
   }
@@ -20,6 +30,9 @@ export const usePhaser = () => {
     }
 
     const Phaser = await import('phaser').then(m => m.default)
+    const resolution = typeof window !== 'undefined'
+      ? Math.max(1, Math.min(window.devicePixelRatio || 1, 2))
+      : 1
 
     const defaultConfig = {
       type: Phaser.AUTO,
@@ -27,8 +40,11 @@ export const usePhaser = () => {
       width: 1200,
       height: 800,
       backgroundColor: '#2d5016',
+      resolution,
+      antialias: true,
+      autoRound: false,
       scale: {
-        mode: Phaser.Scale.FIT,
+        mode: Phaser.Scale.RESIZE,
         autoCenter: Phaser.Scale.CENTER_BOTH
       },
       ...config

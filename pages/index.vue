@@ -177,22 +177,26 @@ const handleRegister = async () => {
 
 <style scoped>
 .login-page {
-  min-height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: 16px;
 }
 
 .login-container {
   width: 100%;
   max-width: 450px;
+  max-height: 100%;
 }
 
 .login-card {
   background: white;
   border-radius: 12px;
-  padding: 40px;
+  max-height: 100%;
+  overflow: auto;
+  padding: clamp(22px, 4vw, 40px);
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
 }
 
@@ -285,5 +289,16 @@ const handleRegister = async () => {
   border-radius: 6px;
   color: #c33;
   text-align: center;
+}
+
+@media (max-width: 640px) {
+  .title {
+    margin-bottom: 22px;
+    font-size: 2rem;
+  }
+
+  .form-group {
+    margin-bottom: 16px;
+  }
 }
 </style>

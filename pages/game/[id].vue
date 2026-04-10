@@ -1,20 +1,19 @@
-<template>
+﻿<template>
   <div class="game-page">
-    <div class="game-header">
-      <div class="game-info">
-        <h1>Partie #{{ partieId }}</h1>
-        <p>{{ user?.pseudo }} · Joueur {{ playerNum }}</p>
-      </div>
-
-      <div class="game-actions">
-        <span class="status-pill">{{ statusText }}</span>
-        <button @click="handleLeaveGame" class="btn btn-secondary">Quitter</button>
-      </div>
-    </div>
-
     <div class="game-layout">
       <div class="table-stage">
         <div id="phaser-game" class="phaser-container"></div>
+
+        <div class="game-top-actions">
+          <button @click="handleLeaveGame" class="btn btn-secondary btn-compact">Quitter</button>
+        </div>
+
+        <section v-if="showRotateOverlay" class="rotate-overlay">
+          <div class="rotate-card">
+            <h2>Tournez votre telephone</h2>
+            <p>Le tapis est optimise pour le paysage. Passez en mode horizontal pour jouer confortablement.</p>
+          </div>
+        </section>
 
         <section v-if="finalResult" class="final-summary-overlay">
           <div class="final-summary" :class="finalOutcomeClass">
@@ -105,7 +104,7 @@
                 <p>{{ finalSummaryText }}</p>
               </div>
 
-              <span class="final-summary-pill">{{ finalResult.attackWon ? 'Attaque gagnante' : 'DÃ©fense gagnante' }}</span>
+              <span class="final-summary-pill">{{ finalResult.attackWon ? 'Attaque gagnante' : 'DÃƒÂ©fense gagnante' }}</span>
             </div>
 
             <div class="final-stats-grid">
@@ -122,7 +121,7 @@
                 <strong>{{ formatScoreValue(finalResult.attackPoints) }}</strong>
               </div>
               <div class="final-stat-card">
-                <span>Points demandÃ©s</span>
+                <span>Points demandÃƒÂ©s</span>
                 <strong>{{ formatScoreValue(finalResult.requiredPoints) }}</strong>
               </div>
               <div class="final-stat-card">
@@ -139,12 +138,12 @@
               </div>
               <div class="final-stat-card">
                 <span>Chien</span>
-                <strong>{{ formatScoreValue(finalResult.dogPoints) }} pour {{ finalResult.dogOwner === 'ATTACK' ? 'attaque' : 'dÃ©fense' }}</strong>
+                <strong>{{ formatScoreValue(finalResult.dogPoints) }} pour {{ finalResult.dogOwner === 'ATTACK' ? 'attaque' : 'dÃƒÂ©fense' }}</strong>
               </div>
             </div>
 
             <p v-if="!finalResult.bonusesHandled" class="final-summary-note">
-              Le tableau applique le score contrat + bouts. Les bonus de poignÃ©e, chelem et petit au bout ne sont pas encore gÃ©rÃ©s.
+              Le tableau applique le score contrat + bouts. Les bonus de poignÃƒÂ©e, chelem et petit au bout ne sont pas encore gÃƒÂ©rÃƒÂ©s.
             </p>
 
             <div class="final-table-wrapper">
@@ -152,7 +151,7 @@
                 <thead>
                   <tr>
                     <th>Joueur</th>
-                    <th>RÃ´le</th>
+                    <th>RÃƒÂ´le</th>
                     <th>Camp</th>
                     <th>Points de plis</th>
                     <th>Score final</th>
@@ -166,7 +165,7 @@
                   >
                     <td>{{ result.pseudo }}</td>
                     <td>{{ result.roleLabel }}</td>
-                    <td>{{ result.side === 'ATTACK' ? 'Attaque' : 'DÃ©fense' }}</td>
+                    <td>{{ result.side === 'ATTACK' ? 'Attaque' : 'DÃƒÂ©fense' }}</td>
                     <td>{{ formatScoreValue(result.trickPoints) }}</td>
                     <td :class="result.finalDelta >= 0 ? 'score-positive' : 'score-negative'">
                       {{ formatSignedScore(result.finalDelta) }}
@@ -178,11 +177,9 @@
           </div>
         </section>
       </div>
-
-      <aside class="side-panel">
-        <section class="panel">
-          <h2>Phase</h2>
-          <p>{{ phaseLabel }}</p>
+      <aside v-if="showActionPanel" class="action-hud">
+        <section class="action-panel">
+          <p v-if="actionHint" class="action-hint">{{ actionHint }}</p>
 
           <div v-if="gamePhase === 'BIDDING'" class="actions-list">
             <button @click="handleContract('PETITE')" class="btn btn-primary" :disabled="!isMyTurn">Petite</button>
@@ -192,66 +189,16 @@
             <button @click="handleContract('REFUSE')" class="btn btn-danger" :disabled="!isMyTurn">Passer</button>
           </div>
 
-          <div v-else-if="gamePhase === 'CALLING'" class="phase-help">
-            <p v-if="isTaker">Choisissez un roi directement sur le tapis.</p>
-            <p v-else>Le preneur appelle un roi.</p>
-          </div>
-
-          <div v-else-if="gamePhase === 'DOG_EXCHANGE'" class="phase-help">
-            <template v-if="isTaker">
-              <p v-if="!gameData?.dogRetrieved">Recuperez le chien, puis jetez 3 cartes depuis votre main.</p>
-              <p v-else-if="(gameData?.dogDiscardCount ?? 0) < 3">Selectionnez {{ 3 - (gameData?.dogDiscardCount ?? 0) }} carte(s) dans votre main.</p>
-              <p v-else>Le chien est valide.</p>
-              <button
-                v-if="!gameData?.dogRetrieved"
-                @click="handleRetrieveDog"
-                class="btn btn-primary"
-              >
-                Recuperer le chien
-              </button>
-            </template>
-
-            <p v-else>Le preneur prepare le chien.</p>
-          </div>
-
-          <div v-else-if="false" class="phase-help">
-            <template v-if="isTaker">
-              <p v-if="!gameData?.dogRetrieved">Récupérez le chien, puis jetez 3 cartes depuis votre main.</p>
-              <p v-else>Sélectionnez {{ 3 - (gameData?.dogDiscardCount ?? 0) }} carte(s) dans votre main.</p>
-              <button
-                v-if="!gameData?.dogRetrieved"
-                @click="handleRetrieveDog"
-                class="btn btn-primary"
-              >
-                Récupérer le chien
-              </button>
-            </template>
-
-            <p v-else>Le preneur prépare le chien.</p>
-          </div>
-
-          <div v-else-if="gamePhase === 'PLAYING'" class="phase-help">
-            <p v-if="isMyTurn">Jouez une carte depuis votre main.</p>
-            <p v-else>Attendez votre tour.</p>
-          </div>
-
-          <div v-else class="phase-help">
-            <p>La partie est terminée.</p>
-          </div>
-        </section>
-
-        <section class="panel">
-          <h2>Scores</h2>
-          <div class="score-list">
-            <div
-              v-for="player in players"
-              :key="player.num"
-              class="score-row"
-              :class="{ active: player.num === currentTurn }"
+          <div
+            v-else-if="gamePhase === 'DOG_EXCHANGE' && isTaker && !gameData?.dogRetrieved"
+            class="actions-stack"
+          >
+            <button
+              @click="handleRetrieveDog"
+              class="btn btn-primary"
             >
-              <span>{{ player.pseudo }}</span>
-              <span>{{ player.score.toFixed(1) }}</span>
-            </div>
+              Recuperer le chien
+            </button>
           </div>
         </section>
       </aside>
@@ -264,7 +211,7 @@
           <p>{{ finalSummaryText }}</p>
         </div>
 
-        <span class="final-summary-pill">{{ finalResult.attackWon ? 'Attaque gagnante' : 'Défense gagnante' }}</span>
+        <span class="final-summary-pill">{{ finalResult.attackWon ? 'Attaque gagnante' : 'DÃ©fense gagnante' }}</span>
       </div>
 
       <div class="final-stats-grid">
@@ -281,7 +228,7 @@
           <strong>{{ formatScoreValue(finalResult.attackPoints) }}</strong>
         </div>
         <div class="final-stat-card">
-          <span>Points demandés</span>
+          <span>Points demandÃ©s</span>
           <strong>{{ formatScoreValue(finalResult.requiredPoints) }}</strong>
         </div>
         <div class="final-stat-card">
@@ -298,12 +245,12 @@
         </div>
         <div class="final-stat-card">
           <span>Chien</span>
-          <strong>{{ formatScoreValue(finalResult.dogPoints) }} pour {{ finalResult.dogOwner === 'ATTACK' ? 'attaque' : 'défense' }}</strong>
+          <strong>{{ formatScoreValue(finalResult.dogPoints) }} pour {{ finalResult.dogOwner === 'ATTACK' ? 'attaque' : 'dÃ©fense' }}</strong>
         </div>
       </div>
 
       <p v-if="!finalResult.bonusesHandled" class="final-summary-note">
-        Le tableau applique le score contrat + bouts. Les bonus de poignée, chelem et petit au bout ne sont pas encore gérés.
+        Le tableau applique le score contrat + bouts. Les bonus de poignÃ©e, chelem et petit au bout ne sont pas encore gÃ©rÃ©s.
       </p>
 
       <div class="final-table-wrapper">
@@ -311,7 +258,7 @@
           <thead>
             <tr>
               <th>Joueur</th>
-              <th>Rôle</th>
+              <th>RÃ´le</th>
               <th>Camp</th>
               <th>Points de plis</th>
               <th>Score final</th>
@@ -325,7 +272,7 @@
             >
               <td>{{ result.pseudo }}</td>
               <td>{{ result.roleLabel }}</td>
-              <td>{{ result.side === 'ATTACK' ? 'Attaque' : 'Défense' }}</td>
+              <td>{{ result.side === 'ATTACK' ? 'Attaque' : 'DÃ©fense' }}</td>
               <td>{{ formatScoreValue(result.trickPoints) }}</td>
               <td :class="result.finalDelta >= 0 ? 'score-positive' : 'score-negative'">
                 {{ formatSignedScore(result.finalDelta) }}
@@ -339,7 +286,7 @@
 </template>
 
 <script setup lang="ts">
-import type { Card, GameApiState, GamePhase, SceneTableState, TablePlayer } from '~/types'
+import type { Card, GameApiState, GamePhase, SceneTableState } from '~/types'
 import type { GameScene } from '~/phaser/scenes/GameScene'
 import { getPlayableCardIds, isDogDiscardForbidden, isKing, normalizeCardColor } from '~/utils/tarot'
 
@@ -366,8 +313,8 @@ const gameScene = shallowRef<GameScene | null>(null)
 const gameData = ref<GameApiState | null>(null)
 const allCards = ref<Card[]>([])
 const statusText = ref('Chargement...')
+const showRotateOverlay = ref(false)
 
-const players = computed<TablePlayer[]>(() => gameData.value?.players ?? [])
 const gamePhase = computed<GamePhase>(() => gameData.value?.phase ?? 'BIDDING')
 const currentTurn = computed(() => gameData.value?.currentTurn ?? null)
 const isMyTurn = computed(() => currentTurn.value === playerNum.value)
@@ -385,7 +332,7 @@ const finalOutcomeTitle = computed(() => {
     return 'Fin de partie'
   }
 
-  return myFinalResult.value.finalDelta >= 0 ? 'Victoire' : 'Défaite'
+  return myFinalResult.value.finalDelta >= 0 ? 'Victoire' : 'DÃ©faite'
 })
 const finalOutcomeClass = computed(() => {
   if (!myFinalResult.value) {
@@ -404,28 +351,39 @@ const finalSummaryText = computed(() => {
   const attackScore = formatScoreValue(finalResult.value.attackPoints)
 
   if (finalResult.value.attackWon) {
-    return `L'attaque fait ${attackScore} pour ${target} demandés et passe le contrat de ${difference}.`
+    return `L'attaque fait ${attackScore} pour ${target} demandÃ©s et passe le contrat de ${difference}.`
   }
 
-  return `L'attaque fait ${attackScore} pour ${target} demandés et chute de ${difference}.`
+  return `L'attaque fait ${attackScore} pour ${target} demandÃ©s et chute de ${difference}.`
+})
+const showActionPanel = computed(() => {
+  if (!gameData.value || gamePhase.value === 'FINISHED') {
+    return false
+  }
+
+  if (gamePhase.value === 'BIDDING') {
+    return isMyTurn.value
+  }
+
+  return gamePhase.value === 'DOG_EXCHANGE' && isTaker.value && !gameData.value.dogRetrieved
 })
 
-const phaseLabel = computed(() => {
-  switch (gamePhase.value) {
-    case 'BIDDING':
-      return 'Enchères'
-    case 'CALLING':
-      return 'Appel du roi'
-    case 'DOG_EXCHANGE':
-      return 'Chien'
-    case 'PLAYING':
-      return 'Jeu de pli'
-    case 'FINISHED':
-      return 'Partie terminée'
-    default:
-      return 'En attente'
+const actionHint = computed(() => {
+  if (!showActionPanel.value || !gameData.value) {
+    return ''
   }
+
+  if (gamePhase.value === 'BIDDING') {
+    return 'Choisissez votre contrat.'
+  }
+
+  if (gamePhase.value === 'DOG_EXCHANGE') {
+    return 'Recuperez le chien avant de choisir les 3 cartes a remettre.'
+  }
+
+  return ''
 })
+
 
 const kingChoices = computed(() => {
   return allCards.value.filter((card) => {
@@ -503,11 +461,41 @@ let refreshInFlight = false
 let refreshPromise: Promise<void> | null = null
 let pollingActive = false
 
+const updateViewportMode = () => {
+  if (!import.meta.client) {
+    return
+  }
+
+  const isMobileViewport = window.matchMedia('(max-width: 980px) and (pointer: coarse)').matches
+  showRotateOverlay.value = isMobileViewport && window.innerHeight > window.innerWidth
+}
+
+const tryLockLandscape = async () => {
+  const orientationApi = import.meta.client
+    ? (screen.orientation as ScreenOrientation & { lock?: (orientation: string) => Promise<void> })
+    : null
+
+  if (!orientationApi || typeof orientationApi.lock !== 'function') {
+    return
+  }
+
+  try {
+    await orientationApi.lock('landscape')
+  } catch {
+    // Safari iOS ignore la plupart des tentatives de verrouillage.
+  }
+}
+
 onMounted(async () => {
   if (!user.value) {
     await router.push('/')
     return
   }
+
+  updateViewportMode()
+  window.addEventListener('resize', updateViewportMode)
+  window.addEventListener('orientationchange', updateViewportMode)
+  void tryLockLandscape()
 
   await nextTick()
   await loadCardsCatalog()
@@ -518,6 +506,8 @@ onMounted(async () => {
 
 onUnmounted(() => {
   stopGamePolling()
+  window.removeEventListener('resize', updateViewportMode)
+  window.removeEventListener('orientationchange', updateViewportMode)
   gameScene.value = null
   destroyGame()
 })
@@ -625,7 +615,7 @@ const updateStatusText = (state: GameApiState) => {
     case 'FINISHED':
       if (state.finalResult) {
         const currentPlayerResult = state.finalResult.playerResults.find((result) => result.playerNum === playerNum.value)
-        statusText.value = currentPlayerResult && currentPlayerResult.finalDelta >= 0 ? 'Victoire' : 'Défaite'
+        statusText.value = currentPlayerResult && currentPlayerResult.finalDelta >= 0 ? 'Victoire' : 'DÃ©faite'
       } else {
         statusText.value = 'Partie close'
       }
@@ -771,74 +761,37 @@ const handleLeaveGame = async () => {
 
 <style scoped>
 .game-page {
+  position: relative;
   height: 100dvh;
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
   box-sizing: border-box;
-  padding: 24px;
+  padding: clamp(4px, 0.8vw, 10px);
   background:
     radial-gradient(circle at top, rgba(237, 214, 154, 0.15), transparent 32%),
     linear-gradient(160deg, #132d21 0%, #0a1913 100%);
 }
 
-.game-header {
-  max-width: 1560px;
-  margin: 0 auto 22px;
-  padding: 22px 28px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  border: 1px solid rgba(231, 210, 155, 0.18);
-  border-radius: 18px;
-  background: rgba(7, 19, 14, 0.78);
-  backdrop-filter: blur(10px);
-}
-
-.game-info h1 {
-  margin: 0;
-  color: #f4ead3;
-  font-size: 2rem;
-}
-
-.game-info p {
-  margin: 6px 0 0;
-  color: #d8ccb0;
-}
-
-.game-actions {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.status-pill {
-  padding: 10px 16px;
-  border-radius: 999px;
-  background: rgba(229, 198, 128, 0.16);
-  border: 1px solid rgba(229, 198, 128, 0.22);
-  color: #f5e7bd;
-  font-weight: 700;
-}
 
 .game-layout {
-  max-width: 1560px;
-  margin: 0 auto;
+  position: relative;
   width: 100%;
   height: 100%;
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 330px;
-  gap: 22px;
+  display: block;
 }
 
 .table-stage {
   position: relative;
   height: 100%;
-  min-width: 0;
-  min-height: 0;
+  overflow: hidden;
+  border-radius: 28px;
+  border: 1px solid rgba(231, 210, 155, 0.18);
+  box-shadow:
+    0 24px 64px rgba(0, 0, 0, 0.28),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+  background:
+    radial-gradient(circle at top, rgba(61, 126, 81, 0.18), transparent 30%),
+    radial-gradient(circle at bottom, rgba(6, 27, 18, 0.28), transparent 38%),
+    linear-gradient(180deg, #123424 0%, #0b1a13 100%);
 }
 
 .final-summary-overlay {
@@ -851,7 +804,7 @@ const handleLeaveGame = async () => {
   border-radius: 22px;
   background: rgba(2, 9, 7, 0.52);
   backdrop-filter: blur(6px);
-  z-index: 20;
+  z-index: 22;
 }
 
 .final-summary {
@@ -972,71 +925,66 @@ const handleLeaveGame = async () => {
 }
 
 .phaser-container {
+  position: absolute;
+  inset: 0;
   height: 100%;
   min-height: 0;
-  border-radius: 22px;
-  overflow: hidden;
-  border: 1px solid rgba(231, 210, 155, 0.18);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
 }
 
-.side-panel {
+.game-top-actions {
+  position: absolute;
+  z-index: 14;
+  top: max(12px, calc(env(safe-area-inset-top, 0px) + 8px));
+  right: max(12px, calc(env(safe-area-inset-right, 0px) + 8px));
   display: flex;
-  flex-direction: column;
-  gap: 18px;
-  min-height: 0;
-  overflow: auto;
+  justify-content: flex-end;
+  pointer-events: none;
 }
 
-.panel {
-  padding: 22px;
-  border-radius: 18px;
-  border: 1px solid rgba(231, 210, 155, 0.18);
-  background: rgba(7, 19, 14, 0.78);
+.action-hud {
+  position: absolute;
+  z-index: 14;
+  left: 50%;
+  bottom: max(14px, calc(env(safe-area-inset-bottom, 0px) + 10px));
+  transform: translateX(-50%);
+  width: min(760px, calc(100% - 120px));
+  pointer-events: none;
+}
+
+.action-panel {
+  padding: 10px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(231, 210, 155, 0.14);
+  background: rgba(7, 19, 14, 0.54);
   color: #eee5ce;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
+  pointer-events: auto;
 }
 
-.panel h2 {
-  margin: 0 0 14px;
-  font-size: 1.2rem;
-  color: #f7ebc7;
+.action-hint {
+  margin: 0 0 8px;
+  color: #ddd0b0;
+  font-size: 0.8rem;
+  line-height: 1.25;
+  text-align: center;
 }
 
 .actions-list {
   display: grid;
-  gap: 10px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
 }
 
-.phase-help {
+.actions-stack {
   display: grid;
-  gap: 12px;
-  color: #d9ccb0;
-}
-
-.score-list {
-  display: grid;
-  gap: 10px;
-}
-
-.score-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.04);
-  color: #e9dec0;
-}
-
-.score-row.active {
-  border: 1px solid rgba(242, 163, 71, 0.55);
-  color: #ffd28d;
+  gap: 6px;
 }
 
 .btn {
   border: 0;
-  border-radius: 12px;
-  padding: 12px 16px;
+  border-radius: 999px;
+  padding: 10px 14px;
   font-weight: 700;
   cursor: pointer;
   transition: transform 0.2s ease, opacity 0.2s ease, background 0.2s ease;
@@ -1062,49 +1010,55 @@ const handleLeaveGame = async () => {
 }
 
 .btn-secondary {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(7, 19, 14, 0.48);
   color: #f5ecd5;
+  border: 1px solid rgba(231, 210, 155, 0.18);
 }
 
-@media (max-width: 1280px) {
-  .game-page {
-    height: auto;
-    min-height: 100dvh;
-    overflow: auto;
-  }
-
-  .game-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .table-stage {
-    min-height: 72vh;
-  }
-
-  .side-panel {
-    flex-direction: row;
-    flex-wrap: wrap;
-    overflow: visible;
-  }
-
-  .panel {
-    flex: 1 1 300px;
-  }
+.btn-compact {
+  min-width: 92px;
+  padding-inline: 12px;
+  pointer-events: auto;
 }
 
-@media (max-width: 900px) {
+.rotate-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 24;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(4, 11, 8, 0.74);
+  backdrop-filter: blur(10px);
+}
+
+.rotate-card {
+  width: min(100%, 380px);
+  padding: 24px 22px;
+  border-radius: 22px;
+  border: 1px solid rgba(231, 210, 155, 0.18);
+  background: rgba(7, 19, 14, 0.92);
+  color: #efe3c2;
+  text-align: center;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+}
+
+.rotate-card h2 {
+  margin: 0 0 10px;
+  font-size: 1.35rem;
+  color: #f9edc5;
+}
+
+.rotate-card p {
+  margin: 0;
+  color: #dccfaf;
+  line-height: 1.5;
+}
+
+@media (max-width: 980px) {
   .game-page {
-    padding: 14px;
-  }
-
-  .game-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .game-actions {
-    width: 100%;
-    justify-content: space-between;
+    padding: 0;
   }
 
   .final-summary-header {
@@ -1119,5 +1073,70 @@ const handleLeaveGame = async () => {
   .final-summary {
     padding: 18px;
   }
+
+  .table-stage {
+    border-radius: 0;
+    border: 0;
+  }
+
+  .game-top-actions {
+    top: calc(env(safe-area-inset-top, 0px) + 8px);
+    right: calc(env(safe-area-inset-right, 0px) + 8px);
+  }
+
+  .btn {
+    padding: 9px 11px;
+    font-size: 0.8rem;
+  }
+
+  .action-hud {
+    left: 10px;
+    right: 10px;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
+    width: auto;
+    transform: none;
+  }
+
+  .action-panel {
+    padding: 8px 10px;
+    border-radius: 18px;
+  }
+
+  .action-hint {
+    margin-bottom: 6px;
+    font-size: 0.74rem;
+  }
+
+  .actions-list {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 6px;
+  }
+}
+
+@media (max-width: 980px) and (orientation: portrait) {
+  .game-top-actions,
+  .action-hud {
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
+@media (max-width: 720px) and (orientation: landscape) {
+  .action-hud {
+    left: 8px;
+    right: 8px;
+    width: auto;
+  }
+
+  .action-panel {
+    padding: 8px;
+  }
+
+  .actions-list {
+    gap: 5px;
+  }
 }
 </style>
+
+
+

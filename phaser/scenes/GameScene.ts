@@ -14,6 +14,51 @@ interface RenderOptions {
   suppressDogDiscardedCardId?: number | null
 }
 
+interface SceneLayout {
+  width: number
+  height: number
+  centerX: number
+  centerY: number
+  padding: number
+  statusY: number
+  statusWidth: number
+  statusHeight: number
+  statusFontSize: number
+  handCardWidth: number
+  handCardHeight: number
+  handY: number
+  selfLabelY: number
+  selfFontSize: number
+  handSpacingMin: number
+  handSpacingMax: number
+  opponentCardWidth: number
+  opponentCardHeight: number
+  opponentLabelFontSize: number
+  opponentScoreFontSize: number
+  topSeatY: number
+  topSeatOffsetX: number
+  sideSeatX: number
+  sideSeatY: number
+  trickCardWidth: number
+  trickCardHeight: number
+  trickCenterY: number
+  trickRadiusX: number
+  trickTopOffsetY: number
+  trickBottomOffsetY: number
+  dogLabelY: number
+  dogCardsY: number
+  dogCardWidth: number
+  dogCardHeight: number
+  dogInfoY: number
+  kingLabelY: number
+  kingCardsY: number
+  kingCardWidth: number
+  kingCardHeight: number
+  retrieveButtonY: number
+  retrieveButtonWidth: number
+  retrieveButtonHeight: number
+}
+
 type SeatKey = 'self' | 'left' | 'topLeft' | 'topRight' | 'right'
 
 export class GameScene extends Phaser.Scene {
@@ -41,6 +86,10 @@ export class GameScene extends Phaser.Scene {
   private onCallKing?: (card: Card) => void
   private onRetrieveDog?: () => void
   private sceneReady = false
+  private backgroundImage?: Phaser.GameObjects.Image
+  private tableBorder?: Phaser.GameObjects.Rectangle
+  private tableGlow?: Phaser.GameObjects.Ellipse
+  private tableStateSignature = ''
 
   constructor() {
     super({ key: 'GameScene' })
@@ -71,20 +120,76 @@ export class GameScene extends Phaser.Scene {
   }
 
   create() {
-    const background = this.add.image(600, 400, 'background')
-    background.setDisplaySize(1200, 800)
-    background.setAlpha(0.32)
-
-    this.add.rectangle(600, 400, 1160, 760, 0x042b16, 0.22).setStrokeStyle(2, 0xd2b36b, 0.35)
-    this.add.ellipse(600, 390, 520, 290, 0x082f1c, 0.22).setStrokeStyle(2, 0xe7d29b, 0.22)
+    this.createBackdrop()
+    this.scale.on('resize', this.handleResize, this)
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.scale.off('resize', this.handleResize, this)
+    })
 
     this.sceneReady = true
     this.renderTable()
   }
 
+  private createBackdrop() {
+    this.backgroundImage = this.add.image(0, 0, 'background')
+    this.backgroundImage.setAlpha(0.32)
+    this.backgroundImage.setDepth(-30)
+
+    this.tableBorder = this.add.rectangle(0, 0, 0, 0, 0x042b16, 0.22)
+      .setStrokeStyle(2, 0xd2b36b, 0.35)
+      .setDepth(-20)
+
+    this.tableGlow = this.add.ellipse(0, 0, 0, 0, 0x082f1c, 0.22)
+      .setStrokeStyle(2, 0xe7d29b, 0.22)
+      .setDepth(-10)
+
+    this.updateBackdropLayout()
+  }
+
+  private handleResize(gameSize: Phaser.Structs.Size) {
+    this.cameras.resize(gameSize.width, gameSize.height)
+    this.updateBackdropLayout()
+
+    if (!this.sceneReady || this.trickCollectionAnimating) {
+      return
+    }
+
+    this.renderTable()
+  }
+
+  private updateBackdropLayout() {
+    const layout = this.getLayout()
+    const backgroundSource = this.backgroundImage?.texture.getSourceImage() as { width?: number; height?: number } | undefined
+
+    if (this.backgroundImage) {
+      this.backgroundImage.setPosition(layout.centerX, layout.centerY)
+
+      if (backgroundSource?.width && backgroundSource.height) {
+        const coverScale = Math.max(layout.width / backgroundSource.width, layout.height / backgroundSource.height)
+        this.backgroundImage.setDisplaySize(backgroundSource.width * coverScale, backgroundSource.height * coverScale)
+      } else {
+        this.backgroundImage.setDisplaySize(layout.width, layout.height)
+      }
+    }
+
+    this.tableBorder
+      ?.setPosition(layout.centerX, layout.centerY)
+      .setSize(Math.max(layout.width - 20, layout.width * 0.96), Math.max(layout.height - 20, layout.height * 0.95))
+
+    this.tableGlow
+      ?.setPosition(layout.centerX, layout.centerY - Math.min(10, layout.height * 0.015))
+      .setSize(Math.max(layout.width * 0.5, 360), Math.max(layout.height * 0.42, 220))
+  }
+
   setTableState(state: SceneTableState) {
     const previousState = this.tableState ? this.cloneState(this.tableState) : null
     const nextState = this.cloneState(state)
+    const nextSignature = this.getStateSignature(nextState)
+
+    if (this.tableStateSignature === nextSignature) {
+      this.tableState = nextState
+      return
+    }
 
     if (
       this.pendingTrickCollection &&
@@ -94,6 +199,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.tableState = nextState
+    this.tableStateSignature = nextSignature
 
     if (!this.sceneReady) {
       return
@@ -140,6 +246,7 @@ export class GameScene extends Phaser.Scene {
       ...this.tableState,
       playerHand: [...cards]
     }
+    this.tableStateSignature = this.getStateSignature(this.tableState)
 
     if (this.sceneReady) {
       this.renderTable()
@@ -155,6 +262,7 @@ export class GameScene extends Phaser.Scene {
       ...this.tableState,
       currentPliCards: []
     }
+    this.tableStateSignature = this.getStateSignature(this.tableState)
 
     if (this.sceneReady) {
       this.renderTable()
@@ -172,6 +280,161 @@ export class GameScene extends Phaser.Scene {
       kingChoices: [...state.kingChoices],
       selectableCardIds: [...state.selectableCardIds]
     }
+  }
+
+  private getStateSignature(state: SceneTableState) {
+    return JSON.stringify({
+      phase: state.phase,
+      myPlayerNum: state.myPlayerNum,
+      currentTurn: state.currentTurn,
+      currentPliId: state.currentPliId,
+      currentPliWinnerNum: state.currentPliWinnerNum,
+      finTour: state.finTour,
+      takerNum: state.takerNum,
+      partnerNum: state.partnerNum,
+      teamsRevealed: state.teamsRevealed,
+      dogRetrieved: state.dogRetrieved,
+      dogDiscardCount: state.dogDiscardCount,
+      statusText: state.statusText,
+      playerHand: state.playerHand.map((card) => card.id),
+      players: state.players.map((player) => [player.num, player.score, player.handCount, player.pseudo]),
+      dogCards: state.dogCards.map((card) => card.id),
+      discardedDogCards: state.discardedDogCards.map((card) => card.id),
+      currentPliCards: state.currentPliCards.map((playedCard) => [playedCard.card.id, playedCard.playerNum, playedCard.position]),
+      kingChoices: state.kingChoices.map((card) => card.id),
+      selectableCardIds: [...state.selectableCardIds]
+    })
+  }
+
+  private getLayout(): SceneLayout {
+    const width = this.scale.width
+    const height = this.scale.height
+    const centerX = width / 2
+    const centerY = height / 2
+    const padding = Phaser.Math.Clamp(Math.min(width, height) * 0.028, 8, 24)
+
+    const statusHeight = Phaser.Math.Clamp(height * 0.065, 38, 52)
+    const statusWidthMax = Math.max(width - (padding * 2) - 150, 220)
+    const statusWidth = Math.min(Math.max(width * 0.38, 240), statusWidthMax)
+    const statusY = padding + statusHeight / 2 + Phaser.Math.Clamp(height * 0.02, 8, 16)
+
+    const handCardHeight = Phaser.Math.Clamp(height * 0.22, 88, 168)
+    const handCardWidth = Math.round(handCardHeight * 0.667)
+    const handY = height - padding - (handCardHeight / 2) - Phaser.Math.Clamp(height * 0.03, 10, 20)
+    const selfLabelY = handY - (handCardHeight / 2) - Phaser.Math.Clamp(height * 0.06, 22, 40)
+
+    const opponentCardHeight = Phaser.Math.Clamp(handCardHeight * 0.68, 60, 108)
+    const opponentCardWidth = Math.round(opponentCardHeight * 0.648)
+    const topSeatY = statusY + (statusHeight / 2) + (opponentCardHeight / 2) + Phaser.Math.Clamp(height * 0.08, 26, 44)
+    const topSeatOffsetX = Math.min(
+      Phaser.Math.Clamp(width * 0.28, 140, 320),
+      Math.max((width / 2) - padding - (opponentCardWidth * 1.1), 120)
+    )
+    const sideSeatX = padding + (opponentCardHeight / 2) + 16
+    const sideSeatY = centerY + Phaser.Math.Clamp(height * 0.015, 0, 16)
+
+    const trickCardHeight = Phaser.Math.Clamp(handCardHeight * 0.82, 76, 138)
+    const trickCardWidth = Math.round(trickCardHeight * 0.667)
+    const trickCenterY = centerY - Phaser.Math.Clamp(height * 0.01, 0, 10)
+    const trickRadiusX = Phaser.Math.Clamp(width * 0.17, 90, 210)
+    const trickTopOffsetY = Phaser.Math.Clamp(height * 0.16, 62, 130)
+    const trickBottomOffsetY = Phaser.Math.Clamp(height * 0.15, 56, 120)
+
+    const dogCardHeight = Phaser.Math.Clamp(handCardHeight * 0.7, 70, 118)
+    const dogCardWidth = Math.round(dogCardHeight * 0.661)
+    const dogLabelY = centerY - Phaser.Math.Clamp(height * 0.18, 60, 92)
+    const dogCardsY = dogLabelY + Phaser.Math.Clamp(height * 0.13, 48, 74)
+    const dogInfoY = selfLabelY - Phaser.Math.Clamp(height * 0.08, 20, 34)
+
+    const kingCardHeight = Phaser.Math.Clamp(handCardHeight * 0.82, 80, 138)
+    const kingCardWidth = Math.round(kingCardHeight * 0.667)
+    const kingLabelY = centerY - Phaser.Math.Clamp(height * 0.21, 72, 110)
+    const kingCardsY = kingLabelY + Phaser.Math.Clamp(height * 0.14, 54, 100)
+
+    return {
+      width,
+      height,
+      centerX,
+      centerY,
+      padding,
+      statusY,
+      statusWidth,
+      statusHeight,
+      statusFontSize: Phaser.Math.Clamp(height * 0.03, 15, 24),
+      handCardWidth,
+      handCardHeight,
+      handY,
+      selfLabelY,
+      selfFontSize: Phaser.Math.Clamp(height * 0.028, 16, 22),
+      handSpacingMin: 18,
+      handSpacingMax: 62,
+      opponentCardWidth,
+      opponentCardHeight,
+      opponentLabelFontSize: Phaser.Math.Clamp(height * 0.027, 15, 22),
+      opponentScoreFontSize: Phaser.Math.Clamp(height * 0.022, 12, 18),
+      topSeatY,
+      topSeatOffsetX,
+      sideSeatX,
+      sideSeatY,
+      trickCardWidth,
+      trickCardHeight,
+      trickCenterY,
+      trickRadiusX,
+      trickTopOffsetY,
+      trickBottomOffsetY,
+      dogLabelY,
+      dogCardsY,
+      dogCardWidth,
+      dogCardHeight,
+      dogInfoY,
+      kingLabelY,
+      kingCardsY,
+      kingCardWidth,
+      kingCardHeight,
+      retrieveButtonY: dogInfoY,
+      retrieveButtonWidth: Phaser.Math.Clamp(width * 0.22, 190, 250),
+      retrieveButtonHeight: Phaser.Math.Clamp(height * 0.06, 40, 52)
+    }
+  }
+
+  private toPx(size: number) {
+    return `${Math.round(size)}px`
+  }
+
+  private getTextResolution() {
+    const renderer = this.game.renderer as { resolution?: number }
+    return Math.max(1, Math.min(renderer?.resolution ?? 1, 2))
+  }
+
+  private addSharpText(
+    x: number,
+    y: number,
+    text: string,
+    style: Phaser.Types.GameObjects.Text.TextStyle
+  ) {
+    const textObject = this.add.text(Math.round(x), Math.round(y), text, {
+      fontFamily: '"Trebuchet MS", "Segoe UI", sans-serif',
+      padding: { x: 2, y: 1 },
+      ...style
+    })
+
+    textObject.setResolution(this.getTextResolution())
+
+    return textObject
+  }
+
+  private getHandSpacing(cardCount: number) {
+    const layout = this.getLayout()
+
+    if (cardCount <= 1) {
+      return 0
+    }
+
+    const availableWidth = Math.max(layout.width - (layout.padding * 2) - layout.handCardWidth, layout.handCardWidth)
+    return Math.min(
+      layout.handSpacingMax,
+      Math.max(layout.handSpacingMin, Math.floor(availableWidth / (cardCount - 1)))
+    )
   }
 
   private renderTable(options: RenderOptions = {}) {
@@ -196,13 +459,18 @@ export class GameScene extends Phaser.Scene {
       return
     }
 
-    const banner = this.add.rectangle(600, 48, 540, 52, 0x06150e, 0.75).setStrokeStyle(2, 0xe4cb8a, 0.5)
-    const text = this.add.text(600, 48, this.tableState.statusText, {
+    const layout = this.getLayout()
+    const banner = this.add.rectangle(layout.centerX, layout.statusY, layout.statusWidth, layout.statusHeight, 0x06150e, 0.75)
+      .setStrokeStyle(2, 0xe4cb8a, 0.5)
+
+    const text = this.addSharpText(layout.centerX, layout.statusY, this.tableState.statusText, {
       color: '#f6f0dd',
-      fontFamily: 'Georgia',
-      fontSize: '24px',
+      fontSize: this.toPx(layout.statusFontSize),
+      align: 'center',
       fontStyle: 'bold'
-    }).setOrigin(0.5)
+    })
+      .setOrigin(0.5)
+      .setWordWrapWidth(layout.statusWidth - 28, true)
 
     this.dynamicObjects.push(banner, text)
   }
@@ -212,17 +480,17 @@ export class GameScene extends Phaser.Scene {
       return
     }
 
+    const layout = this.getLayout()
     const myself = this.tableState.players.find((player) => player.num === this.tableState?.myPlayerNum)
 
     if (myself) {
-      const selfLabel = this.add.text(600, 558, `${myself.pseudo}  ${myself.score.toFixed(1)}`, {
+      const selfLabel = this.addSharpText(layout.centerX, layout.selfLabelY, `${myself.pseudo}  ${myself.score.toFixed(1)}`, {
         color: this.getPlayerColor(myself.num),
-        fontFamily: 'Georgia',
-        fontSize: '22px',
+        fontSize: this.toPx(layout.selfFontSize),
         fontStyle: 'bold'
       }).setOrigin(0.5)
 
-      const badge = this.addTextBadge([selfLabel], 220)
+      const badge = this.addTextBadge([selfLabel], Math.max(170, layout.handCardWidth * 2))
       this.dynamicObjects.push(badge, selfLabel)
     }
 
@@ -236,6 +504,7 @@ export class GameScene extends Phaser.Scene {
       return
     }
 
+    const layout = this.getLayout()
     const seat = this.getSeatKey(player.num)
     const seatConfig = this.getSeatConfig(seat)
     const visibleBacks = Math.min(Math.max(player.handCount, 1), 8)
@@ -248,23 +517,21 @@ export class GameScene extends Phaser.Scene {
         'cardback'
       )
 
-      card.setDisplaySize(70, 108)
+      card.setDisplaySize(layout.opponentCardWidth, layout.opponentCardHeight)
       card.setRotation(seatConfig.rotation)
       card.setAlpha(0.96)
       this.dynamicObjects.push(card)
     }
 
-    const label = this.add.text(seatConfig.labelX, seatConfig.labelY, player.pseudo, {
+    const label = this.addSharpText(seatConfig.labelX, seatConfig.labelY, player.pseudo, {
       color: this.getPlayerColor(player.num),
-      fontFamily: 'Georgia',
-      fontSize: '22px',
+      fontSize: this.toPx(layout.opponentLabelFontSize),
       fontStyle: 'bold'
     }).setOrigin(0.5)
 
-    const score = this.add.text(seatConfig.scoreX, seatConfig.scoreY, `${player.score.toFixed(1)}  ${player.handCount} cartes`, {
+    const score = this.addSharpText(seatConfig.scoreX, seatConfig.scoreY, `${player.score.toFixed(1)}  ${player.handCount} cartes`, {
       color: '#f1ead9',
-      fontFamily: 'Georgia',
-      fontSize: '18px'
+      fontSize: this.toPx(layout.opponentScoreFontSize)
     }).setOrigin(0.5)
 
     const badge = this.addTextBadge([label, score], seatConfig.badgeWidth)
@@ -297,6 +564,7 @@ export class GameScene extends Phaser.Scene {
       return
     }
 
+    const layout = this.getLayout()
     const trickAlreadyCollected = Boolean(
       this.tableState.currentPliId &&
       this.tableState.finTour &&
@@ -324,22 +592,18 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (this.tableState.phase === 'DOG_EXCHANGE' && this.tableState.takerNum === this.tableState.myPlayerNum) {
-      if (!this.tableState.dogRetrieved) {
-        this.renderRetrieveDogButton()
-      } else if (this.tableState.dogDiscardCount >= 3) {
-        const info = this.add.text(600, 505, 'Chien valide', {
+      if (this.tableState.dogRetrieved && this.tableState.dogDiscardCount >= 3) {
+        const info = this.addSharpText(layout.centerX, layout.dogInfoY, 'Chien valide', {
           color: '#f5e2ac',
-          fontFamily: 'Georgia',
-          fontSize: '22px',
+          fontSize: this.toPx(layout.selfFontSize),
           fontStyle: 'bold'
         }).setOrigin(0.5)
 
         this.dynamicObjects.push(info)
-      } else {
-        const info = this.add.text(600, 505, `Choisissez ${3 - this.tableState.dogDiscardCount} carte(s) pour le chien`, {
+      } else if (this.tableState.dogRetrieved) {
+        const info = this.addSharpText(layout.centerX, layout.dogInfoY, `Choisissez ${3 - this.tableState.dogDiscardCount} carte(s) pour le chien`, {
           color: '#f5e2ac',
-          fontFamily: 'Georgia',
-          fontSize: '22px',
+          fontSize: this.toPx(layout.selfFontSize),
           fontStyle: 'bold'
         }).setOrigin(0.5)
 
@@ -349,6 +613,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   private renderCurrentPliCards(cards: CurrentPliCard[], suppressPlayedCardId: number | null) {
+    const layout = this.getLayout()
+
     cards.forEach((playedCard) => {
       if (suppressPlayedCardId && playedCard.card.id === suppressPlayedCardId) {
         return
@@ -357,7 +623,7 @@ export class GameScene extends Phaser.Scene {
       const config = this.getTrickPosition(playedCard)
       const cardImage = this.add.image(config.x, config.y, this.getCardKey(playedCard.card))
 
-      cardImage.setDisplaySize(92, 138)
+      cardImage.setDisplaySize(layout.trickCardWidth, layout.trickCardHeight)
       cardImage.setRotation(config.rotation)
       cardImage.setDepth(30)
       this.dynamicObjects.push(cardImage)
@@ -365,10 +631,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   private renderDogCards(title: string, cards: Card[], suppressCardId: number | null = null) {
-    const label = this.add.text(600, 284, title, {
+    const layout = this.getLayout()
+    const label = this.addSharpText(layout.centerX, layout.dogLabelY, title, {
       color: '#f3e6bf',
-      fontFamily: 'Georgia',
-      fontSize: '24px',
+      fontSize: this.toPx(layout.statusFontSize),
       fontStyle: 'bold'
     }).setOrigin(0.5)
 
@@ -381,7 +647,7 @@ export class GameScene extends Phaser.Scene {
 
       const position = this.getDogCardPosition(index, cards.length)
       const image = this.add.image(position.x, position.y, this.getCardKey(card))
-      image.setDisplaySize(78, 118)
+      image.setDisplaySize(layout.dogCardWidth, layout.dogCardHeight)
       image.setDepth(18)
       this.dynamicObjects.push(image)
     })
@@ -392,31 +658,34 @@ export class GameScene extends Phaser.Scene {
       return
     }
 
-    const label = this.add.text(600, 250, 'Choisissez un roi', {
+    const layout = this.getLayout()
+    const label = this.addSharpText(layout.centerX, layout.kingLabelY, 'Choisissez un roi', {
       color: '#f3e6bf',
-      fontFamily: 'Georgia',
-      fontSize: '24px',
+      fontSize: this.toPx(layout.statusFontSize),
       fontStyle: 'bold'
     }).setOrigin(0.5)
 
     this.dynamicObjects.push(label)
 
-    const spacing = 122
-    const firstX = 600 - ((this.tableState.kingChoices.length - 1) * spacing) / 2
+    const maxSpan = Math.min(layout.width * 0.58, 520)
+    const spacing = this.tableState.kingChoices.length > 1
+      ? Math.min(layout.kingCardWidth + 16, maxSpan / (this.tableState.kingChoices.length - 1))
+      : 0
+    const firstX = layout.centerX - ((this.tableState.kingChoices.length - 1) * spacing) / 2
 
     this.tableState.kingChoices.forEach((card, index) => {
-      const image = this.add.image(firstX + index * spacing, 350, this.getCardKey(card))
-      image.setDisplaySize(92, 138)
+      const image = this.add.image(firstX + index * spacing, layout.kingCardsY, this.getCardKey(card))
+      image.setDisplaySize(layout.kingCardWidth, layout.kingCardHeight)
       image.setDepth(24)
       image.setInteractive({ useHandCursor: true })
 
       image.on('pointerover', () => {
-        image.setDisplaySize(98, 147)
+        image.setDisplaySize(Math.round(layout.kingCardWidth * 1.06), Math.round(layout.kingCardHeight * 1.06))
         image.setDepth(40)
       })
 
       image.on('pointerout', () => {
-        image.setDisplaySize(92, 138)
+        image.setDisplaySize(layout.kingCardWidth, layout.kingCardHeight)
         image.setDepth(24)
       })
 
@@ -429,14 +698,21 @@ export class GameScene extends Phaser.Scene {
   }
 
   private renderRetrieveDogButton() {
-    const background = this.add.rectangle(600, 500, 208, 46, 0x1c5b2e, 0.92)
+    const layout = this.getLayout()
+    const background = this.add.rectangle(
+      layout.centerX,
+      layout.retrieveButtonY,
+      layout.retrieveButtonWidth,
+      layout.retrieveButtonHeight,
+      0x1c5b2e,
+      0.92
+    )
       .setStrokeStyle(2, 0xf5d37f, 0.7)
       .setInteractive({ useHandCursor: true })
 
-    const text = this.add.text(600, 500, 'Recuperer le chien', {
+    const text = this.addSharpText(layout.centerX, layout.retrieveButtonY, 'Recuperer le chien', {
       color: '#fff6d8',
-      fontFamily: 'Georgia',
-      fontSize: '22px',
+      fontSize: this.toPx(layout.selfFontSize),
       fontStyle: 'bold'
     }).setOrigin(0.5)
 
@@ -460,20 +736,19 @@ export class GameScene extends Phaser.Scene {
       return
     }
 
+    const layout = this.getLayout()
     const sortedHand = sortHandCards(this.tableState.playerHand)
-    const spacing = sortedHand.length > 1
-      ? Math.min(62, Math.max(28, Math.floor(920 / (sortedHand.length - 1))))
-      : 0
-    const firstX = 600 - ((sortedHand.length - 1) * spacing) / 2
+    const spacing = this.getHandSpacing(sortedHand.length)
+    const firstX = layout.centerX - ((sortedHand.length - 1) * spacing) / 2
     const selectableIds = new Set(this.tableState.selectableCardIds)
     const disableAllCards = this.shouldDisableAllHandCards()
 
     sortedHand.forEach((card, index) => {
       const x = firstX + index * spacing
-      const y = 704
+      const y = layout.handY
       const selectable = selectableIds.has(card.id)
-      const baseWidth = 112
-      const baseHeight = 168
+      const baseWidth = layout.handCardWidth
+      const baseHeight = layout.handCardHeight
       const baseDepth = 10 + index
       const image = this.add.image(x, y, this.getCardKey(card))
 
@@ -542,7 +817,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     image.setDisplaySize(Math.round(baseWidth * 1.08), Math.round(baseHeight * 1.08))
-    image.setY(baseY - 28)
+    image.setY(baseY - Math.round(Math.min(baseHeight * 0.16, 28)))
     image.setDepth(250)
 
     this.hoveredHandCard = {
@@ -619,6 +894,7 @@ export class GameScene extends Phaser.Scene {
       return
     }
 
+    const layout = this.getLayout()
     this.renderTable()
 
     let completedTweens = 0
@@ -628,7 +904,7 @@ export class GameScene extends Phaser.Scene {
       const target = this.getRetrievedDogTargetPosition(index, previousState.dogCards.length)
       const animationCard = this.add.image(start.x, start.y, this.getCardKey(card))
 
-      animationCard.setDisplaySize(78, 118)
+      animationCard.setDisplaySize(layout.dogCardWidth, layout.dogCardHeight)
       animationCard.setDepth(220 + index)
       this.transientObjects.push(animationCard)
 
@@ -654,20 +930,21 @@ export class GameScene extends Phaser.Scene {
   }
 
   private animateDogDiscard(previousState: SceneTableState, nextState: SceneTableState, discardedCard: Card) {
+    const layout = this.getLayout()
     const discardIndex = nextState.discardedDogCards.findIndex((card) => card.id === discardedCard.id)
     const target = this.getDogCardPosition(
       discardIndex >= 0 ? discardIndex : Math.max(nextState.discardedDogCards.length - 1, 0),
       nextState.discardedDogCards.length
     )
     const origin = this.getHandCardPosition(previousState.playerHand, discardedCard.id)
-    const targetWidth = 78
-    const targetHeight = 118
+    const targetWidth = layout.dogCardWidth
+    const targetHeight = layout.dogCardHeight
 
     this.renderTable({ suppressDogDiscardedCardId: discardedCard.id })
 
     const animationCard = this.add.image(origin.x, origin.y, this.getCardKey(discardedCard))
 
-    animationCard.setDisplaySize(112, 168)
+    animationCard.setDisplaySize(layout.handCardWidth, layout.handCardHeight)
     animationCard.setDepth(260)
     this.transientObjects.push(animationCard)
 
@@ -678,8 +955,8 @@ export class GameScene extends Phaser.Scene {
       targets: animationCard,
       x: target.x,
       y: target.y,
-      scaleX: startScaleX * (targetWidth / 112),
-      scaleY: startScaleY * (targetHeight / 168),
+      scaleX: startScaleX * (targetWidth / layout.handCardWidth),
+      scaleY: startScaleY * (targetHeight / layout.handCardHeight),
       duration: GameScene.DOG_DISCARD_DURATION_MS,
       ease: 'Cubic.Out',
       onComplete: () => {
@@ -691,36 +968,41 @@ export class GameScene extends Phaser.Scene {
   }
 
   private getHandCardPosition(handCards: Card[], cardId: number) {
+    const layout = this.getLayout()
     const sortedHand = sortHandCards(handCards)
     const cardIndex = sortedHand.findIndex((card) => card.id === cardId)
-    const spacing = sortedHand.length > 1
-      ? Math.min(62, Math.max(28, Math.floor(920 / (sortedHand.length - 1))))
-      : 0
-    const firstX = 600 - ((sortedHand.length - 1) * spacing) / 2
+    const spacing = this.getHandSpacing(sortedHand.length)
+    const firstX = layout.centerX - ((sortedHand.length - 1) * spacing) / 2
 
     return {
-      x: cardIndex >= 0 ? firstX + cardIndex * spacing : 600,
-      y: 704
+      x: cardIndex >= 0 ? firstX + cardIndex * spacing : layout.centerX,
+      y: layout.handY
     }
   }
 
   private getDogCardPosition(index: number, totalCards: number) {
-    const spacing = 86
-    const firstX = 600 - ((totalCards - 1) * spacing) / 2
+    const layout = this.getLayout()
+    const spacing = totalCards > 1
+      ? Math.min(layout.dogCardWidth + 10, Math.min(layout.width * 0.36, 300) / (totalCards - 1))
+      : 0
+    const firstX = layout.centerX - ((totalCards - 1) * spacing) / 2
 
     return {
       x: firstX + index * spacing,
-      y: 360
+      y: layout.dogCardsY
     }
   }
 
   private getRetrievedDogTargetPosition(index: number, totalCards: number) {
-    const spacing = 74
-    const firstX = 600 - ((totalCards - 1) * spacing) / 2
+    const layout = this.getLayout()
+    const spacing = totalCards > 1
+      ? Math.min(layout.dogCardWidth + 12, Math.min(layout.width * 0.42, 360) / (totalCards - 1))
+      : 0
+    const firstX = layout.centerX - ((totalCards - 1) * spacing) / 2
 
     return {
       x: firstX + index * spacing,
-      y: 636
+      y: layout.handY - Math.round(layout.handCardHeight * 0.4)
     }
   }
 
@@ -749,11 +1031,14 @@ export class GameScene extends Phaser.Scene {
     this.renderTable({ suppressPlayedCardId: playedCard.card.id })
 
     const seat = playedCard.playerNum ? this.getSeatKey(playedCard.playerNum) : 'self'
-    const origin = this.getCardOriginPosition(seat)
+    const layout = this.getLayout()
+    const origin = previousState && playedCard.playerNum === nextState.myPlayerNum
+      ? { ...this.getHandCardPosition(previousState.playerHand, playedCard.card.id), rotation: 0 }
+      : this.getCardOriginPosition(seat)
     const target = this.getTrickPosition(playedCard)
     const animationCard = this.add.image(origin.x, origin.y, this.getCardKey(playedCard.card))
 
-    animationCard.setDisplaySize(92, 138)
+    animationCard.setDisplaySize(layout.trickCardWidth, layout.trickCardHeight)
     animationCard.setRotation(origin.rotation)
     animationCard.setDepth(320)
     this.transientObjects.push(animationCard)
@@ -819,6 +1104,7 @@ export class GameScene extends Phaser.Scene {
       return
     }
 
+    const layout = this.getLayout()
     this.clearPendingTrickCollection()
     this.trickCollectionAnimating = true
     this.trickCollectionAnimatingPliId = state.currentPliId
@@ -832,7 +1118,7 @@ export class GameScene extends Phaser.Scene {
       const start = this.getTrickPosition(playedCard)
       const animationCard = this.add.image(start.x, start.y, this.getCardKey(playedCard.card))
 
-      animationCard.setDisplaySize(92, 138)
+      animationCard.setDisplaySize(layout.trickCardWidth, layout.trickCardHeight)
       animationCard.setRotation(start.rotation)
       animationCard.setDepth(340 + index)
       this.transientObjects.push(animationCard)
@@ -883,69 +1169,75 @@ export class GameScene extends Phaser.Scene {
   }
 
   private getSeatConfig(seat: SeatKey) {
+    const layout = this.getLayout()
+    const topLabelY = layout.topSeatY - (layout.opponentCardHeight / 2) - Phaser.Math.Clamp(layout.height * 0.04, 12, 20)
+    const sideLabelY = layout.sideSeatY - (layout.opponentCardHeight / 2) - Phaser.Math.Clamp(layout.height * 0.06, 18, 28)
+    const scoreOffsetY = Phaser.Math.Clamp(layout.opponentScoreFontSize + 6, 18, 26)
+    const badgeWidth = Math.max(150, layout.opponentCardHeight + 42)
+
     switch (seat) {
       case 'left':
         return {
-          cardX: 120,
-          cardY: 402,
+          cardX: layout.sideSeatX,
+          cardY: layout.sideSeatY,
           spreadX: 0,
-          spreadY: 10,
+          spreadY: Math.max(6, Math.round(layout.opponentCardHeight * 0.09)),
           rotation: -Math.PI / 2,
-          labelX: 156,
-          labelY: 248,
-          scoreX: 156,
-          scoreY: 274,
-          badgeWidth: 150
+          labelX: layout.sideSeatX,
+          labelY: sideLabelY,
+          scoreX: layout.sideSeatX,
+          scoreY: sideLabelY + scoreOffsetY,
+          badgeWidth
         }
       case 'topLeft':
         return {
-          cardX: 362,
-          cardY: 148,
-          spreadX: 12,
+          cardX: layout.centerX - layout.topSeatOffsetX,
+          cardY: layout.topSeatY,
+          spreadX: Math.max(8, Math.round(layout.opponentCardWidth * 0.18)),
           spreadY: 0,
           rotation: 0,
-          labelX: 206,
-          labelY: 94,
-          scoreX: 206,
-          scoreY: 120,
-          badgeWidth: 170
+          labelX: layout.centerX - layout.topSeatOffsetX,
+          labelY: topLabelY,
+          scoreX: layout.centerX - layout.topSeatOffsetX,
+          scoreY: topLabelY + scoreOffsetY,
+          badgeWidth: Math.max(170, layout.opponentCardWidth * 2)
         }
       case 'topRight':
         return {
-          cardX: 838,
-          cardY: 148,
-          spreadX: 12,
+          cardX: layout.centerX + layout.topSeatOffsetX,
+          cardY: layout.topSeatY,
+          spreadX: Math.max(8, Math.round(layout.opponentCardWidth * 0.18)),
           spreadY: 0,
           rotation: 0,
-          labelX: 994,
-          labelY: 94,
-          scoreX: 994,
-          scoreY: 120,
-          badgeWidth: 170
+          labelX: layout.centerX + layout.topSeatOffsetX,
+          labelY: topLabelY,
+          scoreX: layout.centerX + layout.topSeatOffsetX,
+          scoreY: topLabelY + scoreOffsetY,
+          badgeWidth: Math.max(170, layout.opponentCardWidth * 2)
         }
       case 'right':
         return {
-          cardX: 1080,
-          cardY: 402,
+          cardX: layout.width - layout.sideSeatX,
+          cardY: layout.sideSeatY,
           spreadX: 0,
-          spreadY: 10,
+          spreadY: Math.max(6, Math.round(layout.opponentCardHeight * 0.09)),
           rotation: Math.PI / 2,
-          labelX: 1044,
-          labelY: 248,
-          scoreX: 1044,
-          scoreY: 274,
-          badgeWidth: 150
+          labelX: layout.width - layout.sideSeatX,
+          labelY: sideLabelY,
+          scoreX: layout.width - layout.sideSeatX,
+          scoreY: sideLabelY + scoreOffsetY,
+          badgeWidth
         }
       default:
         return {
-          cardX: 600,
+          cardX: layout.centerX,
           cardY: 0,
           spreadX: 0,
           spreadY: 0,
           rotation: 0,
-          labelX: 600,
+          labelX: layout.centerX,
           labelY: 0,
-          scoreX: 600,
+          scoreX: layout.centerX,
           scoreY: 0,
           badgeWidth: 0
         }
@@ -953,57 +1245,75 @@ export class GameScene extends Phaser.Scene {
   }
 
   private getCardOriginPosition(seat: SeatKey) {
+    const layout = this.getLayout()
+    const seatConfig = this.getSeatConfig(seat)
+
     switch (seat) {
       case 'left':
-        return { x: 160, y: 402, rotation: -Math.PI / 2 }
+        return { x: seatConfig.cardX + layout.opponentCardHeight * 0.28, y: seatConfig.cardY, rotation: -Math.PI / 2 }
       case 'topLeft':
-        return { x: 430, y: 170, rotation: 0 }
+        return { x: seatConfig.cardX + layout.opponentCardWidth * 0.45, y: seatConfig.cardY + layout.opponentCardHeight * 0.16, rotation: 0 }
       case 'topRight':
-        return { x: 770, y: 170, rotation: 0 }
+        return { x: seatConfig.cardX - layout.opponentCardWidth * 0.45, y: seatConfig.cardY + layout.opponentCardHeight * 0.16, rotation: 0 }
       case 'right':
-        return { x: 1040, y: 402, rotation: Math.PI / 2 }
+        return { x: seatConfig.cardX - layout.opponentCardHeight * 0.28, y: seatConfig.cardY, rotation: Math.PI / 2 }
       default:
-        return { x: 600, y: 748, rotation: 0 }
+        return { x: layout.centerX, y: layout.handY, rotation: 0 }
     }
   }
 
   private getCollectDestination(seat: SeatKey) {
+    const layout = this.getLayout()
+    const seatConfig = this.getSeatConfig(seat)
+
     switch (seat) {
       case 'left':
-        return { x: 175, y: 390, spreadX: 0, spreadY: 5, rotation: -Math.PI / 2 }
+        return { x: seatConfig.cardX + layout.opponentCardHeight * 0.38, y: seatConfig.cardY, spreadX: 0, spreadY: 5, rotation: -Math.PI / 2 }
       case 'topLeft':
-        return { x: 395, y: 182, spreadX: 5, spreadY: 0, rotation: 0 }
+        return { x: seatConfig.cardX + layout.opponentCardWidth * 0.28, y: seatConfig.cardY + layout.opponentCardHeight * 0.34, spreadX: 5, spreadY: 0, rotation: 0 }
       case 'topRight':
-        return { x: 805, y: 182, spreadX: 5, spreadY: 0, rotation: 0 }
+        return { x: seatConfig.cardX - layout.opponentCardWidth * 0.28, y: seatConfig.cardY + layout.opponentCardHeight * 0.34, spreadX: 5, spreadY: 0, rotation: 0 }
       case 'right':
-        return { x: 1025, y: 390, spreadX: 0, spreadY: 5, rotation: Math.PI / 2 }
+        return { x: seatConfig.cardX - layout.opponentCardHeight * 0.38, y: seatConfig.cardY, spreadX: 0, spreadY: 5, rotation: Math.PI / 2 }
       default:
-        return { x: 600, y: 640, spreadX: 14, spreadY: 0, rotation: 0 }
+        return {
+          x: layout.centerX,
+          y: layout.handY - Math.round(layout.handCardHeight * 0.72),
+          spreadX: Math.max(10, Math.round(layout.handCardWidth * 0.12)),
+          spreadY: 0,
+          rotation: 0
+        }
     }
   }
 
   private getTrickPosition(playedCard: CurrentPliCard) {
-    const fallbackX = [480, 540, 600, 660, 720]
+    const layout = this.getLayout()
+    const fallbackSpacing = Math.max(48, Math.round(layout.trickCardWidth * 0.7))
+    const fallbackX = Array.from({ length: 5 }, (_, index) => {
+      return layout.centerX + ((index - 2) * fallbackSpacing)
+    })
 
     if (playedCard.playerNum) {
       return this.getTrickSeatConfig(this.getSeatKey(playedCard.playerNum))
     }
 
-    return { x: fallbackX[playedCard.position - 1] ?? 600, y: 390, rotation: 0 }
+    return { x: fallbackX[playedCard.position - 1] ?? layout.centerX, y: layout.trickCenterY, rotation: 0 }
   }
 
   private getTrickSeatConfig(seat: SeatKey) {
+    const layout = this.getLayout()
+
     switch (seat) {
       case 'left':
-        return { x: 398, y: 408, rotation: -0.09 }
+        return { x: layout.centerX - layout.trickRadiusX, y: layout.trickCenterY + Math.round(layout.trickBottomOffsetY * 0.16), rotation: -0.09 }
       case 'topLeft':
-        return { x: 520, y: 262, rotation: -0.03 }
+        return { x: layout.centerX - Math.round(layout.trickRadiusX * 0.42), y: layout.trickCenterY - layout.trickTopOffsetY, rotation: -0.03 }
       case 'topRight':
-        return { x: 680, y: 262, rotation: 0.03 }
+        return { x: layout.centerX + Math.round(layout.trickRadiusX * 0.42), y: layout.trickCenterY - layout.trickTopOffsetY, rotation: 0.03 }
       case 'right':
-        return { x: 802, y: 408, rotation: 0.09 }
+        return { x: layout.centerX + layout.trickRadiusX, y: layout.trickCenterY + Math.round(layout.trickBottomOffsetY * 0.16), rotation: 0.09 }
       default:
-        return { x: 600, y: 520, rotation: 0 }
+        return { x: layout.centerX, y: layout.trickCenterY + layout.trickBottomOffsetY, rotation: 0 }
     }
   }
 

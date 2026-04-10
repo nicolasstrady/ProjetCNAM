@@ -2,7 +2,7 @@
   <div class="lobby-page">
     <div class="lobby-shell">
       <header class="lobby-header">
-        <div>
+        <div class="header-copy">
           <p class="eyebrow">Lobby</p>
           <h1>Salons de tarot</h1>
           <p class="subtitle">
@@ -138,68 +138,70 @@
             </div>
           </div>
 
-          <div class="preset-grid">
-            <button
-              v-for="preset in roomPresets"
-              :key="preset.id"
-              class="preset-card"
-              :class="{ 'preset-card-active': createPreset === preset.id }"
-              @click="createPreset = preset.id"
-            >
-              <strong>{{ preset.label }}</strong>
-              <span>{{ preset.cardDescription }}</span>
-            </button>
-          </div>
-
-          <div class="preset-summary">
-            <p>{{ selectedPreset.description }}</p>
-          </div>
-
-          <button
-            class="btn btn-primary btn-full"
-            :disabled="Boolean(activeRoom) || loadingState === 'create'"
-            @click="handleCreateRoom"
-          >
-            {{ loadingState === 'create' ? 'Creation...' : `Creer un salon ${selectedPreset.shortLabel}` }}
-          </button>
-
-          <div class="create-tools">
-            <div class="quick-match compact-box">
-              <div>
-                <p class="section-kicker">Recherche rapide</p>
-                <h3>Table dispo</h3>
-                <p>Rejoint une table ouverte ou en cree une.</p>
-              </div>
-
+          <div class="create-body">
+            <div class="preset-grid">
               <button
-                class="btn btn-accent"
-                :disabled="Boolean(activeRoom) || loadingState === 'quick'"
-                @click="handleQuickMatch"
+                v-for="preset in roomPresets"
+                :key="preset.id"
+                class="preset-card"
+                :class="{ 'preset-card-active': createPreset === preset.id }"
+                @click="createPreset = preset.id"
               >
-                {{ loadingState === 'quick' ? 'Recherche...' : 'Recherche rapide' }}
+                <strong>{{ preset.label }}</strong>
+                <span>{{ preset.cardDescription }}</span>
               </button>
             </div>
 
-            <div class="join-by-code compact-box">
-              <div>
-                <p class="section-kicker">Code</p>
-                <h3>Rejoindre</h3>
-              </div>
-              <div class="join-form">
-                <input
-                  v-model="roomCode"
-                  type="text"
-                  maxlength="12"
-                  placeholder="Ex: AB12CD"
-                  class="game-input"
-                />
+            <div class="preset-summary">
+              <p>{{ selectedPreset.description }}</p>
+            </div>
+
+            <button
+              class="btn btn-primary btn-full"
+              :disabled="Boolean(activeRoom) || loadingState === 'create'"
+              @click="handleCreateRoom"
+            >
+              {{ loadingState === 'create' ? 'Creation...' : `Creer un salon ${selectedPreset.shortLabel}` }}
+            </button>
+
+            <div class="create-tools">
+              <div class="quick-match compact-box">
+                <div>
+                  <p class="section-kicker">Recherche rapide</p>
+                  <h3>Table dispo</h3>
+                  <p>Rejoint une table ouverte ou en cree une.</p>
+                </div>
+
                 <button
-                  class="btn btn-primary"
-                  :disabled="Boolean(activeRoom) || loadingState === 'join' || !roomCode.trim()"
-                  @click="handleJoinByCode"
+                  class="btn btn-accent"
+                  :disabled="Boolean(activeRoom) || loadingState === 'quick'"
+                  @click="handleQuickMatch"
                 >
-                  Rejoindre
+                  {{ loadingState === 'quick' ? 'Recherche...' : 'Recherche rapide' }}
                 </button>
+              </div>
+
+              <div class="join-by-code compact-box">
+                <div>
+                  <p class="section-kicker">Code</p>
+                  <h3>Rejoindre</h3>
+                </div>
+                <div class="join-form">
+                  <input
+                    v-model="roomCode"
+                    type="text"
+                    maxlength="12"
+                    placeholder="Ex: AB12CD"
+                    class="game-input"
+                  />
+                  <button
+                    class="btn btn-primary"
+                    :disabled="Boolean(activeRoom) || loadingState === 'join' || !roomCode.trim()"
+                    @click="handleJoinByCode"
+                  >
+                    Rejoindre
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -593,23 +595,33 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
 
 .lobby-shell {
   height: 100%;
-  max-width: 1440px;
+  max-width: 1680px;
   margin: 0 auto;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  gap: 16px;
+  gap: 12px;
+  position: relative;
 }
 
 .lobby-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 24px;
-  align-items: flex-start;
-  padding: 28px 32px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: center;
+  padding: 18px 22px;
   border-radius: 28px;
   background: rgba(255, 251, 240, 0.92);
   border: 1px solid rgba(98, 66, 27, 0.12);
   box-shadow: 0 20px 60px rgba(58, 40, 12, 0.12);
+}
+
+.header-copy {
+  min-width: 0;
+}
+
+.lobby-header h1 {
+  font-size: clamp(1.55rem, 2vw, 2.2rem);
+  line-height: 1.05;
 }
 
 .eyebrow,
@@ -633,16 +645,18 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
 }
 
 .subtitle {
-  max-width: 680px;
-  margin: 12px 0 0;
+  max-width: 760px;
+  margin: 8px 0 0;
   color: #5a5448;
+  font-size: 0.95rem;
+  line-height: 1.3;
 }
 
 .user-panel {
   display: flex;
   align-items: center;
-  gap: 18px;
-  padding: 14px 18px;
+  gap: 14px;
+  padding: 10px 14px;
   border-radius: 20px;
   background: rgba(32, 88, 52, 0.08);
 }
@@ -657,9 +671,12 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
 .lobby-grid {
   min-height: 0;
   display: grid;
+  grid-template-areas:
+    "active create"
+    "active public";
   grid-template-columns: minmax(0, 1.15fr) minmax(340px, 0.85fr);
   grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 16px;
+  gap: 12px;
 }
 
 .panel {
@@ -667,7 +684,7 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  padding: 26px;
+  padding: 20px;
   border-radius: 26px;
   background: rgba(255, 251, 240, 0.94);
   border: 1px solid rgba(98, 66, 27, 0.12);
@@ -675,28 +692,32 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
 }
 
 .panel-primary {
-  grid-row: 1 / span 2;
+  grid-area: active;
 }
 
 .panel-create {
-  padding: 20px 22px;
+  grid-area: create;
+  padding: 18px;
 }
 
 .panel-wide {
-  grid-column: 2;
-  grid-row: 2;
+  grid-area: public;
 }
 
 .panel-head {
   display: flex;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
   align-items: flex-start;
-  margin-bottom: 22px;
+  margin-bottom: 14px;
 }
 
 .panel-create .panel-head {
-  margin-bottom: 14px;
+  margin-bottom: 10px;
+}
+
+.panel-head h2 {
+  font-size: clamp(1.05rem, 1.2vw, 1.35rem);
 }
 
 .status-badge,
@@ -733,6 +754,7 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
 }
 
 .active-room {
+  flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
   padding-right: 4px;
@@ -762,7 +784,7 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
 .join-form {
   display: flex;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
   align-items: center;
 }
 
@@ -823,12 +845,14 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
 }
 
 .room-actions {
-  margin-top: 22px;
+  margin-top: 16px;
+  display: grid;
+  gap: 10px;
 }
 
 .room-fill-btn,
 .room-leave-btn {
-  margin-top: 10px;
+  margin-top: 0;
 }
 
 .empty-room,
@@ -851,6 +875,16 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
 
 .panel-create .preset-grid {
   gap: 10px;
+}
+
+.create-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 4px;
+  display: grid;
+  align-content: start;
+  gap: 12px;
 }
 
 .preset-card {
@@ -899,26 +933,20 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
 .preset-summary {
   display: grid;
   gap: 10px;
-  padding: 18px 0;
+  padding: 4px 0 2px;
 }
 
 .panel-create .preset-summary {
   gap: 0;
-  padding: 12px 0 14px;
-  font-size: 0.92rem;
-}
-
-.divider {
-  height: 1px;
-  margin: 22px 0;
-  background: linear-gradient(90deg, rgba(98, 66, 27, 0.04), rgba(98, 66, 27, 0.18), rgba(98, 66, 27, 0.04));
+  padding: 0;
+  font-size: 0.9rem;
 }
 
 .create-tools {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 14px;
+  gap: 10px;
+  margin-top: 2px;
 }
 
 .join-by-code,
@@ -980,18 +1008,19 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
 }
 
 .public-room-list {
+  flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
   padding-right: 4px;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 16px;
+  gap: 12px;
 }
 
 .public-room-card {
   display: grid;
-  gap: 14px;
-  padding: 18px;
+  gap: 12px;
+  padding: 16px;
   border-radius: 20px;
   background: #fffdf7;
   border: 1px solid rgba(98, 66, 27, 0.12);
@@ -1012,8 +1041,9 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
 .btn {
   border: 0;
   border-radius: 16px;
-  padding: 13px 18px;
+  padding: 11px 16px;
   font-weight: 700;
+  font-size: 0.95rem;
   cursor: pointer;
   transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
 }
@@ -1062,8 +1092,8 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
 }
 
 .error-banner {
-  margin-top: 18px;
-  padding: 14px 18px;
+  margin-top: 0;
+  padding: 12px 16px;
   border-radius: 18px;
   background: rgba(127, 29, 29, 0.08);
   border: 1px solid rgba(127, 29, 29, 0.14);
@@ -1072,24 +1102,44 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
 }
 
 @media (max-width: 1120px) {
-  .lobby-grid {
-    grid-template-columns: 1fr;
-    grid-template-rows: repeat(3, minmax(0, 1fr));
+  .lobby-header {
+    padding: 14px 16px;
+    border-radius: 22px;
   }
 
-  .panel-primary,
-  .panel-wide {
-    grid-column: auto;
-    grid-row: auto;
+  .subtitle {
+    max-width: 100%;
+    font-size: 0.88rem;
+  }
+
+  .lobby-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: minmax(0, 1.04fr) minmax(0, 0.96fr);
+    grid-template-areas:
+      "active active"
+      "create public";
+  }
+
+  .room-meta-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 820px) {
   .lobby-page {
-    padding: 10px;
+    padding: 8px;
   }
 
-  .lobby-header,
+  .lobby-shell {
+    gap: 8px;
+  }
+
+  .lobby-header {
+    padding: 10px 12px;
+    border-radius: 18px;
+    gap: 10px;
+  }
+
   .players-head,
   .public-room-top,
   .join-form {
@@ -1097,24 +1147,417 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
     display: grid;
   }
 
-  .user-panel,
-  .panel-head {
-    flex-direction: column;
-    align-items: flex-start;
+  .eyebrow,
+  .subtitle,
+  .user-label {
+    display: none;
   }
 
-  .preset-grid,
+  .lobby-header h1 {
+    font-size: 1.05rem;
+  }
+
+  .user-panel {
+    justify-self: end;
+    align-self: stretch;
+    gap: 8px;
+    padding: 0;
+    background: transparent;
+    border-radius: 0;
+  }
+
+  .user-name {
+    font-size: 0.84rem;
+    line-height: 1.1;
+    text-align: right;
+  }
+
+  .lobby-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: minmax(0, 0.92fr) minmax(0, 1.08fr);
+    gap: 8px;
+  }
+
+  .panel,
+  .panel-create {
+    padding: 12px;
+    border-radius: 18px;
+  }
+
+  .panel-head {
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .panel-head h2 {
+    font-size: 0.94rem;
+  }
+
+  .section-kicker {
+    margin-bottom: 3px;
+    font-size: 0.58rem;
+    letter-spacing: 0.12em;
+  }
+
+  .status-badge,
+  .tag,
+  .room-code {
+    padding: 5px 8px;
+    font-size: 0.66rem;
+  }
+
   .room-meta-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .meta-card {
+    padding: 10px;
+    border-radius: 14px;
+  }
+
+  .meta-card strong {
+    font-size: 0.82rem;
+  }
+
+  .meta-label {
+    margin-bottom: 4px;
+    font-size: 0.66rem;
+  }
+
+  .players-head h3,
+  .quick-match h3,
+  .join-by-code h3,
+  .public-room-card h3 {
+    font-size: 0.88rem;
+  }
+
+  .players-head p,
+  .quick-match p,
+  .join-by-code p,
+  .public-room-top p,
+  .preset-summary p,
+  .empty-room p,
+  .empty-public p,
+  .helper-text {
+    font-size: 0.72rem;
+    line-height: 1.25;
+  }
+
+  .players-block {
+    margin-top: 12px;
+  }
+
+  .player-list {
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .player-list.compact {
+    margin: 10px 0 12px;
+  }
+
+  .player-pill {
+    gap: 6px;
+    padding: 7px 9px;
+    border-radius: 12px;
+    font-size: 0.74rem;
+  }
+
+  .player-num {
+    font-size: 0.64rem;
+  }
+
+  .bot-chip {
+    padding: 2px 5px;
+    font-size: 0.58rem;
+  }
+
+  .room-actions {
+    margin-top: 12px;
+    gap: 8px;
+  }
+
+  .preset-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .panel-create .preset-grid {
+    gap: 8px;
+  }
+
+  .preset-card {
+    padding: 10px;
+    border-radius: 14px;
+  }
+
+  .panel-create .preset-card {
+    gap: 3px;
+    padding: 8px 9px;
+    border-radius: 12px;
+  }
+
+  .panel-create .preset-card strong {
+    font-size: 0.78rem;
+  }
+
+  .panel-create .preset-card span {
+    font-size: 0.62rem;
+    line-height: 1.15;
+  }
+
+  .panel-create .preset-summary {
+    font-size: 0.74rem;
+  }
+
+  .create-body {
+    gap: 10px;
+  }
+
+  .create-tools {
     grid-template-columns: 1fr;
+    gap: 8px;
+    margin-top: 0;
+  }
+
+  .compact-box {
+    padding: 10px;
+    border-radius: 14px;
+  }
+
+  .panel-create .quick-match,
+  .panel-create .join-by-code {
+    gap: 8px;
+  }
+
+  .panel-create .quick-match h3,
+  .panel-create .join-by-code h3 {
+    font-size: 0.84rem;
+  }
+
+  .panel-create .quick-match p,
+  .panel-create .join-by-code p {
+    font-size: 0.7rem;
+    line-height: 1.2;
+  }
+
+  .game-input,
+  .panel-create .game-input {
+    min-width: 0;
+    padding: 9px 10px;
+    border-radius: 10px;
+    font-size: 0.78rem;
+  }
+
+  .btn,
+  .panel-create .btn {
+    padding: 8px 10px;
+    border-radius: 11px;
+    font-size: 0.76rem;
+  }
+
+  .public-room-list {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .public-room-card {
+    gap: 8px;
+    padding: 10px;
+    border-radius: 16px;
+  }
+
+  .error-banner {
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    margin: 0;
+    padding: 10px 12px;
+    border-radius: 14px;
+    font-size: 0.72rem;
+    z-index: 5;
+  }
+}
+
+@media (max-width: 560px) {
+  .join-form {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: stretch;
+  }
+
+  .public-room-top {
+    gap: 6px;
+  }
+
+  .public-room-top h3 {
+    font-size: 0.82rem;
+  }
+
+  .public-room-top p {
+    font-size: 0.68rem;
+  }
+
+  .user-panel {
+    flex-direction: column;
+    align-items: flex-end;
+  }
+
+  .user-panel .btn {
+    align-self: flex-end;
+  }
+}
+
+@media (max-height: 540px) and (orientation: landscape) {
+  .lobby-page {
+    padding: 8px;
+  }
+
+  .lobby-shell {
+    gap: 8px;
+  }
+
+  .lobby-header {
+    padding: 8px 12px;
+    border-radius: 18px;
+    gap: 10px;
+  }
+
+  .eyebrow,
+  .subtitle,
+  .user-label {
+    display: none;
+  }
+
+  .lobby-header h1 {
+    font-size: 1rem;
+  }
+
+  .user-panel {
+    gap: 8px;
+    padding: 0;
+    background: transparent;
+    border-radius: 0;
+  }
+
+  .user-name {
+    font-size: 0.8rem;
+  }
+
+  .lobby-grid {
+    grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.94fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    grid-template-areas: "active create public";
+    gap: 8px;
+  }
+
+  .panel,
+  .panel-create {
+    padding: 12px;
+    border-radius: 18px;
+  }
+
+  .panel-head {
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .panel-head h2 {
+    font-size: 0.92rem;
+  }
+
+  .status-badge,
+  .tag,
+  .room-code {
+    padding: 5px 8px;
+    font-size: 0.66rem;
+  }
+
+  .room-meta-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .meta-card {
+    padding: 9px 10px;
+    border-radius: 12px;
+  }
+
+  .meta-card strong {
+    font-size: 0.8rem;
+  }
+
+  .meta-label,
+  .players-head p,
+  .quick-match p,
+  .join-by-code p,
+  .public-room-top p,
+  .preset-summary p,
+  .empty-room p,
+  .empty-public p,
+  .helper-text {
+    font-size: 0.68rem;
+    line-height: 1.2;
+  }
+
+  .player-list {
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .player-pill {
+    gap: 6px;
+    padding: 6px 8px;
+    border-radius: 10px;
+    font-size: 0.72rem;
+  }
+
+  .preset-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .panel-create .preset-card {
+    padding: 8px 9px;
+    border-radius: 12px;
+  }
+
+  .panel-create .preset-card strong {
+    font-size: 0.76rem;
+  }
+
+  .panel-create .preset-card span {
+    font-size: 0.6rem;
+  }
+
+  .create-body,
+  .create-tools {
+    gap: 8px;
   }
 
   .create-tools {
     grid-template-columns: 1fr;
   }
 
-  .panel {
-    padding: 18px;
-    border-radius: 20px;
+  .compact-box,
+  .public-room-card {
+    padding: 10px;
+    border-radius: 14px;
+  }
+
+  .btn,
+  .panel-create .btn {
+    padding: 8px 9px;
+    border-radius: 10px;
+    font-size: 0.74rem;
+  }
+
+  .game-input,
+  .panel-create .game-input {
+    padding: 8px 9px;
+    border-radius: 10px;
+    font-size: 0.76rem;
   }
 }
 </style>

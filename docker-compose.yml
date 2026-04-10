@@ -3,16 +3,16 @@ services:
     image: mysql:8.0
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: tarot_project
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${DB_NAME:-tarot_project}
     ports:
       - "${MYSQL_PORT:-3307}:3306"
     volumes:
       - db_data:/var/lib/mysql
-      - ./db/init.sql:/docker-entrypoint-initdb.d/01-init.sql
-      - ./db/init-user.sql:/docker-entrypoint-initdb.d/02-init-user.sql
+      - ./db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./db/init-user.sql:/docker-entrypoint-initdb.d/02-init-user.sql:ro
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-root}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -22,24 +22,27 @@ services:
       context: .
       dockerfile: Dockerfile.dev
     ports:
-      - "3000:3000"
+      - "${APP_PORT:-3000}:${NUXT_PORT:-3000}"
+    command: npm run dev -- --host 0.0.0.0 --port ${NUXT_PORT:-3000}
+    init: true
     volumes:
       - .:/app
       - app_node_modules:/app/node_modules
       - app_nuxt:/app/.nuxt
     environment:
-      DB_HOST: db
-      DB_PORT: 3306
-      DB_USER: root
-      DB_PASSWORD: root
-      DB_NAME: tarot_project
-      WS_URL: ws://localhost:3000
+      DB_HOST: ${COMPOSE_DB_HOST:-db}
+      DB_PORT: ${COMPOSE_DB_PORT:-3306}
+      DB_USER: ${DB_USER:-root}
+      DB_PASSWORD: ${DB_PASSWORD:-root}
+      DB_NAME: ${DB_NAME:-tarot_project}
+      WS_URL: ${WS_URL:-ws://localhost:3000}
       NUXT_HOST: 0.0.0.0
-      NUXT_PORT: 3000
-      NUXT_HMR_HOST: localhost
-      NUXT_HMR_PORT: 3000
+      NUXT_PORT: ${NUXT_PORT:-3000}
+      NUXT_HMR_HOST: ${NUXT_HMR_HOST:-localhost}
+      NUXT_HMR_PORT: ${NUXT_HMR_PORT:-3000}
+      NUXT_PUBLIC_API_BASE_URL: ${NUXT_PUBLIC_API_BASE_URL:-}
       CHOKIDAR_USEPOLLING: "true"
-      CHOKIDAR_INTERVAL: 250
+      CHOKIDAR_INTERVAL: ${CHOKIDAR_INTERVAL:-250}
       WATCHPACK_POLLING: "true"
     depends_on:
       db:

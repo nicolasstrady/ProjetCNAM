@@ -1,5 +1,8 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+const isMobileBuild = process.env.NUXT_MOBILE_BUILD === 'true'
+
 export default defineNuxtConfig({
+  ssr: !isMobileBuild,
   compatibilityDate: '2024-04-03',
   devtools: { enabled: true },
 
@@ -22,7 +25,18 @@ export default defineNuxtConfig({
     
     // Public (exposed to client)
     public: {
-      wsUrl: process.env.WS_URL || 'ws://localhost:3000'
+      wsUrl: process.env.WS_URL || 'ws://localhost:3000',
+      apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || process.env.API_BASE_URL || ''
+    }
+  },
+
+  hooks: {
+    'prerender:routes'({ routes }) {
+      if (!isMobileBuild) {
+        return
+      }
+
+      routes.clear()
     }
   },
   

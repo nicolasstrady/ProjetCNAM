@@ -44,6 +44,7 @@ function clearLegacyAuthCookie() {
 }
 
 export const useAuth = () => {
+  const apiUrl = useApiUrl()
   const user = useState<User | null>('user', () => null)
   const authSyncInitialized = useState<boolean>('auth-sync-initialized', () => false)
   const isAuthenticated = computed(() => !!user.value)
@@ -73,7 +74,7 @@ export const useAuth = () => {
 
   const login = async (credentials: LoginCredentials) => {
     try {
-      const response = await $fetch<{ success: boolean; user?: User }>('/api/auth/login', {
+      const response = await $fetch<{ success: boolean; user?: User }>(apiUrl('/api/auth/login'), {
         method: 'POST',
         body: credentials
       })
@@ -91,7 +92,7 @@ export const useAuth = () => {
 
   const register = async (data: RegisterData) => {
     try {
-      const response = await $fetch<{ success: boolean; user?: User }>('/api/auth/register', {
+      const response = await $fetch<{ success: boolean; user?: User }>(apiUrl('/api/auth/register'), {
         method: 'POST',
         body: data
       })

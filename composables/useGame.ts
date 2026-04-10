@@ -9,6 +9,7 @@ import type {
 } from '~/types'
 
 export const useGame = () => {
+  const apiUrl = useApiUrl()
   const gameState = useState<GameState>('gameState', () => ({
     currentPartie: 1,
     currentJoueurTour: -1,
@@ -29,7 +30,7 @@ export const useGame = () => {
 
   const createGame = async (userId: number, options: Partial<CreateRoomOptions>) => {
     try {
-      const response = await $fetch<RoomActionResult>('/api/game/create', {
+      const response = await $fetch<RoomActionResult>(apiUrl('/api/game/create'), {
         method: 'POST',
         body: {
           userId,
@@ -62,7 +63,7 @@ export const useGame = () => {
 
   const joinGame = async (userId: number, roomRef: { partieId?: number; code?: string }) => {
     try {
-      const response = await $fetch<RoomActionResult>('/api/game/join', {
+      const response = await $fetch<RoomActionResult>(apiUrl('/api/game/join'), {
         method: 'POST',
         body: { userId, ...roomRef }
       })
@@ -92,7 +93,7 @@ export const useGame = () => {
 
   const quickMatch = async (userId: number) => {
     try {
-      const response = await $fetch<RoomActionResult>('/api/game/quick-match', {
+      const response = await $fetch<RoomActionResult>(apiUrl('/api/game/quick-match'), {
         method: 'POST',
         body: { userId }
       })
@@ -128,7 +129,8 @@ export const useGame = () => {
       }
 
       const queryString = searchParams.toString()
-      const url = queryString ? `/api/game/rooms?${queryString}` : '/api/game/rooms'
+      const path = queryString ? `/api/game/rooms?${queryString}` : '/api/game/rooms'
+      const url = apiUrl(path)
       const response = await $fetch<LobbyRoomsApiState>(url)
 
       if (response.success) {
@@ -147,7 +149,7 @@ export const useGame = () => {
 
   const dealCards = async (partieId: number) => {
     try {
-      const response = await $fetch('/api/game/deal', {
+      const response = await $fetch<{ success: boolean }>(apiUrl('/api/game/deal'), {
         method: 'POST',
         body: { partieId }
       })
@@ -163,7 +165,7 @@ export const useGame = () => {
       const response = await $fetch<{
         success: boolean
         addedCount?: number
-      }>('/api/game/fill-bots', {
+      }>(apiUrl('/api/game/fill-bots'), {
         method: 'POST',
         body: { userId, partieId }
       })
@@ -179,7 +181,7 @@ export const useGame = () => {
 
   const leaveGame = async (userId: number, partieId: number) => {
     try {
-      const response = await $fetch<{ success: boolean; closedRoom?: boolean }>('/api/game/leave', {
+      const response = await $fetch<{ success: boolean; closedRoom?: boolean }>(apiUrl('/api/game/leave'), {
         method: 'POST',
         body: { userId, partieId }
       })
@@ -195,7 +197,7 @@ export const useGame = () => {
 
   const getPlayerHand = async (userId: number, partieId: number) => {
     try {
-      const url = `/api/game/player-hand?userId=${userId}&partieId=${partieId}` as string
+      const url = apiUrl(`/api/game/player-hand?userId=${userId}&partieId=${partieId}`) as string
       const response = await $fetch<{ success: boolean; playerNum: number; cards: Card[] }>(url)
 
       if (response.success) {
@@ -212,7 +214,7 @@ export const useGame = () => {
 
   const setContract = async (userId: number, partieId: number, contract: ContractType) => {
     try {
-      const response = await $fetch('/api/game/contract', {
+      const response = await $fetch<{ success: boolean }>(apiUrl('/api/game/contract'), {
         method: 'POST',
         body: { userId, partieId, contract }
       })
@@ -225,7 +227,12 @@ export const useGame = () => {
 
   const callKing = async (partieId: number, cardId: number) => {
     try {
-      const response = await $fetch('/api/game/call-king', {
+      const response = await $fetch<{
+        success: boolean
+        partnerNum?: number | null
+        couleur?: string | null
+        dogCards?: Card[]
+      }>(apiUrl('/api/game/call-king'), {
         method: 'POST',
         body: { partieId, cardId }
       })
@@ -250,7 +257,7 @@ export const useGame = () => {
 
   const retrieveDog = async (userId: number, partieId: number) => {
     try {
-      const response = await $fetch('/api/game/retrieve-dog', {
+      const response = await $fetch<{ success: boolean }>(apiUrl('/api/game/retrieve-dog'), {
         method: 'POST',
         body: { userId, partieId }
       })
@@ -263,7 +270,11 @@ export const useGame = () => {
 
   const discardDog = async (userId: number, partieId: number, cardId: number) => {
     try {
-      const response = await $fetch('/api/game/discard-dog', {
+      const response = await $fetch<{
+        success: boolean
+        dogDone?: boolean
+        dogDiscardCount?: number
+      }>(apiUrl('/api/game/discard-dog'), {
         method: 'POST',
         body: { userId, partieId, cardId }
       })
@@ -280,7 +291,7 @@ export const useGame = () => {
 
   const playCard = async (userId: number, partieId: number, cardId: number) => {
     try {
-      const response = await $fetch<{ success: boolean; message?: string; finTour?: boolean; finPartie?: boolean }>('/api/game/play-card', {
+      const response = await $fetch<{ success: boolean; message?: string; finTour?: boolean; finPartie?: boolean }>(apiUrl('/api/game/play-card'), {
         method: 'POST',
         body: { userId, partieId, cardId }
       })
@@ -303,7 +314,7 @@ export const useGame = () => {
         searchParams.set('userId', String(userId))
       }
 
-      const url = `/api/game/state?${searchParams.toString()}` as string
+      const url = apiUrl(`/api/game/state?${searchParams.toString()}`) as string
       const response = await $fetch<GameApiState>(url)
 
       if (response.success) {

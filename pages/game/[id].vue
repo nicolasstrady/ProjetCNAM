@@ -345,6 +345,7 @@ import { getPlayableCardIds, isDogDiscardForbidden, isKing, normalizeCardColor }
 
 const route = useRoute()
 const router = useRouter()
+const apiUrl = useApiUrl()
 const { user } = useAuth()
 const {
   playerHand,
@@ -539,7 +540,7 @@ const initPhaser = async () => {
 }
 
 const loadCardsCatalog = async () => {
-  const response = await $fetch<{ success: boolean; cards: Card[] }>('/api/game/cards' as string)
+  const response = await $fetch<{ success: boolean; cards: Card[] }>(apiUrl('/api/game/cards') as string)
 
   if (response.success) {
     allCards.value = response.cards

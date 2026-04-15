@@ -8,6 +8,32 @@
           <button @click="handleLeaveGame" class="btn btn-secondary btn-compact">Quitter</button>
         </div>
 
+        <aside v-if="showActionPanel" class="action-hud">
+          <section class="action-panel">
+            <p v-if="actionHint" class="action-hint">{{ actionHint }}</p>
+
+            <div v-if="gamePhase === 'BIDDING'" class="actions-list">
+              <button @click="handleContract('PETITE')" class="btn btn-primary" :disabled="!isMyTurn">Petite</button>
+              <button @click="handleContract('GARDE')" class="btn btn-primary" :disabled="!isMyTurn">Garde</button>
+              <button @click="handleContract('GARDE_SANS')" class="btn btn-primary" :disabled="!isMyTurn">Garde sans</button>
+              <button @click="handleContract('GARDE_CONTRE')" class="btn btn-primary" :disabled="!isMyTurn">Garde contre</button>
+              <button @click="handleContract('REFUSE')" class="btn btn-danger" :disabled="!isMyTurn">Passer</button>
+            </div>
+
+            <div
+              v-else-if="gamePhase === 'DOG_EXCHANGE' && isTaker && !gameData?.dogRetrieved"
+              class="actions-stack"
+            >
+              <button
+                @click="handleRetrieveDog"
+                class="btn btn-primary"
+              >
+                Recuperer le chien
+              </button>
+            </div>
+          </section>
+        </aside>
+
         <section v-if="showRotateOverlay" class="rotate-overlay">
           <div class="rotate-card">
             <h2>Tournez votre telephone</h2>
@@ -177,31 +203,6 @@
           </div>
         </section>
       </div>
-      <aside v-if="showActionPanel" class="action-hud">
-        <section class="action-panel">
-          <p v-if="actionHint" class="action-hint">{{ actionHint }}</p>
-
-          <div v-if="gamePhase === 'BIDDING'" class="actions-list">
-            <button @click="handleContract('PETITE')" class="btn btn-primary" :disabled="!isMyTurn">Petite</button>
-            <button @click="handleContract('GARDE')" class="btn btn-primary" :disabled="!isMyTurn">Garde</button>
-            <button @click="handleContract('GARDE_SANS')" class="btn btn-primary" :disabled="!isMyTurn">Garde sans</button>
-            <button @click="handleContract('GARDE_CONTRE')" class="btn btn-primary" :disabled="!isMyTurn">Garde contre</button>
-            <button @click="handleContract('REFUSE')" class="btn btn-danger" :disabled="!isMyTurn">Passer</button>
-          </div>
-
-          <div
-            v-else-if="gamePhase === 'DOG_EXCHANGE' && isTaker && !gameData?.dogRetrieved"
-            class="actions-stack"
-          >
-            <button
-              @click="handleRetrieveDog"
-              class="btn btn-primary"
-            >
-              Recuperer le chien
-            </button>
-          </div>
-        </section>
-      </aside>
     </div>
 
     <section v-if="finalResult" class="final-summary" :class="finalOutcomeClass" style="display: none;" aria-hidden="true">
@@ -439,6 +440,7 @@ const sceneTableState = computed<SceneTableState | null>(() => {
     takerNum: gameData.value.taker?.num ?? null,
     partnerNum: gameData.value.partnerNum ?? null,
     teamsRevealed: gameData.value.teamsRevealed,
+    calledKingColor: gameData.value.calledKingColor,
     dogCards: gameData.value.dogCards,
     discardedDogCards: gameData.value.discardedDogCards,
     dogRetrieved: gameData.value.dogRetrieved,
@@ -578,19 +580,37 @@ const loadGameState = async () => {
   updateStatusText(result.data)
 }
 
+const formatCalledKingLabel = (color: string | null) => {
+  switch (normalizeCardColor(color)) {
+    case 'COEUR':
+      return 'roi de coeur'
+    case 'CARREAU':
+      return 'roi de carreau'
+    case 'TREFLE':
+      return 'roi de trefle'
+    case 'PIQUE':
+      return 'roi de pique'
+    default:
+      return 'roi appele'
+  }
+}
+
 const updateStatusText = (state: GameApiState) => {
   const currentPlayer = state.players.find((player) => player.num === state.currentTurn)
+  const calledKingLabel = formatCalledKingLabel(state.calledKingColor)
 
   switch (state.phase) {
     case 'BIDDING':
       statusText.value = isMyTurn.value ? 'A vous de declarer' : 'Phase dencheres'
       break
     case 'CALLING':
-      statusText.value = isTaker.value ? 'Choisissez un roi sur le tapis' : 'Le preneur appelle un roi'
+      statusText.value = isTaker.value ? 'Choisissez un roi sur le tapis' : 'Le preneur choisit un roi'
       break
     case 'DOG_EXCHANGE':
       if (!isTaker.value) {
-        statusText.value = state.dogDiscardCount >= 3 ? 'Le chien est valide' : 'Le preneur fait son chien'
+        statusText.value = state.dogDiscardCount >= 3
+          ? `Chien valide - ${calledKingLabel}`
+          : `${calledKingLabel} - le preneur fait son chien`
       } else if (!state.dogRetrieved) {
         statusText.value = 'Recuperez le chien'
       } else if (state.dogDiscardCount >= 3) {
@@ -798,13 +818,13 @@ const handleLeaveGame = async () => {
   position: absolute;
   inset: 18px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  padding: 18px;
-  border-radius: 22px;
-  background: rgba(2, 9, 7, 0.52);
-  backdrop-filter: blur(6px);
-  z-index: 22;
+  padding: 56px 18px 18px;
+  background: transparent;
+  backdrop-filter: none;
+  pointer-events: none;
+  z-index: 20;
 }
 
 .final-summary {
@@ -817,6 +837,7 @@ const handleLeaveGame = async () => {
   background: rgba(7, 19, 14, 0.94);
   color: #efe5ce;
   box-shadow: 0 22px 60px rgba(0, 0, 0, 0.34);
+  pointer-events: auto;
 }
 
 .final-summary.outcome-victory {
@@ -931,9 +952,16 @@ const handleLeaveGame = async () => {
   min-height: 0;
 }
 
+.phaser-container :deep(canvas) {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  image-rendering: auto;
+}
+
 .game-top-actions {
   position: absolute;
-  z-index: 14;
+  z-index: 28;
   top: max(12px, calc(env(safe-area-inset-top, 0px) + 8px));
   right: max(12px, calc(env(safe-area-inset-right, 0px) + 8px));
   display: flex;
@@ -944,18 +972,17 @@ const handleLeaveGame = async () => {
 .action-hud {
   position: absolute;
   z-index: 14;
-  left: 50%;
-  bottom: max(14px, calc(env(safe-area-inset-bottom, 0px) + 10px));
-  transform: translateX(-50%);
-  width: min(760px, calc(100% - 120px));
+  top: max(64px, calc(env(safe-area-inset-top, 0px) + 54px));
+  left: max(12px, calc(env(safe-area-inset-left, 0px) + 10px));
+  width: min(340px, calc(100% - 120px));
   pointer-events: none;
 }
 
 .action-panel {
-  padding: 10px 12px;
-  border-radius: 999px;
+  padding: 10px;
+  border-radius: 18px;
   border: 1px solid rgba(231, 210, 155, 0.14);
-  background: rgba(7, 19, 14, 0.54);
+  background: rgba(7, 19, 14, 0.72);
   color: #eee5ce;
   backdrop-filter: blur(8px);
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
@@ -967,13 +994,17 @@ const handleLeaveGame = async () => {
   color: #ddd0b0;
   font-size: 0.8rem;
   line-height: 1.25;
-  text-align: center;
+  text-align: left;
 }
 
 .actions-list {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.actions-list .btn:last-child {
+  grid-column: 1 / -1;
 }
 
 .actions-stack {
@@ -1067,10 +1098,12 @@ const handleLeaveGame = async () => {
 
   .final-summary-overlay {
     inset: 10px;
-    padding: 10px;
+    padding: 48px 0 0;
   }
 
   .final-summary {
+    width: min(100%, calc(100% - 12px));
+    max-height: calc(100% - 6px);
     padding: 18px;
   }
 
@@ -1090,11 +1123,9 @@ const handleLeaveGame = async () => {
   }
 
   .action-hud {
+    top: calc(env(safe-area-inset-top, 0px) + 44px);
     left: 10px;
-    right: 10px;
-    bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
-    width: auto;
-    transform: none;
+    width: min(280px, calc(100% - 84px));
   }
 
   .action-panel {
@@ -1104,28 +1135,32 @@ const handleLeaveGame = async () => {
 
   .action-hint {
     margin-bottom: 6px;
-    font-size: 0.74rem;
+    font-size: 0.7rem;
   }
 
   .actions-list {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 6px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px;
   }
 }
 
 @media (max-width: 980px) and (orientation: portrait) {
-  .game-top-actions,
   .action-hud {
     opacity: 0;
+    pointer-events: none;
+  }
+
+  .game-top-actions {
+    opacity: 1;
     pointer-events: none;
   }
 }
 
 @media (max-width: 720px) and (orientation: landscape) {
   .action-hud {
+    top: calc(env(safe-area-inset-top, 0px) + 40px);
     left: 8px;
-    right: 8px;
-    width: auto;
+    width: min(250px, calc(100% - 72px));
   }
 
   .action-panel {

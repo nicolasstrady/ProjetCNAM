@@ -62,6 +62,8 @@ interface SceneLayout {
 type SeatKey = 'self' | 'left' | 'topLeft' | 'topRight' | 'right'
 
 export class GameScene extends Phaser.Scene {
+  // Real scans are close to 1440x2640, so keep the whole table on that physical ratio.
+  private static readonly CARD_ASPECT_RATIO = 0.545
   private static readonly TRICK_COLLECTION_DELAY_MS = 1500
   private static readonly TRICK_COLLECTION_ANIMATION_DURATION_MS = 760
   private static readonly DOG_RETRIEVE_DURATION_MS = 420
@@ -293,6 +295,7 @@ export class GameScene extends Phaser.Scene {
       takerNum: state.takerNum,
       partnerNum: state.partnerNum,
       teamsRevealed: state.teamsRevealed,
+      calledKingColor: state.calledKingColor,
       dogRetrieved: state.dogRetrieved,
       dogDiscardCount: state.dogDiscardCount,
       statusText: state.statusText,
@@ -309,91 +312,113 @@ export class GameScene extends Phaser.Scene {
   private getLayout(): SceneLayout {
     const width = this.scale.width
     const height = this.scale.height
+    const canvasRect = this.game.canvas.getBoundingClientRect()
+    const displayWidth = Math.max(canvasRect.width || width, 1)
+    const displayHeight = Math.max(canvasRect.height || height, 1)
+    const scaleX = width / displayWidth
+    const scaleY = height / displayHeight
+    const scale = Math.min(scaleX, scaleY)
+    const sx = (value: number) => value * scaleX
+    const sy = (value: number) => value * scaleY
+    const ss = (value: number) => value * scale
+
     const centerX = width / 2
     const centerY = height / 2
-    const padding = Phaser.Math.Clamp(Math.min(width, height) * 0.028, 8, 24)
+    const paddingDisplay = Phaser.Math.Clamp(Math.min(displayWidth, displayHeight) * 0.028, 8, 24)
 
-    const statusHeight = Phaser.Math.Clamp(height * 0.065, 38, 52)
-    const statusWidthMax = Math.max(width - (padding * 2) - 150, 220)
-    const statusWidth = Math.min(Math.max(width * 0.38, 240), statusWidthMax)
-    const statusY = padding + statusHeight / 2 + Phaser.Math.Clamp(height * 0.02, 8, 16)
+    const statusHeightDisplay = Phaser.Math.Clamp(displayHeight * 0.068, 40, 56)
+    const statusWidthMaxDisplay = Math.max(displayWidth - (paddingDisplay * 2) - 150, 220)
+    const statusWidthDisplay = Math.min(Math.max(displayWidth * 0.4, 260), statusWidthMaxDisplay)
+    const statusYDisplay = paddingDisplay + statusHeightDisplay / 2 + Phaser.Math.Clamp(displayHeight * 0.022, 8, 18)
 
-    const handCardHeight = Phaser.Math.Clamp(height * 0.22, 88, 168)
-    const handCardWidth = Math.round(handCardHeight * 0.667)
-    const handY = height - padding - (handCardHeight / 2) - Phaser.Math.Clamp(height * 0.03, 10, 20)
-    const selfLabelY = handY - (handCardHeight / 2) - Phaser.Math.Clamp(height * 0.06, 22, 40)
+    const tableCardBaseHeightDisplay = Phaser.Math.Clamp(displayHeight * 0.238, 98, 182)
+    const handCardHeightDisplay = Phaser.Math.Clamp(displayHeight * 0.4, 168, 320)
+    const handCardWidthDisplay = handCardHeightDisplay * GameScene.CARD_ASPECT_RATIO
+    const handYDisplay = displayHeight + (handCardHeightDisplay * 0.05)
+    const selfLabelYDisplay = handYDisplay - (handCardHeightDisplay / 2) - Phaser.Math.Clamp(displayHeight * 0.055, 22, 38)
 
-    const opponentCardHeight = Phaser.Math.Clamp(handCardHeight * 0.68, 60, 108)
-    const opponentCardWidth = Math.round(opponentCardHeight * 0.648)
-    const topSeatY = statusY + (statusHeight / 2) + (opponentCardHeight / 2) + Phaser.Math.Clamp(height * 0.08, 26, 44)
-    const topSeatOffsetX = Math.min(
-      Phaser.Math.Clamp(width * 0.28, 140, 320),
-      Math.max((width / 2) - padding - (opponentCardWidth * 1.1), 120)
+    const opponentCardHeightDisplay = Phaser.Math.Clamp(tableCardBaseHeightDisplay * 0.72, 68, 118)
+    const opponentCardWidthDisplay = opponentCardHeightDisplay * GameScene.CARD_ASPECT_RATIO
+    const topSeatYDisplay = statusYDisplay + (statusHeightDisplay / 2) + (opponentCardHeightDisplay / 2) + Phaser.Math.Clamp(displayHeight * 0.075, 24, 42)
+    const topSeatOffsetXDisplay = Math.min(
+      Phaser.Math.Clamp(displayWidth * 0.29, 150, 340),
+      Math.max((displayWidth / 2) - paddingDisplay - (opponentCardWidthDisplay * 1.08), 126)
     )
-    const sideSeatX = padding + (opponentCardHeight / 2) + 16
-    const sideSeatY = centerY + Phaser.Math.Clamp(height * 0.015, 0, 16)
+    const sideSeatXDisplay = paddingDisplay + (opponentCardHeightDisplay / 2) + 18
+    const sideSeatYDisplay = (displayHeight / 2) + Phaser.Math.Clamp(displayHeight * 0.01, 0, 14)
 
-    const trickCardHeight = Phaser.Math.Clamp(handCardHeight * 0.82, 76, 138)
-    const trickCardWidth = Math.round(trickCardHeight * 0.667)
-    const trickCenterY = centerY - Phaser.Math.Clamp(height * 0.01, 0, 10)
-    const trickRadiusX = Phaser.Math.Clamp(width * 0.17, 90, 210)
-    const trickTopOffsetY = Phaser.Math.Clamp(height * 0.16, 62, 130)
-    const trickBottomOffsetY = Phaser.Math.Clamp(height * 0.15, 56, 120)
+    const trickCardHeightDisplay = Phaser.Math.Clamp(tableCardBaseHeightDisplay * 0.86, 84, 150)
+    const trickCardWidthDisplay = trickCardHeightDisplay * GameScene.CARD_ASPECT_RATIO
+    const trickCenterYDisplay = (displayHeight / 2) - Phaser.Math.Clamp(displayHeight * 0.008, 0, 8)
+    const trickRadiusXDisplay = Phaser.Math.Clamp(displayWidth * 0.18, 102, 228)
+    const trickTopOffsetYDisplay = Phaser.Math.Clamp(displayHeight * 0.158, 64, 132)
+    const trickBottomOffsetYDisplay = Phaser.Math.Clamp(displayHeight * 0.152, 58, 124)
 
-    const dogCardHeight = Phaser.Math.Clamp(handCardHeight * 0.7, 70, 118)
-    const dogCardWidth = Math.round(dogCardHeight * 0.661)
-    const dogLabelY = centerY - Phaser.Math.Clamp(height * 0.18, 60, 92)
-    const dogCardsY = dogLabelY + Phaser.Math.Clamp(height * 0.13, 48, 74)
-    const dogInfoY = selfLabelY - Phaser.Math.Clamp(height * 0.08, 20, 34)
+    const dogCardHeightDisplay = Phaser.Math.Clamp(tableCardBaseHeightDisplay * 0.74, 76, 126)
+    const dogCardWidthDisplay = dogCardHeightDisplay * GameScene.CARD_ASPECT_RATIO
+    const dogLabelYDisplay = (displayHeight / 2) - Phaser.Math.Clamp(displayHeight * 0.19, 64, 96)
+    const dogCardsYDisplay = dogLabelYDisplay + Phaser.Math.Clamp(displayHeight * 0.135, 50, 78)
+    const dogInfoYDisplay = selfLabelYDisplay - Phaser.Math.Clamp(displayHeight * 0.08, 20, 34)
 
-    const kingCardHeight = Phaser.Math.Clamp(handCardHeight * 0.82, 80, 138)
-    const kingCardWidth = Math.round(kingCardHeight * 0.667)
-    const kingLabelY = centerY - Phaser.Math.Clamp(height * 0.21, 72, 110)
-    const kingCardsY = kingLabelY + Phaser.Math.Clamp(height * 0.14, 54, 100)
+    const kingCardHeightDisplay = Phaser.Math.Clamp(tableCardBaseHeightDisplay * 0.86, 88, 148)
+    const kingCardWidthDisplay = kingCardHeightDisplay * GameScene.CARD_ASPECT_RATIO
+    const kingLabelYDisplay = (displayHeight / 2) - Phaser.Math.Clamp(displayHeight * 0.215, 76, 114)
+    const kingCardsYDisplay = kingLabelYDisplay + Phaser.Math.Clamp(displayHeight * 0.145, 56, 104)
+
+    const handCardHeight = sy(handCardHeightDisplay)
+    const handCardWidth = Math.round(sx(handCardWidthDisplay))
+    const opponentCardHeight = sy(opponentCardHeightDisplay)
+    const opponentCardWidth = Math.round(sx(opponentCardWidthDisplay))
+    const trickCardHeight = sy(trickCardHeightDisplay)
+    const trickCardWidth = Math.round(sx(trickCardWidthDisplay))
+    const dogCardHeight = sy(dogCardHeightDisplay)
+    const dogCardWidth = Math.round(sx(dogCardWidthDisplay))
+    const kingCardHeight = sy(kingCardHeightDisplay)
+    const kingCardWidth = Math.round(sx(kingCardWidthDisplay))
 
     return {
       width,
       height,
       centerX,
       centerY,
-      padding,
-      statusY,
-      statusWidth,
-      statusHeight,
-      statusFontSize: Phaser.Math.Clamp(height * 0.03, 15, 24),
+      padding: ss(paddingDisplay),
+      statusY: sy(statusYDisplay),
+      statusWidth: sx(statusWidthDisplay),
+      statusHeight: sy(statusHeightDisplay),
+      statusFontSize: ss(Phaser.Math.Clamp(displayHeight * 0.032, 16, 25)),
       handCardWidth,
       handCardHeight,
-      handY,
-      selfLabelY,
-      selfFontSize: Phaser.Math.Clamp(height * 0.028, 16, 22),
-      handSpacingMin: 18,
-      handSpacingMax: 62,
+      handY: sy(handYDisplay),
+      selfLabelY: sy(selfLabelYDisplay),
+      selfFontSize: ss(Phaser.Math.Clamp(displayHeight * 0.029, 17, 23)),
+      handSpacingMin: Math.round(handCardWidth * 0.34),
+      handSpacingMax: Math.round(handCardWidth * 0.42),
       opponentCardWidth,
       opponentCardHeight,
-      opponentLabelFontSize: Phaser.Math.Clamp(height * 0.027, 15, 22),
-      opponentScoreFontSize: Phaser.Math.Clamp(height * 0.022, 12, 18),
-      topSeatY,
-      topSeatOffsetX,
-      sideSeatX,
-      sideSeatY,
+      opponentLabelFontSize: ss(Phaser.Math.Clamp(displayHeight * 0.028, 15, 22)),
+      opponentScoreFontSize: ss(Phaser.Math.Clamp(displayHeight * 0.023, 12, 18)),
+      topSeatY: sy(topSeatYDisplay),
+      topSeatOffsetX: sx(topSeatOffsetXDisplay),
+      sideSeatX: sx(sideSeatXDisplay),
+      sideSeatY: sy(sideSeatYDisplay),
       trickCardWidth,
       trickCardHeight,
-      trickCenterY,
-      trickRadiusX,
-      trickTopOffsetY,
-      trickBottomOffsetY,
-      dogLabelY,
-      dogCardsY,
+      trickCenterY: sy(trickCenterYDisplay),
+      trickRadiusX: sx(trickRadiusXDisplay),
+      trickTopOffsetY: sy(trickTopOffsetYDisplay),
+      trickBottomOffsetY: sy(trickBottomOffsetYDisplay),
+      dogLabelY: sy(dogLabelYDisplay),
+      dogCardsY: sy(dogCardsYDisplay),
       dogCardWidth,
       dogCardHeight,
-      dogInfoY,
-      kingLabelY,
-      kingCardsY,
+      dogInfoY: sy(dogInfoYDisplay),
+      kingLabelY: sy(kingLabelYDisplay),
+      kingCardsY: sy(kingCardsYDisplay),
       kingCardWidth,
       kingCardHeight,
-      retrieveButtonY: dogInfoY,
-      retrieveButtonWidth: Phaser.Math.Clamp(width * 0.22, 190, 250),
-      retrieveButtonHeight: Phaser.Math.Clamp(height * 0.06, 40, 52)
+      retrieveButtonY: sy(dogInfoYDisplay),
+      retrieveButtonWidth: sx(Phaser.Math.Clamp(displayWidth * 0.22, 190, 250)),
+      retrieveButtonHeight: sy(Phaser.Math.Clamp(displayHeight * 0.062, 42, 54))
     }
   }
 
@@ -403,7 +428,7 @@ export class GameScene extends Phaser.Scene {
 
   private getTextResolution() {
     const renderer = this.game.renderer as { resolution?: number }
-    return Math.max(1, Math.min(renderer?.resolution ?? 1, 2))
+    return Math.max(1, Math.min(renderer?.resolution ?? 1, 3))
   }
 
   private addSharpText(
@@ -587,6 +612,10 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
+    if (this.tableState.calledKingColor && !this.tableState.teamsRevealed && this.tableState.phase !== 'CALLING') {
+      this.renderCalledKingInfo()
+    }
+
     if (this.tableState.phase === 'CALLING' && this.tableState.kingChoices.length > 0) {
       this.renderKingChoices()
     }
@@ -695,6 +724,48 @@ export class GameScene extends Phaser.Scene {
 
       this.dynamicObjects.push(image)
     })
+  }
+
+  private renderCalledKingInfo() {
+    if (!this.tableState?.calledKingColor) {
+      return
+    }
+
+    const layout = this.getLayout()
+    const normalizedColor = this.tableState.calledKingColor.toUpperCase()
+    const colorLabel = this.getCalledKingColorLabel(normalizedColor)
+    const cardWidth = Math.round(layout.kingCardWidth * 0.46)
+    const cardHeight = Math.round(layout.kingCardHeight * 0.46)
+    const bannerY = layout.statusY + (layout.statusHeight / 2) + (cardHeight / 2) + 16
+
+    const label = this.addSharpText(layout.centerX + 14, bannerY, `Roi appele : ${colorLabel}`, {
+      color: '#f7e9bc',
+      fontSize: this.toPx(Math.max(layout.statusFontSize - 4, 12)),
+      fontStyle: 'bold'
+    }).setOrigin(0, 0.5)
+
+    const kingCard = this.add.image(
+      layout.centerX - (label.width / 2) - (cardWidth / 2),
+      bannerY,
+      this.getKingCardTextureKey(normalizedColor)
+    )
+    kingCard.setDisplaySize(cardWidth, cardHeight)
+    kingCard.setDepth(15)
+
+    const leftEdge = kingCard.x - (cardWidth / 2) - 12
+    const rightEdge = label.x + label.width + 14
+    const badge = this.add.rectangle(
+      (leftEdge + rightEdge) / 2,
+      bannerY,
+      rightEdge - leftEdge,
+      Math.max(cardHeight + 12, label.height + 16),
+      0x06150e,
+      0.68
+    ).setStrokeStyle(1, 0xe4cb8a, 0.26)
+
+    badge.setDepth(13)
+    label.setDepth(16)
+    this.dynamicObjects.push(badge, kingCard, label)
   }
 
   private renderRetrieveDogButton() {
@@ -1335,6 +1406,39 @@ export class GameScene extends Phaser.Scene {
     }
 
     return '#f1ead9'
+  }
+
+  private getCalledKingColorLabel(color: string) {
+    switch (color) {
+      case 'COEUR':
+        return 'coeur'
+      case 'CARREAU':
+        return 'carreau'
+      case 'TREFLE':
+        return 'trefle'
+      case 'PIQUE':
+        return 'pique'
+      default:
+        return color.toLowerCase()
+    }
+  }
+
+  private getKingCardTextureKey(color: string) {
+    switch (color) {
+      case 'COEUR':
+      case 'HEART':
+        return 'heart_14'
+      case 'CARREAU':
+      case 'DIAMOND':
+        return 'diamond_14'
+      case 'TREFLE':
+      case 'CLOVER':
+        return 'clover_14'
+      case 'PIQUE':
+      case 'SPADE':
+      default:
+        return 'spade_14'
+    }
   }
 
   private getCardKey(card: Card) {

@@ -90,7 +90,7 @@
                   loadingState === 'start'
                     ? 'Lancement...'
                     : activeRoom.playerCount < 5 && activeRoom.fillWithBots
-                      ? 'Completer avec des bots et lancer'
+                      ? 'Lancer avec bots'
                       : 'Lancer la partie'
                 }}
               </button>
@@ -101,7 +101,7 @@
                 :disabled="loadingState === 'fill-bots'"
                 @click="handleFillBots"
               >
-                {{ loadingState === 'fill-bots' ? 'Ajout des bots...' : 'Ajouter des bots' }}
+                {{ loadingState === 'fill-bots' ? 'Ajout...' : 'Ajouter IA' }}
               </button>
 
               <button
@@ -119,14 +119,14 @@
               </button>
 
               <p class="helper-text">
-                Le salon actif bloque la creation ou la jointure d un autre salon tant qu il est en attente ou en jeu.
+                Un seul salon actif a la fois.
               </p>
             </div>
           </div>
 
           <div v-else class="empty-room">
             <p>Aucun salon actif pour le moment.</p>
-            <p>Choisis un mode ci-contre pour creer ou rejoindre une partie.</p>
+            <p>Choisis un mode pour creer ou rejoindre.</p>
           </div>
         </section>
 
@@ -169,7 +169,7 @@
                 <div>
                   <p class="section-kicker">Recherche rapide</p>
                   <h3>Table dispo</h3>
-                  <p>Rejoint une table ouverte ou en cree une.</p>
+                  <p>Rejoint une table ou en cree une.</p>
                 </div>
 
                 <button
@@ -220,7 +220,7 @@
 
           <div v-if="publicRooms.length === 0" class="empty-public">
             <p>Aucun salon public en attente pour le moment.</p>
-            <p>La recherche rapide en creera un automatiquement si besoin.</p>
+            <p>La recherche rapide en creera un si besoin.</p>
           </div>
 
           <div v-else class="public-room-list">
@@ -250,13 +250,13 @@
                 </div>
               </div>
 
-              <button
-                class="btn btn-primary"
-                :disabled="Boolean(activeRoom) || loadingState === `public-${room.id}`"
-                @click="handleJoinPublicRoom(room.id)"
-              >
-                {{ loadingState === `public-${room.id}` ? 'Connexion...' : 'Rejoindre ce salon' }}
-              </button>
+                <button
+                  class="btn btn-primary"
+                  :disabled="Boolean(activeRoom) || loadingState === `public-${room.id}`"
+                  @click="handleJoinPublicRoom(room.id)"
+                >
+                {{ loadingState === `public-${room.id}` ? 'Connexion...' : 'Rejoindre' }}
+                </button>
             </article>
           </div>
         </section>
@@ -844,11 +844,11 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
   font-weight: 800;
 }
 
-.room-actions {
-  margin-top: 16px;
-  display: grid;
-  gap: 10px;
-}
+  .room-actions {
+    margin-top: 16px;
+    display: grid;
+    gap: 8px;
+  }
 
 .room-fill-btn,
 .room-leave-btn {
@@ -877,15 +877,15 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
   gap: 10px;
 }
 
-.create-body {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: auto;
-  padding-right: 4px;
-  display: grid;
-  align-content: start;
-  gap: 12px;
-}
+  .create-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    padding-right: 2px;
+    display: grid;
+    align-content: start;
+    gap: 10px;
+  }
 
 .preset-card {
   display: grid;
@@ -955,8 +955,8 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
   gap: 14px;
 }
 
-.compact-box {
-  padding: 14px;
+  .compact-box {
+  padding: 12px;
   border-radius: 18px;
   background: rgba(249, 242, 223, 0.7);
   border: 1px solid rgba(98, 66, 27, 0.1);
@@ -1017,10 +1017,10 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
   gap: 12px;
 }
 
-.public-room-card {
+  .public-room-card {
   display: grid;
-  gap: 12px;
-  padding: 16px;
+  gap: 10px;
+  padding: 14px;
   border-radius: 20px;
   background: #fffdf7;
   border: 1px solid rgba(98, 66, 27, 0.12);
@@ -1174,55 +1174,55 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
 
   .lobby-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: minmax(0, 0.92fr) minmax(0, 1.08fr);
+    grid-template-rows: minmax(0, 0.84fr) minmax(0, 1.16fr);
     gap: 8px;
   }
 
   .panel,
   .panel-create {
-    padding: 12px;
-    border-radius: 18px;
+    padding: 10px;
+    border-radius: 16px;
   }
 
   .panel-head {
-    gap: 8px;
-    margin-bottom: 10px;
+    gap: 6px;
+    margin-bottom: 8px;
   }
 
   .panel-head h2 {
-    font-size: 0.94rem;
+    font-size: 0.88rem;
   }
 
   .section-kicker {
-    margin-bottom: 3px;
-    font-size: 0.58rem;
+    margin-bottom: 2px;
+    font-size: 0.54rem;
     letter-spacing: 0.12em;
   }
 
   .status-badge,
   .tag,
   .room-code {
-    padding: 5px 8px;
-    font-size: 0.66rem;
+    padding: 4px 6px;
+    font-size: 0.6rem;
   }
 
   .room-meta-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
+    gap: 6px;
   }
 
   .meta-card {
-    padding: 10px;
-    border-radius: 14px;
+    padding: 8px;
+    border-radius: 12px;
   }
 
   .meta-card strong {
-    font-size: 0.82rem;
+    font-size: 0.74rem;
   }
 
   .meta-label {
-    margin-bottom: 4px;
-    font-size: 0.66rem;
+    margin-bottom: 2px;
+    font-size: 0.58rem;
   }
 
   .players-head h3,
@@ -1240,42 +1240,42 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
   .empty-room p,
   .empty-public p,
   .helper-text {
-    font-size: 0.72rem;
-    line-height: 1.25;
+    font-size: 0.66rem;
+    line-height: 1.18;
   }
 
   .players-block {
-    margin-top: 12px;
-  }
-
-  .player-list {
-    gap: 8px;
     margin-top: 10px;
   }
 
+  .player-list {
+    gap: 6px;
+    margin-top: 8px;
+  }
+
   .player-list.compact {
-    margin: 10px 0 12px;
+    margin: 8px 0 10px;
   }
 
   .player-pill {
     gap: 6px;
-    padding: 7px 9px;
-    border-radius: 12px;
-    font-size: 0.74rem;
+    padding: 6px 8px;
+    border-radius: 10px;
+    font-size: 0.68rem;
   }
 
   .player-num {
-    font-size: 0.64rem;
+    font-size: 0.58rem;
   }
 
   .bot-chip {
     padding: 2px 5px;
-    font-size: 0.58rem;
+    font-size: 0.52rem;
   }
 
   .room-actions {
-    margin-top: 12px;
-    gap: 8px;
+    margin-top: 10px;
+    gap: 6px;
   }
 
   .preset-grid {
@@ -1288,42 +1288,42 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
   }
 
   .preset-card {
-    padding: 10px;
-    border-radius: 14px;
+    padding: 8px;
+    border-radius: 12px;
   }
 
   .panel-create .preset-card {
     gap: 3px;
-    padding: 8px 9px;
-    border-radius: 12px;
+    padding: 7px 8px;
+    border-radius: 10px;
   }
 
   .panel-create .preset-card strong {
-    font-size: 0.78rem;
+    font-size: 0.72rem;
   }
 
   .panel-create .preset-card span {
-    font-size: 0.62rem;
-    line-height: 1.15;
+    font-size: 0.56rem;
+    line-height: 1.08;
   }
 
   .panel-create .preset-summary {
-    font-size: 0.74rem;
+    font-size: 0.66rem;
   }
 
   .create-body {
-    gap: 10px;
+    gap: 8px;
   }
 
   .create-tools {
     grid-template-columns: 1fr;
-    gap: 8px;
+    gap: 6px;
     margin-top: 0;
   }
 
   .compact-box {
-    padding: 10px;
-    border-radius: 14px;
+    padding: 8px;
+    border-radius: 12px;
   }
 
   .panel-create .quick-match,
@@ -1333,39 +1333,39 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
 
   .panel-create .quick-match h3,
   .panel-create .join-by-code h3 {
-    font-size: 0.84rem;
+    font-size: 0.78rem;
   }
 
   .panel-create .quick-match p,
   .panel-create .join-by-code p {
-    font-size: 0.7rem;
-    line-height: 1.2;
+    font-size: 0.62rem;
+    line-height: 1.12;
   }
 
   .game-input,
   .panel-create .game-input {
     min-width: 0;
-    padding: 9px 10px;
-    border-radius: 10px;
-    font-size: 0.78rem;
+    padding: 8px 9px;
+    border-radius: 9px;
+    font-size: 0.72rem;
   }
 
   .btn,
   .panel-create .btn {
-    padding: 8px 10px;
-    border-radius: 11px;
-    font-size: 0.76rem;
+    padding: 7px 9px;
+    border-radius: 10px;
+    font-size: 0.7rem;
   }
 
   .public-room-list {
     grid-template-columns: 1fr;
-    gap: 8px;
+    gap: 6px;
   }
 
   .public-room-card {
-    gap: 8px;
-    padding: 10px;
-    border-radius: 16px;
+    gap: 6px;
+    padding: 8px;
+    border-radius: 14px;
   }
 
   .error-banner {
@@ -1378,6 +1378,14 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
     border-radius: 14px;
     font-size: 0.72rem;
     z-index: 5;
+  }
+
+  .helper-text,
+  .preset-summary,
+  .empty-room p:last-child,
+  .empty-public p:last-child,
+  .panel-create .quick-match p {
+    display: none;
   }
 }
 
@@ -1392,11 +1400,11 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
   }
 
   .public-room-top h3 {
-    font-size: 0.82rem;
+    font-size: 0.76rem;
   }
 
   .public-room-top p {
-    font-size: 0.68rem;
+    font-size: 0.62rem;
   }
 
   .user-panel {
@@ -1406,6 +1414,14 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
 
   .user-panel .btn {
     align-self: flex-end;
+  }
+
+  .public-room-tags {
+    gap: 4px;
+  }
+
+  .public-room-card .btn {
+    width: 100%;
   }
 }
 
@@ -1454,38 +1470,38 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
 
   .panel,
   .panel-create {
-    padding: 12px;
-    border-radius: 18px;
+    padding: 10px;
+    border-radius: 16px;
   }
 
   .panel-head {
-    gap: 8px;
-    margin-bottom: 10px;
+    gap: 6px;
+    margin-bottom: 8px;
   }
 
   .panel-head h2 {
-    font-size: 0.92rem;
+    font-size: 0.86rem;
   }
 
   .status-badge,
   .tag,
   .room-code {
-    padding: 5px 8px;
-    font-size: 0.66rem;
+    padding: 4px 6px;
+    font-size: 0.6rem;
   }
 
   .room-meta-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
+    gap: 6px;
   }
 
   .meta-card {
-    padding: 9px 10px;
-    border-radius: 12px;
+    padding: 8px;
+    border-radius: 10px;
   }
 
   .meta-card strong {
-    font-size: 0.8rem;
+    font-size: 0.72rem;
   }
 
   .meta-label,
@@ -1497,20 +1513,20 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
   .empty-room p,
   .empty-public p,
   .helper-text {
-    font-size: 0.68rem;
-    line-height: 1.2;
+    font-size: 0.62rem;
+    line-height: 1.12;
   }
 
   .player-list {
-    gap: 6px;
-    margin-top: 8px;
+    gap: 5px;
+    margin-top: 7px;
   }
 
   .player-pill {
     gap: 6px;
-    padding: 6px 8px;
-    border-radius: 10px;
-    font-size: 0.72rem;
+    padding: 5px 7px;
+    border-radius: 9px;
+    font-size: 0.66rem;
   }
 
   .preset-grid {
@@ -1519,21 +1535,21 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
   }
 
   .panel-create .preset-card {
-    padding: 8px 9px;
-    border-radius: 12px;
+    padding: 7px 8px;
+    border-radius: 10px;
   }
 
   .panel-create .preset-card strong {
-    font-size: 0.76rem;
+    font-size: 0.7rem;
   }
 
   .panel-create .preset-card span {
-    font-size: 0.6rem;
+    font-size: 0.54rem;
   }
 
   .create-body,
   .create-tools {
-    gap: 8px;
+    gap: 6px;
   }
 
   .create-tools {
@@ -1542,22 +1558,30 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
 
   .compact-box,
   .public-room-card {
-    padding: 10px;
-    border-radius: 14px;
+    padding: 8px;
+    border-radius: 12px;
   }
 
   .btn,
   .panel-create .btn {
-    padding: 8px 9px;
-    border-radius: 10px;
-    font-size: 0.74rem;
+    padding: 7px 8px;
+    border-radius: 9px;
+    font-size: 0.68rem;
   }
 
   .game-input,
   .panel-create .game-input {
-    padding: 8px 9px;
-    border-radius: 10px;
-    font-size: 0.76rem;
+    padding: 7px 8px;
+    border-radius: 9px;
+    font-size: 0.7rem;
+  }
+
+  .helper-text,
+  .preset-summary,
+  .empty-room p:last-child,
+  .empty-public p:last-child,
+  .panel-create .quick-match p {
+    display: none;
   }
 }
 </style>

@@ -263,6 +263,7 @@ export interface SceneTableState {
   takerNum: number | null
   partnerNum: number | null
   teamsRevealed: boolean
+  calledKingColor: string | null
   dogCards: Card[]
   discardedDogCards: Card[]
   dogRetrieved: boolean

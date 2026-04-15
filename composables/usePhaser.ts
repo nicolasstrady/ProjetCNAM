@@ -2,6 +2,24 @@ export const usePhaser = () => {
   let game: any = null
   let resizeObserver: ResizeObserver | null = null
   let observedElement: HTMLElement | null = null
+  let lastCssWidth = 0
+  let lastCssHeight = 0
+  let lastRenderWidth = 0
+  let lastRenderHeight = 0
+
+  const getTargetResolution = (width?: number, height?: number) => {
+    if (typeof window === 'undefined') {
+      return 1
+    }
+
+    const deviceResolution = Math.max(window.devicePixelRatio || 1, 1)
+    const safeWidth = Math.max(width ?? window.innerWidth ?? 1, 1)
+    const safeHeight = Math.max(height ?? window.innerHeight ?? 1, 1)
+    const maxInternalPixels = 9_000_000
+    const budgetResolution = Math.sqrt(maxInternalPixels / (safeWidth * safeHeight))
+
+    return Math.max(1, Math.min(deviceResolution, budgetResolution, 3))
+  }
 
   const refreshScale = () => {
     if (!game?.scale || !observedElement) {
@@ -17,8 +35,32 @@ export const usePhaser = () => {
 
       const width = Math.max(element.clientWidth, 1)
       const height = Math.max(element.clientHeight, 1)
+      const resolution = getTargetResolution(width, height)
+      const renderWidth = Math.max(1, Math.round(width * resolution))
+      const renderHeight = Math.max(1, Math.round(height * resolution))
 
-      game?.scale?.resize(width, height)
+      const hasChanged =
+        width !== lastCssWidth ||
+        height !== lastCssHeight ||
+        renderWidth !== lastRenderWidth ||
+        renderHeight !== lastRenderHeight
+
+      if (!hasChanged) {
+        return
+      }
+
+      lastCssWidth = width
+      lastCssHeight = height
+      lastRenderWidth = renderWidth
+      lastRenderHeight = renderHeight
+
+      game?.scale?.resize(renderWidth, renderHeight)
+
+      if (game?.canvas) {
+        game.canvas.style.width = `${width}px`
+        game.canvas.style.height = `${height}px`
+      }
+
       game?.scale?.refresh()
     })
   }
@@ -30,22 +72,28 @@ export const usePhaser = () => {
     }
 
     const Phaser = await import('phaser').then(m => m.default)
-    const resolution = typeof window !== 'undefined'
-      ? Math.max(1, Math.min(window.devicePixelRatio || 1, 2))
-      : 1
+    const container = document.getElementById(containerId)
+    const element = container?.parentElement ?? container
+    const initialCssWidth = Math.max(element?.clientWidth ?? 1200, 1)
+    const initialCssHeight = Math.max(element?.clientHeight ?? 800, 1)
+    const initialResolution = getTargetResolution(initialCssWidth, initialCssHeight)
+    const initialWidth = Math.max(1, Math.round(initialCssWidth * initialResolution))
+    const initialHeight = Math.max(1, Math.round(initialCssHeight * initialResolution))
 
     const defaultConfig = {
       type: Phaser.AUTO,
       parent: containerId,
-      width: 1200,
-      height: 800,
+      width: initialWidth,
+      height: initialHeight,
       backgroundColor: '#2d5016',
-      resolution,
       antialias: true,
+      antialiasGL: true,
       autoRound: false,
+      powerPreference: 'high-performance',
+      desynchronized: false,
       scale: {
-        mode: Phaser.Scale.RESIZE,
-        autoCenter: Phaser.Scale.CENTER_BOTH
+        mode: Phaser.Scale.NONE,
+        autoCenter: Phaser.Scale.NO_CENTER
       },
       ...config
     }
@@ -55,8 +103,11 @@ export const usePhaser = () => {
       game.events.once(Phaser.Core.Events.READY, () => resolve())
     })
 
-    const container = document.getElementById(containerId)
     observedElement = container?.parentElement ?? container
+    lastCssWidth = 0
+    lastCssHeight = 0
+    lastRenderWidth = 0
+    lastRenderHeight = 0
 
     if (typeof ResizeObserver !== 'undefined' && observedElement) {
       resizeObserver = new ResizeObserver(() => {
@@ -76,6 +127,10 @@ export const usePhaser = () => {
     resizeObserver?.disconnect()
     resizeObserver = null
     observedElement = null
+    lastCssWidth = 0
+    lastCssHeight = 0
+    lastRenderWidth = 0
+    lastRenderHeight = 0
 
     if (game) {
       game.destroy(true)

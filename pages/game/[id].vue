@@ -294,7 +294,7 @@ import { getPlayableCardIds, isDogDiscardForbidden, isKing, normalizeCardColor }
 const route = useRoute()
 const router = useRouter()
 const apiUrl = useApiUrl()
-const { user } = useAuth()
+const { user, restoreSession } = useAuth()
 const {
   playerHand,
   playerNum,
@@ -489,6 +489,8 @@ const tryLockLandscape = async () => {
 }
 
 onMounted(async () => {
+  await restoreSession()
+
   if (!user.value) {
     await router.push('/')
     return

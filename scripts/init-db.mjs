@@ -1,4 +1,7 @@
 import mysql from 'mysql2/promise'
+import { randomBytes, scryptSync } from 'node:crypto'
+
+const PASSWORD_HASH_PREFIX = 'scrypt'
 
 function readEnv(names, fallback) {
   for (const name of names) {
@@ -13,6 +16,16 @@ function readEnv(names, fallback) {
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function isHashedPassword(value) {
+  return typeof value === 'string' && value.startsWith(`${PASSWORD_HASH_PREFIX}$`)
+}
+
+function hashPasswordSync(password) {
+  const salt = randomBytes(16).toString('hex')
+  const derivedKey = scryptSync(password, salt, 64).toString('hex')
+  return `${PASSWORD_HASH_PREFIX}$${salt}$${derivedKey}`
 }
 
 function buildCards() {
@@ -114,6 +127,16 @@ async function createTables(connection) {
       email VARCHAR(100),
       pseudo VARCHAR(50),
       motdepasse VARCHAR(255)
+    )`,
+    `CREATE TABLE IF NOT EXISTS auth_session (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      userId INT NOT NULL,
+      tokenHash CHAR(64) NOT NULL UNIQUE,
+      createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      lastSeenAt DATETIME NULL DEFAULT CURRENT_TIMESTAMP,
+      expiresAt DATETIME NOT NULL,
+      INDEX idx_auth_session_userId (userId),
+      INDEX idx_auth_session_expiresAt (expiresAt)
     )`,
     `CREATE TABLE IF NOT EXISTS partie (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -240,14 +263,29 @@ async function ensureLobbyColumns(connection) {
 
 async function seedUsers(connection, users) {
   for (const user of users) {
+    const passwordHash = isHashedPassword(user.motdepasse)
+      ? user.motdepasse
+      : hashPasswordSync(user.motdepasse)
+
     await connection.query(
       `INSERT INTO utilisateur (nom, prenom, email, pseudo, motdepasse)
        SELECT ?, ?, ?, ?, ?
        WHERE NOT EXISTS (
          SELECT 1 FROM utilisateur WHERE email = ?
        )`,
-      [user.nom, user.prenom, user.email, user.pseudo, user.motdepasse, user.email]
+      [user.nom, user.prenom, user.email, user.pseudo, passwordHash, user.email]
     )
+  }
+}
+
+async function migrateLegacyPasswords(connection) {
+  const [rows] = await connection.query(
+    "SELECT id, motdepasse FROM utilisateur WHERE motdepasse IS NOT NULL AND motdepasse NOT LIKE 'scrypt$%'"
+  )
+
+  for (const row of rows) {
+    const passwordHash = hashPasswordSync(row.motdepasse)
+    await connection.query('UPDATE utilisateur SET motdepasse = ? WHERE id = ?', [passwordHash, row.id])
   }
 }
 
@@ -310,6 +348,8 @@ async function main() {
         { nom: 'Massicot', prenom: 'Hippolyte', email: 'ipo@gmail.com', pseudo: 'ipo', motdepasse: 'pass' }
       ])
     }
+
+    await migrateLegacyPasswords(dbConnection)
 
     const [userRows] = await dbConnection.query('SELECT COUNT(*) as count FROM utilisateur')
     const [cardRows] = await dbConnection.query('SELECT COUNT(*) as count FROM carte')

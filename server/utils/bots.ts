@@ -10,6 +10,7 @@ import {
 } from '~/server/utils/gameActions'
 import { extractPlayerCardIds, getCardsByIds, getDogCardIds, getPlayerRowByNum } from '~/server/utils/gameData'
 import { getGameSession } from '~/server/utils/gameSession'
+import { hashPassword, migrateLegacyPasswords } from '~/server/utils/auth'
 import { ensureLobbySchema } from '~/server/utils/lobbySchema'
 import type { BotLevel, Card, ContractType, PlayerType, RoomMode, RoomStatus } from '~/types'
 import {
@@ -127,12 +128,14 @@ function getFollowPriority(card: Card) {
 
 async function ensureBotUsers(requiredCount = BOT_POOL_SIZE) {
   await ensureLobbySchema()
+  await migrateLegacyPasswords()
 
   const desiredCount = Math.max(requiredCount, BOT_POOL_SIZE)
 
   for (let index = 1; index <= desiredCount; index += 1) {
     const email = `bot${index}@tarot.local`
     const pseudo = `Bot ${index}`
+    const passwordHash = await hashPassword('bot')
 
     await query(
       `INSERT INTO utilisateur (nom, prenom, email, pseudo, motdepasse)
@@ -140,7 +143,7 @@ async function ensureBotUsers(requiredCount = BOT_POOL_SIZE) {
        WHERE NOT EXISTS (
          SELECT 1 FROM utilisateur WHERE email = ?
        )`,
-      ['Bot', String(index), email, pseudo, 'bot', email]
+      ['Bot', String(index), email, pseudo, passwordHash, email]
     )
   }
 

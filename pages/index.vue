@@ -118,7 +118,7 @@
 </template>
 
 <script setup lang="ts">
-const { login, register, user } = useAuth()
+const { login, register, user, restoreSession } = useAuth()
 const router = useRouter()
 
 const showRegister = ref(false)
@@ -139,9 +139,13 @@ const registerForm = reactive({
 })
 
 onMounted(() => {
-  if (user.value) {
-    router.push('/lobby')
-  }
+  void (async () => {
+    await restoreSession()
+
+    if (user.value) {
+      await router.push('/lobby')
+    }
+  })()
 })
 
 const handleLogin = async () => {

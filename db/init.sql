@@ -10,6 +10,17 @@ CREATE TABLE IF NOT EXISTS utilisateur (
     motdepasse VARCHAR(255)
 );
 
+CREATE TABLE IF NOT EXISTS auth_session (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    userId INT NOT NULL,
+    tokenHash CHAR(64) NOT NULL UNIQUE,
+    createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    lastSeenAt DATETIME NULL DEFAULT CURRENT_TIMESTAMP,
+    expiresAt DATETIME NOT NULL,
+    INDEX idx_auth_session_userId (userId),
+    INDEX idx_auth_session_expiresAt (expiresAt)
+);
+
 CREATE TABLE IF NOT EXISTS partie (
     id INT AUTO_INCREMENT PRIMARY KEY
 );
@@ -86,11 +97,11 @@ CREATE TABLE IF NOT EXISTS main (
     carte15 INT
 );
 
-INSERT INTO `utilisateur` (`nom`, `prenom`, `email`, `pseudo`, `motdepasse`) VALUES ('Strady', 'Nicolas', 'nicostrady@gmail.com', 'nistra', 'pass');
-INSERT INTO `utilisateur` (`nom`, `prenom`, `email`, `pseudo`, `motdepasse`) VALUES ('Sönmez', 'Duygu', 'dodo@gmail.com', 'dodo', 'pass');
-INSERT INTO `utilisateur` (`nom`, `prenom`, `email`, `pseudo`, `motdepasse`) VALUES ('Wittmann', 'Hugo', 'hugo@gmail.com', 'hugo', 'pass');
-INSERT INTO `utilisateur` (`nom`, `prenom`, `email`, `pseudo`, `motdepasse`) VALUES ('Pottier', 'Domitille', 'dom@gmail.com', 'dom', 'pass');
-INSERT INTO `utilisateur` (`nom`, `prenom`, `email`, `pseudo`, `motdepasse`) VALUES ('Massicot', 'Hippolyte', 'ipo@gmail.com', 'ipo', 'pass');
+INSERT INTO `utilisateur` (`nom`, `prenom`, `email`, `pseudo`, `motdepasse`) VALUES ('Strady', 'Nicolas', 'nicostrady@gmail.com', 'nistra', 'scrypt$09063e4b6d290c9c8907a7417a137258$dd70ca2b440cf982dc37c1f55025260bc4c12d05a855a68649f048abcf68383cea6160993c9836c392c9343251bfbb2bf8e6c1a15daa56768e8b289d51a0d141');
+INSERT INTO `utilisateur` (`nom`, `prenom`, `email`, `pseudo`, `motdepasse`) VALUES ('Sönmez', 'Duygu', 'dodo@gmail.com', 'dodo', 'scrypt$15450ef4c149e19cb660ea493bb26ea2$e54a7314958a8135fa8cb60f09e74ca559f87af430c79d182f5948405d4b7ffc8541a694c5f05294a97729ffe51ed05598cba85554c1f4335b14f31bf0df884f');
+INSERT INTO `utilisateur` (`nom`, `prenom`, `email`, `pseudo`, `motdepasse`) VALUES ('Wittmann', 'Hugo', 'hugo@gmail.com', 'hugo', 'scrypt$26cbec0275ec155cdae6f1f8f30d1c70$0c98b6fc60a17167b349e2f720fa346a3a8a453a95dcb3aef0d79c43dafc3b5b46bb915506224e41a9fffa35178fb6c6d1a628ba95000c0962c7d90a1db401ca');
+INSERT INTO `utilisateur` (`nom`, `prenom`, `email`, `pseudo`, `motdepasse`) VALUES ('Pottier', 'Domitille', 'dom@gmail.com', 'dom', 'scrypt$e6e9d65e2c6b643d31027c65fe45a4ac$459361be980e4fe2e712856d6b42010ec53baf87e751e8f0d01751821ccd4c55e498c937c271822f323fe5b232f7790e3057477648d5aab64b7384ec16db86ab');
+INSERT INTO `utilisateur` (`nom`, `prenom`, `email`, `pseudo`, `motdepasse`) VALUES ('Massicot', 'Hippolyte', 'ipo@gmail.com', 'ipo', 'scrypt$8abf1b67df91ff61129ba0d26048f901$e9c2bb517a21c83c8c3e563679274c4992b3e77963723252ca8780f2b40dbe14a75ad7f609624e6e9d52b2770f4f0046e333e662bd23acf3a17d6010ef01ca66');
 
 INSERT INTO carte (id,lien,couleur,valeur) VALUES (1, 'cards/Spade/card_1_spade.png', 'SPADE', '1');
 INSERT INTO carte (id,lien,couleur,valeur) VALUES (2, 'cards/Spade/card_2_spade.png', 'SPADE', '2');

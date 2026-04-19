@@ -1,5 +1,11 @@
-import { query } from '~/server/utils/db'
-import type { User, LoginCredentials } from '~/types'
+import type { LoginCredentials } from '~/types'
+import {
+  createUserSession,
+  findUserForLogin,
+  toSafeUser,
+  upgradePasswordHashIfNeeded,
+  verifyPassword
+} from '~/server/utils/auth'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody<LoginCredentials>(event)
@@ -11,20 +17,29 @@ export default defineEventHandler(async (event) => {
     })
   }
   
-  const users = await query<User>(
-    'SELECT id, nom, prenom, email, pseudo FROM utilisateur WHERE email = ? AND motdepasse = ?',
-    [body.email, body.password]
-  )
-  
-  if (users.length === 0) {
+  const user = await findUserForLogin(body.email)
+
+  if (!user) {
     throw createError({
       statusCode: 401,
       message: 'Identifiants invalides'
     })
   }
-  
+
+  const passwordCheck = await verifyPassword(body.password, user.motdepasse)
+
+  if (!passwordCheck.valid) {
+    throw createError({
+      statusCode: 401,
+      message: 'Identifiants invalides'
+    })
+  }
+
+  await upgradePasswordHashIfNeeded(user.id, body.password, passwordCheck.needsUpgrade)
+  await createUserSession(event, user.id)
+
   return {
     success: true,
-    user: users[0]
+    user: toSafeUser(user)
   }
 })

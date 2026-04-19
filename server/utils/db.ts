@@ -43,6 +43,12 @@ export async function query<T = any>(sql: string, params?: any[]): Promise<T[]> 
   return rows as T[]
 }
 
+export async function execute<T = any>(sql: string, params?: any[]): Promise<T> {
+  const pool = getDbPool()
+  const [result] = await pool.execute(sql, params)
+  return result as T
+}
+
 export async function queryOne<T = any>(sql: string, params?: any[]): Promise<T | null> {
   const results = await query<T>(sql, params)
   return results.length > 0 ? results[0] : null

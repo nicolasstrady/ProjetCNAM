@@ -275,7 +275,7 @@ import type { CreateRoomOptions, LobbyRoomSummary } from '~/types'
 type PresetId = 'PRIVATE' | 'PUBLIC' | 'HYBRID' | 'SOLO'
 type LoadingState = '' | 'create' | 'join' | 'quick' | 'start' | 'leave' | 'fill-bots' | `public-${number}`
 
-const { user, logout } = useAuth()
+const { user, logout, restoreSession } = useAuth()
 const { createGame, joinGame, quickMatch, listRooms, dealCards, fillBots, leaveGame } = useGame()
 const router = useRouter()
 
@@ -385,6 +385,8 @@ async function loadLobbyData() {
 let pollInterval: ReturnType<typeof setInterval> | null = null
 
 onMounted(async () => {
+  await restoreSession()
+
   if (!user.value) {
     await router.push('/')
     return
@@ -542,7 +544,7 @@ const handleLeaveActiveRoom = async () => {
 }
 
 const handleLogout = async () => {
-  logout()
+  await logout()
   await router.push('/')
 }
 

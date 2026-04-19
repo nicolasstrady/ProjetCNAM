@@ -1199,8 +1199,6 @@ export class GameScene extends Phaser.Scene {
         x: destination.x + index * destination.spreadX,
         y: destination.y + index * destination.spreadY,
         angle: Phaser.Math.RadToDeg(destination.rotation),
-        scaleX: 0.72,
-        scaleY: 0.72,
         alpha: 0.94,
         duration: GameScene.TRICK_COLLECTION_ANIMATION_DURATION_MS,
         ease: 'Cubic.InOut',

@@ -17,6 +17,7 @@
     "cap:sync": "npm run mobile:build && npx cap sync",
     "cap:open:android": "npx cap open android",
     "cap:open:ios": "npx cap open ios",
+    "cards:optimize": "python scripts/optimize_card_assets.py",
     "typecheck": "nuxt typecheck",
     "postinstall": "nuxt prepare"
   },

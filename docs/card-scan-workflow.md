@@ -26,8 +26,10 @@ Use this workflow for every physical tarot card scan before replacing assets in 
 
 ## Project replacement
 
-- Copy only validated PNGs into `public/cards/Atout`.
+- Copy only validated PNGs into the matching `public/cards` suit directory.
 - Run the transparent-corner cleanup on scanned PNGs before copying them into the project.
+- Run `npm run cards:optimize` after copying scanned cards into `public/cards`.
+- Keep master extracted PNGs in `C:\Users\Nicolas\Pictures\scan_tarot_cards`; `public/cards` is the optimized runtime copy.
 - Keep the scene display ratio aligned with scanned cards.
 - If the game still shows the previous image, force-refresh the browser or fully restart the iPhone PWA.
 

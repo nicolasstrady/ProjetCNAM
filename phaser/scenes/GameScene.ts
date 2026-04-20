@@ -87,6 +87,8 @@ export class GameScene extends Phaser.Scene {
   private tableBorder?: Phaser.GameObjects.Rectangle
   private tableGlow?: Phaser.GameObjects.Ellipse
   private tableStateSignature = ''
+  private pendingCardTextureLoads = new Set<string>()
+  private pendingTextureRender: Phaser.Time.TimerEvent | null = null
 
   constructor() {
     super({ key: 'GameScene' })
@@ -100,19 +102,6 @@ export class GameScene extends Phaser.Scene {
   preload() {
     this.load.image('cardback', '/cards/cardback.png')
     this.load.image('background', '/background.jpg')
-
-    for (let i = 1; i <= 14; i += 1) {
-      this.load.image(`spade_${i}`, `/cards/Spade/card_${i}_spade.png`)
-      this.load.image(`heart_${i}`, `/cards/Heart/card_${i}_heart.png`)
-      this.load.image(`diamond_${i}`, `/cards/Diamond/card_${i}_diamond.png`)
-      this.load.image(`clover_${i}`, `/cards/Clover/card_${i}_clover.png`)
-    }
-
-    for (let i = 1; i <= 21; i += 1) {
-      this.load.image(`atout_${i}`, `/cards/Atout/card_${i}_atout.png`)
-    }
-
-    this.load.image('atout_E', '/cards/Atout/card_E_atout.png')
   }
 
   create() {
@@ -120,6 +109,7 @@ export class GameScene extends Phaser.Scene {
     this.scale.on('resize', this.handleResize, this)
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.scale.off('resize', this.handleResize, this)
+      this.pendingTextureRender?.remove(false)
     })
 
     this.sceneReady = true
@@ -641,7 +631,7 @@ export class GameScene extends Phaser.Scene {
       }
 
       const config = this.getTrickPosition(playedCard)
-      const cardImage = this.add.image(config.x, config.y, this.getCardKey(playedCard.card))
+      const cardImage = this.addCardImage(config.x, config.y, playedCard.card)
 
       cardImage.setDisplaySize(layout.trickCardWidth, layout.trickCardHeight)
       cardImage.setRotation(config.rotation)
@@ -666,7 +656,7 @@ export class GameScene extends Phaser.Scene {
       }
 
       const position = this.getDogCardPosition(index, cards.length)
-      const image = this.add.image(position.x, position.y, this.getCardKey(card))
+      const image = this.addCardImage(position.x, position.y, card)
       image.setDisplaySize(layout.dogCardWidth, layout.dogCardHeight)
       image.setDepth(18)
       this.dynamicObjects.push(image)
@@ -694,7 +684,7 @@ export class GameScene extends Phaser.Scene {
     const firstX = layout.centerX - ((this.tableState.kingChoices.length - 1) * spacing) / 2
 
     this.tableState.kingChoices.forEach((card, index) => {
-      const image = this.add.image(firstX + index * spacing, layout.kingCardsY, this.getCardKey(card))
+      const image = this.addCardImage(firstX + index * spacing, layout.kingCardsY, card)
       image.setDisplaySize(layout.kingCardWidth, layout.kingCardHeight)
       image.setDepth(24)
       image.setInteractive({ useHandCursor: true })
@@ -778,7 +768,7 @@ export class GameScene extends Phaser.Scene {
       const baseWidth = layout.handCardWidth
       const baseHeight = layout.handCardHeight
       const baseDepth = 10 + index
-      const image = this.add.image(x, y, this.getCardKey(card))
+      const image = this.addCardImage(x, y, card)
 
       image.setDisplaySize(baseWidth, baseHeight)
       image.setDepth(baseDepth)
@@ -930,7 +920,7 @@ export class GameScene extends Phaser.Scene {
     previousState.dogCards.forEach((card, index) => {
       const start = this.getDogCardPosition(index, previousState.dogCards.length)
       const target = this.getRetrievedDogTargetPosition(index, previousState.dogCards.length)
-      const animationCard = this.add.image(start.x, start.y, this.getCardKey(card))
+      const animationCard = this.addCardImage(start.x, start.y, card)
 
       animationCard.setDisplaySize(layout.dogCardWidth, layout.dogCardHeight)
       animationCard.setDepth(220 + index)
@@ -970,7 +960,7 @@ export class GameScene extends Phaser.Scene {
 
     this.renderTable({ suppressDogDiscardedCardId: discardedCard.id })
 
-    const animationCard = this.add.image(origin.x, origin.y, this.getCardKey(discardedCard))
+    const animationCard = this.addCardImage(origin.x, origin.y, discardedCard)
 
     animationCard.setDisplaySize(layout.handCardWidth, layout.handCardHeight)
     animationCard.setDepth(260)
@@ -1064,7 +1054,7 @@ export class GameScene extends Phaser.Scene {
       ? { ...this.getHandCardPosition(previousState.playerHand, playedCard.card.id), rotation: 0 }
       : this.getCardOriginPosition(seat)
     const target = this.getTrickPosition(playedCard)
-    const animationCard = this.add.image(origin.x, origin.y, this.getCardKey(playedCard.card))
+    const animationCard = this.addCardImage(origin.x, origin.y, playedCard.card)
 
     animationCard.setDisplaySize(layout.trickCardWidth, layout.trickCardHeight)
     animationCard.setRotation(origin.rotation)
@@ -1144,7 +1134,7 @@ export class GameScene extends Phaser.Scene {
 
     state.currentPliCards.forEach((playedCard, index) => {
       const start = this.getTrickPosition(playedCard)
-      const animationCard = this.add.image(start.x, start.y, this.getCardKey(playedCard.card))
+      const animationCard = this.addCardImage(start.x, start.y, playedCard.card)
 
       animationCard.setDisplaySize(layout.trickCardWidth, layout.trickCardHeight)
       animationCard.setRotation(start.rotation)
@@ -1378,21 +1368,87 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  private addCardImage(x: number, y: number, card: Card) {
+    return this.add.image(x, y, this.getRenderableCardKey(card))
+  }
+
+  private getRenderableCardKey(card: Card) {
+    const key = this.getCardKey(card)
+
+    if (this.textures.exists(key)) {
+      return key
+    }
+
+    this.queueCardTextureLoad(key, this.getCardTexturePath(card))
+    return 'cardback'
+  }
+
+  private getRenderableTextureKey(key: string, path: string) {
+    if (this.textures.exists(key)) {
+      return key
+    }
+
+    this.queueCardTextureLoad(key, path)
+    return 'cardback'
+  }
+
+  private queueCardTextureLoad(key: string, path: string) {
+    if (this.pendingCardTextureLoads.has(key) || this.textures.exists(key)) {
+      return
+    }
+
+    this.pendingCardTextureLoads.add(key)
+    const onLoadError = (file: { key?: string }) => {
+      if (file.key !== key) {
+        return
+      }
+
+      this.pendingCardTextureLoads.delete(key)
+      this.load.off(Phaser.Loader.Events.FILE_LOAD_ERROR, onLoadError)
+    }
+
+    this.load.image(key, path)
+    this.load.once(`filecomplete-image-${key}`, () => {
+      this.pendingCardTextureLoads.delete(key)
+      this.load.off(Phaser.Loader.Events.FILE_LOAD_ERROR, onLoadError)
+      this.scheduleRenderAfterTextureLoad()
+    })
+    this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, onLoadError)
+
+    if (!this.load.isLoading()) {
+      this.load.start()
+    }
+  }
+
+  private scheduleRenderAfterTextureLoad() {
+    if (!this.sceneReady || this.trickCollectionAnimating || this.pendingTextureRender) {
+      return
+    }
+
+    this.pendingTextureRender = this.time.delayedCall(40, () => {
+      this.pendingTextureRender = null
+
+      if (this.sceneReady && !this.trickCollectionAnimating) {
+        this.renderTable()
+      }
+    })
+  }
+
   private getKingCardTextureKey(color: string) {
     switch (color) {
       case 'COEUR':
       case 'HEART':
-        return 'heart_14'
+        return this.getRenderableTextureKey('heart_14', '/cards/Heart/card_14_heart.png')
       case 'CARREAU':
       case 'DIAMOND':
-        return 'diamond_14'
+        return this.getRenderableTextureKey('diamond_14', '/cards/Diamond/card_14_diamond.png')
       case 'TREFLE':
       case 'CLOVER':
-        return 'clover_14'
+        return this.getRenderableTextureKey('clover_14', '/cards/Clover/card_14_clover.png')
       case 'PIQUE':
       case 'SPADE':
       default:
-        return 'spade_14'
+        return this.getRenderableTextureKey('spade_14', '/cards/Spade/card_14_spade.png')
     }
   }
 
@@ -1418,6 +1474,30 @@ export class GameScene extends Phaser.Scene {
         return `atout_${value}`
       default:
         return 'cardback'
+    }
+  }
+
+  private getCardTexturePath(card: Card) {
+    if (card.lien) {
+      return `/${card.lien.replace(/^\/+/, '')}`
+    }
+
+    const key = this.getCardKey(card)
+    const [color, value] = key.split('_')
+
+    switch (color) {
+      case 'spade':
+        return `/cards/Spade/card_${value}_spade.png`
+      case 'heart':
+        return `/cards/Heart/card_${value}_heart.png`
+      case 'diamond':
+        return `/cards/Diamond/card_${value}_diamond.png`
+      case 'clover':
+        return `/cards/Clover/card_${value}_clover.png`
+      case 'atout':
+        return `/cards/Atout/card_${value}_atout.png`
+      default:
+        return '/cards/cardback.png'
     }
   }
 }

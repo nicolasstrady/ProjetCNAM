@@ -1,5 +1,9 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 const isMobileBuild = process.env.NUXT_MOBILE_BUILD === 'true'
+const cardAssetVersion = process.env.RAILWAY_GIT_COMMIT_SHA
+  || process.env.GIT_COMMIT_SHA
+  || process.env.npm_package_version
+  || String(Date.now())
 
 export default defineNuxtConfig({
   ssr: !isMobileBuild,
@@ -43,10 +47,20 @@ export default defineNuxtConfig({
   nitro: {
     experimental: {
       websocket: true
+    },
+    routeRules: {
+      '/cards/**': {
+        headers: {
+          'cache-control': 'public, max-age=0, must-revalidate'
+        }
+      }
     }
   },
   
   vite: {
+    define: {
+      __CARD_ASSET_VERSION__: JSON.stringify(cardAssetVersion)
+    },
     server: {
       watch: process.env.CHOKIDAR_USEPOLLING === 'true'
         ? {

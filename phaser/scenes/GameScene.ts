@@ -2,6 +2,8 @@ import Phaser from 'phaser'
 import type { Card, CurrentPliCard, SceneTableState, TablePlayer } from '~/types'
 import { getRelativePlayerOffset, sortHandCards } from '~/utils/tarot'
 
+declare const __CARD_ASSET_VERSION__: string
+
 interface SceneCallbacks {
   onCardClick?: (card: Card) => void
   onCallKing?: (card: Card) => void
@@ -100,8 +102,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   preload() {
-    this.load.image('cardback', '/cards/cardback.png')
-    this.load.image('background', '/background.jpg')
+    this.load.image('cardback', this.versionAssetPath('/cards/cardback.png'))
+    this.load.image('background', this.versionAssetPath('/background.jpg'))
   }
 
   create() {
@@ -1379,7 +1381,7 @@ export class GameScene extends Phaser.Scene {
       return key
     }
 
-    this.queueCardTextureLoad(key, this.getCardTexturePath(card))
+    this.queueCardTextureLoad(key, this.getVersionedCardTexturePath(card))
     return 'cardback'
   }
 
@@ -1388,7 +1390,7 @@ export class GameScene extends Phaser.Scene {
       return key
     }
 
-    this.queueCardTextureLoad(key, path)
+    this.queueCardTextureLoad(key, this.versionAssetPath(path))
     return 'cardback'
   }
 
@@ -1477,6 +1479,10 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  private getVersionedCardTexturePath(card: Card) {
+    return this.versionAssetPath(this.getCardTexturePath(card))
+  }
+
   private getCardTexturePath(card: Card) {
     if (card.lien) {
       return `/${card.lien.replace(/^\/+/, '')}`
@@ -1499,5 +1505,10 @@ export class GameScene extends Phaser.Scene {
       default:
         return '/cards/cardback.png'
     }
+  }
+
+  private versionAssetPath(path: string) {
+    const separator = path.includes('?') ? '&' : '?'
+    return `${path}${separator}v=${encodeURIComponent(__CARD_ASSET_VERSION__)}`
   }
 }

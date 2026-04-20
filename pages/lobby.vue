@@ -6,28 +6,141 @@
           <p class="eyebrow">Lobby</p>
           <h1>Salons de tarot</h1>
           <p class="subtitle">
-            Creer une table privee, ouvrir une partie publique ou lancer une recherche rapide.
+            Crée une table, rejoins avec un code ou lance une recherche rapide.
           </p>
         </div>
 
         <div class="user-panel">
           <div>
-            <p class="user-label">Connecte en tant que</p>
+            <p class="user-label">Connecté</p>
             <p class="user-name">{{ user?.pseudo }}</p>
           </div>
-          <button class="btn btn-secondary" @click="handleLogout">Deconnexion</button>
+          <button class="btn btn-secondary" @click="handleLogout">Déconnexion</button>
         </div>
       </header>
 
       <main class="lobby-grid">
-        <section class="panel panel-primary">
+        <section class="panel panel-create">
           <div class="panel-head">
+            <div>
+              <p class="section-kicker">Créer</p>
+              <h2>Nouveau salon</h2>
+            </div>
+          </div>
+
+          <div class="create-body">
+            <div class="preset-grid">
+              <button
+                v-for="preset in roomPresets"
+                :key="preset.id"
+                class="preset-card"
+                :class="{ 'preset-card-active': createPreset === preset.id }"
+                @click="createPreset = preset.id"
+              >
+                <strong>{{ preset.label }}</strong>
+                <span>{{ preset.cardDescription }}</span>
+              </button>
+            </div>
+
+            <div class="preset-summary">
+              <p>{{ selectedPreset.description }}</p>
+            </div>
+
+            <button
+              class="btn btn-primary btn-full"
+              :disabled="Boolean(activeRoom) || loadingState === 'create'"
+              @click="handleCreateRoom"
+            >
+              {{ loadingState === 'create' ? 'Création...' : `Créer un salon ${selectedPreset.shortLabel}` }}
+            </button>
+          </div>
+        </section>
+
+        <section class="panel panel-actions">
+          <div class="panel-head">
+            <div>
+              <p class="section-kicker">Jouer</p>
+              <h2>Actions rapides</h2>
+            </div>
+          </div>
+
+          <div class="action-stack">
+            <div class="compact-box">
+              <div>
+                <p class="section-kicker">Recherche rapide</p>
+                <h3>Table disponible</h3>
+                <p>Rejoins une table publique ou crée-en une automatiquement.</p>
+              </div>
+
+              <button
+                class="btn btn-accent"
+                :disabled="Boolean(activeRoom) || loadingState === 'quick'"
+                @click="handleQuickMatch"
+              >
+                {{ loadingState === 'quick' ? 'Recherche...' : 'Recherche rapide' }}
+              </button>
+            </div>
+
+            <div class="compact-box">
+              <div>
+                <p class="section-kicker">Code</p>
+                <h3>Rejoindre un ami</h3>
+              </div>
+              <div class="join-form">
+                <input
+                  v-model="roomCode"
+                  type="text"
+                  maxlength="12"
+                  placeholder="Ex: AB12CD"
+                  class="game-input"
+                />
+                <button
+                  class="btn btn-primary"
+                  :disabled="Boolean(activeRoom) || loadingState === 'join' || !roomCode.trim()"
+                  @click="handleJoinByCode"
+                >
+                  Rejoindre
+                </button>
+              </div>
+            </div>
+
+            <div class="modal-shortcuts">
+              <button
+                class="shortcut-card"
+                :class="{ 'shortcut-card-active': activeRoom }"
+                @click="showActiveRoomModal = true"
+              >
+                <span>Salon en cours</span>
+                <strong>{{ activeRoom ? `#${activeRoom.id} - ${activeRoom.playerCount}/5` : 'Aucun salon' }}</strong>
+              </button>
+
+              <button class="shortcut-card" @click="openPublicRoomsModal">
+                <span>Tables ouvertes</span>
+                <strong>{{ publicRooms.length }} disponible(s)</strong>
+              </button>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <div v-if="errorMessage" class="error-banner">
+        {{ errorMessage }}
+      </div>
+    </div>
+
+    <Teleport to="body">
+      <div v-if="showActiveRoomModal" class="modal-backdrop" @click.self="showActiveRoomModal = false">
+        <section class="modal-card">
+          <div class="modal-head">
             <div>
               <p class="section-kicker">Salon actif</p>
               <h2>{{ activeRoom ? `Salon #${activeRoom.id}` : 'Aucun salon en cours' }}</h2>
             </div>
+            <button class="modal-close" @click="showActiveRoomModal = false">Fermer</button>
+          </div>
+
+          <div v-if="activeRoom" class="active-room">
             <span
-              v-if="activeRoom"
               class="status-badge"
               :class="{
                 'status-waiting': activeRoom.status === 'WAITING',
@@ -37,21 +150,15 @@
             >
               {{ formatRoomStatus(activeRoom.status) }}
             </span>
-          </div>
 
-          <div v-if="activeRoom" class="active-room">
             <div class="room-meta-grid">
               <div class="meta-card">
-                <span class="meta-label">Acces</span>
+                <span class="meta-label">Accès</span>
                 <strong>{{ formatVisibility(activeRoom.visibility, activeRoom.allowQuickJoin) }}</strong>
               </div>
               <div class="meta-card">
                 <span class="meta-label">Code</span>
                 <strong>{{ activeRoom.code || 'Aucun code' }}</strong>
-              </div>
-              <div class="meta-card">
-                <span class="meta-label">Mode</span>
-                <strong>{{ formatMode(activeRoom.mode) }}</strong>
               </div>
               <div class="meta-card">
                 <span class="meta-label">Places</span>
@@ -98,14 +205,14 @@
                   loadingState === 'start'
                     ? 'Lancement...'
                     : activeRoom.playerCount < 5 && activeRoom.fillWithBots
-                      ? 'Lancer avec bots'
+                      ? 'Lancer avec IA'
                       : 'Lancer la partie'
                 }}
               </button>
 
               <button
                 v-if="activeRoom.status === 'WAITING' && activeRoom.openSlots > 0"
-                class="btn btn-secondary room-fill-btn"
+                class="btn btn-secondary"
                 :disabled="loadingState === 'fill-bots'"
                 @click="handleFillBots"
               >
@@ -113,7 +220,7 @@
               </button>
 
               <button
-                class="btn btn-secondary room-leave-btn"
+                class="btn btn-secondary"
                 :disabled="loadingState === 'leave'"
                 @click="handleLeaveActiveRoom"
               >
@@ -125,110 +232,34 @@
                       : 'Quitter le salon'
                 }}
               </button>
-
-              <p class="helper-text">
-                Un seul salon actif a la fois.
-              </p>
             </div>
           </div>
 
           <div v-else class="empty-room">
             <p>Aucun salon actif pour le moment.</p>
-            <p>Choisis un mode pour creer ou rejoindre.</p>
+            <p>Crée une table ou rejoins une partie.</p>
           </div>
         </section>
+      </div>
 
-        <section class="panel panel-create">
-          <div class="panel-head">
-            <div>
-              <p class="section-kicker">Creer</p>
-              <h2>Nouveau salon</h2>
-            </div>
-          </div>
-
-          <div class="create-body">
-            <div class="preset-grid">
-              <button
-                v-for="preset in roomPresets"
-                :key="preset.id"
-                class="preset-card"
-                :class="{ 'preset-card-active': createPreset === preset.id }"
-                @click="createPreset = preset.id"
-              >
-                <strong>{{ preset.label }}</strong>
-                <span>{{ preset.cardDescription }}</span>
-              </button>
-            </div>
-
-            <div class="preset-summary">
-              <p>{{ selectedPreset.description }}</p>
-            </div>
-
-            <button
-              class="btn btn-primary btn-full"
-              :disabled="Boolean(activeRoom) || loadingState === 'create'"
-              @click="handleCreateRoom"
-            >
-              {{ loadingState === 'create' ? 'Creation...' : `Creer un salon ${selectedPreset.shortLabel}` }}
-            </button>
-
-            <div class="create-tools">
-              <div class="quick-match compact-box">
-                <div>
-                  <p class="section-kicker">Recherche rapide</p>
-                  <h3>Table dispo</h3>
-                  <p>Rejoint une table ou en cree une.</p>
-                </div>
-
-                <button
-                  class="btn btn-accent"
-                  :disabled="Boolean(activeRoom) || loadingState === 'quick'"
-                  @click="handleQuickMatch"
-                >
-                  {{ loadingState === 'quick' ? 'Recherche...' : 'Recherche rapide' }}
-                </button>
-              </div>
-
-              <div class="join-by-code compact-box">
-                <div>
-                  <p class="section-kicker">Code</p>
-                  <h3>Rejoindre</h3>
-                </div>
-                <div class="join-form">
-                  <input
-                    v-model="roomCode"
-                    type="text"
-                    maxlength="12"
-                    placeholder="Ex: AB12CD"
-                    class="game-input"
-                  />
-                  <button
-                    class="btn btn-primary"
-                    :disabled="Boolean(activeRoom) || loadingState === 'join' || !roomCode.trim()"
-                    @click="handleJoinByCode"
-                  >
-                    Rejoindre
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section class="panel panel-wide">
-          <div class="panel-head">
+      <div v-if="showPublicRoomsModal" class="modal-backdrop" @click.self="showPublicRoomsModal = false">
+        <section class="modal-card modal-card-wide">
+          <div class="modal-head">
             <div>
               <p class="section-kicker">Salons publics</p>
               <h2>Tables ouvertes</h2>
             </div>
-            <button class="btn btn-ghost" :disabled="loadingRooms" @click="loadLobbyData">
-              {{ loadingRooms ? 'Actualisation...' : 'Actualiser' }}
-            </button>
+            <div class="modal-head-actions">
+              <button class="btn btn-ghost" :disabled="loadingRooms" @click="loadLobbyData">
+                {{ loadingRooms ? 'Actualisation...' : 'Actualiser' }}
+              </button>
+              <button class="modal-close" @click="showPublicRoomsModal = false">Fermer</button>
+            </div>
           </div>
 
           <div v-if="publicRooms.length === 0" class="empty-public">
             <p>Aucun salon public en attente pour le moment.</p>
-            <p>La recherche rapide en creera un si besoin.</p>
+            <p>La recherche rapide en créera un si besoin.</p>
           </div>
 
           <div v-else class="public-room-list">
@@ -236,7 +267,7 @@
               <div class="public-room-top">
                 <div>
                   <h3>Salon #{{ room.id }}</h3>
-                  <p>{{ formatMode(room.mode) }} - {{ room.playerCount }}/5 joueurs</p>
+                  <p>{{ formatVisibility(room.visibility, room.allowQuickJoin) }} - {{ room.playerCount }}/5 joueurs</p>
                 </div>
                 <span class="room-code">{{ room.code }}</span>
               </div>
@@ -258,29 +289,25 @@
                 </div>
               </div>
 
-                <button
-                  class="btn btn-primary"
-                  :disabled="Boolean(activeRoom) || loadingState === `public-${room.id}`"
-                  @click="handleJoinPublicRoom(room.id)"
-                >
+              <button
+                class="btn btn-primary"
+                :disabled="Boolean(activeRoom) || loadingState === `public-${room.id}`"
+                @click="handleJoinPublicRoom(room.id)"
+              >
                 {{ loadingState === `public-${room.id}` ? 'Connexion...' : 'Rejoindre' }}
-                </button>
+              </button>
             </article>
           </div>
         </section>
-      </main>
-
-      <div v-if="errorMessage" class="error-banner">
-        {{ errorMessage }}
       </div>
-    </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
 import type { CreateRoomOptions, LobbyRoomSummary } from '~/types'
 
-type PresetId = 'PRIVATE' | 'PUBLIC' | 'HYBRID' | 'SOLO'
+type PresetId = 'PRIVATE' | 'PUBLIC'
 type LoadingState = '' | 'create' | 'join' | 'quick' | 'start' | 'leave' | 'fill-bots' | `public-${number}`
 
 const { user, logout, restoreSession } = useAuth()
@@ -297,10 +324,10 @@ const roomPresets: Array<{
 }> = [
   {
     id: 'PRIVATE',
-    label: 'Prive',
-    shortLabel: 'prive',
+    label: 'Privé',
+    shortLabel: 'privé',
     cardDescription: 'Code uniquement',
-    description: 'Salon reserve a tes invites. On entre uniquement avec le code partage.',
+    description: 'Salon réservé à tes invités. On entre uniquement avec le code partagé.',
     options: {
       visibility: 'PRIVATE',
       allowQuickJoin: false,
@@ -313,38 +340,12 @@ const roomPresets: Array<{
     label: 'Public',
     shortLabel: 'public',
     cardDescription: 'Visible par tous',
-    description: 'Salon visible dans la liste publique et accessible aussi a la recherche rapide.',
+    description: 'Salon visible dans les tables ouvertes et accessible par recherche rapide.',
     options: {
       visibility: 'PUBLIC',
       allowQuickJoin: true,
       fillWithBots: false,
       mode: 'CLASSIC'
-    }
-  },
-  {
-    id: 'HYBRID',
-    label: 'Code + rapide',
-    shortLabel: 'hybride',
-    cardDescription: 'Amis + remplissage',
-    description: 'Tu invites tes amis avec le code, mais les places restantes peuvent etre remplies par la recherche rapide.',
-    options: {
-      visibility: 'UNLISTED',
-      allowQuickJoin: true,
-      fillWithBots: false,
-      mode: 'CLASSIC'
-    }
-  },
-  {
-    id: 'SOLO',
-    label: 'Solo',
-    shortLabel: 'solo',
-    cardDescription: 'Toi + 4 bots',
-    description: 'Une table privee pour toi, completee au lancement par quatre bots standard.',
-    options: {
-      visibility: 'PRIVATE',
-      allowQuickJoin: false,
-      fillWithBots: true,
-      mode: 'SOLO'
     }
   }
 ]
@@ -356,6 +357,8 @@ const roomCode = ref('')
 const createPreset = ref<PresetId>('PRIVATE')
 const activeRoom = ref<LobbyRoomSummary | null>(null)
 const publicRooms = ref<LobbyRoomSummary[]>([])
+const showActiveRoomModal = ref(false)
+const showPublicRoomsModal = ref(false)
 
 const selectedPreset = computed(() => {
   return roomPresets.find((preset) => preset.id === createPreset.value) ?? roomPresets[0]
@@ -372,7 +375,7 @@ async function loadLobbyData() {
     const result = await listRooms(user.value.id)
 
     if (!result.success) {
-      errorMessage.value = result.error || 'Impossible de recuperer les salons'
+      errorMessage.value = result.error || 'Impossible de récupérer les salons'
       return
     }
 
@@ -384,10 +387,15 @@ async function loadLobbyData() {
       await router.push(`/game/${result.activeRoom.id}`)
     }
   } catch (error: any) {
-    errorMessage.value = error?.data?.message || 'Impossible de recuperer les salons'
+    errorMessage.value = error?.data?.message || 'Impossible de récupérer les salons'
   } finally {
     loadingRooms.value = false
   }
+}
+
+const openPublicRoomsModal = () => {
+  showPublicRoomsModal.value = true
+  void loadLobbyData()
 }
 
 let pollInterval: ReturnType<typeof setInterval> | null = null
@@ -426,8 +434,9 @@ const handleCreateRoom = async () => {
   if (result.success) {
     roomCode.value = result.room?.code || ''
     await loadLobbyData()
+    showActiveRoomModal.value = true
   } else {
-    errorMessage.value = result.error || 'Erreur de creation du salon'
+    errorMessage.value = result.error || 'Erreur de création du salon'
   }
 
   loadingState.value = ''
@@ -445,6 +454,7 @@ const handleJoinByCode = async () => {
 
   if (result.success) {
     await loadLobbyData()
+    showActiveRoomModal.value = true
   } else {
     errorMessage.value = result.error || 'Erreur de connexion au salon'
   }
@@ -464,6 +474,8 @@ const handleJoinPublicRoom = async (partieId: number) => {
 
   if (result.success) {
     await loadLobbyData()
+    showPublicRoomsModal.value = false
+    showActiveRoomModal.value = true
   } else {
     errorMessage.value = result.error || 'Erreur de connexion au salon'
   }
@@ -484,6 +496,7 @@ const handleQuickMatch = async () => {
   if (result.success) {
     roomCode.value = result.room?.code || ''
     await loadLobbyData()
+    showActiveRoomModal.value = true
   } else {
     errorMessage.value = result.error || 'Erreur de recherche rapide'
   }
@@ -521,7 +534,7 @@ const handleFillBots = async () => {
   const result = await fillBots(user.value.id, activeRoom.value.id)
 
   if (!result.success) {
-    errorMessage.value = result.error || 'Impossible dajouter des bots'
+    errorMessage.value = result.error || 'Impossible d’ajouter des IA'
     loadingState.value = ''
     return
   }
@@ -547,6 +560,7 @@ const handleLeaveActiveRoom = async () => {
   }
 
   activeRoom.value = null
+  showActiveRoomModal.value = false
   await loadLobbyData()
   loadingState.value = ''
 }
@@ -558,26 +572,14 @@ const handleLogout = async () => {
 
 const formatVisibility = (visibility: LobbyRoomSummary['visibility'], allowQuickJoin: boolean) => {
   if (visibility === 'PRIVATE') {
-    return 'Prive'
+    return 'Privé'
   }
 
-  if (visibility === 'UNLISTED') {
-    return allowQuickJoin ? 'Code + remplissage rapide' : 'Non liste'
+  if (visibility === 'PUBLIC' || allowQuickJoin) {
+    return 'Public'
   }
 
-  return allowQuickJoin ? 'Public + rapide' : 'Public'
-}
-
-const formatMode = (mode: LobbyRoomSummary['mode']) => {
-  if (mode === 'QUICK_MATCH') {
-    return 'Recherche rapide'
-  }
-
-  if (mode === 'SOLO') {
-    return 'Solo'
-  }
-
-  return 'Classique'
+  return 'Privé'
 }
 
 const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
@@ -586,7 +588,7 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
   }
 
   if (status === 'FINISHED') {
-    return 'Termine'
+    return 'Terminé'
   }
 
   return 'En attente'
@@ -598,9 +600,7 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
   height: 100dvh;
   overflow: hidden;
   padding: clamp(10px, 1.6vw, 20px);
-  background:
-    radial-gradient(circle at top, rgba(237, 214, 154, 0.15), transparent 32%),
-    linear-gradient(160deg, #132d21 0%, #0a1913 100%);
+  background: #092116;
 }
 
 .lobby-shell {
@@ -668,7 +668,7 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
   gap: 14px;
   padding: 10px 14px;
   border-radius: 20px;
-  background: rgba(32, 88, 52, 0.08);
+  background: rgba(139, 105, 20, 0.1);
 }
 
 .user-name {
@@ -748,8 +748,8 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
 }
 
 .status-playing {
-  background: rgba(32, 88, 52, 0.14);
-  color: #205834;
+  background: rgba(139, 105, 20, 0.14);
+  color: #8b6914;
 }
 
 .status-finished {
@@ -832,8 +832,8 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
 }
 
 .player-pill-self {
-  background: rgba(32, 88, 52, 0.1);
-  border-color: rgba(32, 88, 52, 0.2);
+  background: rgba(139, 105, 20, 0.14);
+  border-color: rgba(180, 140, 60, 0.25);
 }
 
 .player-num {
@@ -917,8 +917,8 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
 
 .preset-card:hover {
   transform: translateY(-1px);
-  border-color: rgba(32, 88, 52, 0.32);
-  box-shadow: 0 10px 24px rgba(32, 88, 52, 0.08);
+  border-color: rgba(180, 140, 60, 0.4);
+  box-shadow: 0 10px 24px rgba(139, 105, 20, 0.1);
 }
 
 .panel-create .preset-card strong {
@@ -936,8 +936,8 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
 }
 
 .preset-card-active {
-  border-color: rgba(32, 88, 52, 0.44);
-  background: rgba(32, 88, 52, 0.08);
+  border-color: rgba(180, 140, 60, 0.5);
+  background: rgba(139, 105, 20, 0.12);
 }
 
 .preset-summary {
@@ -1013,8 +1013,8 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
 
 .game-input:focus {
   outline: none;
-  border-color: rgba(32, 88, 52, 0.42);
-  box-shadow: 0 0 0 3px rgba(32, 88, 52, 0.1);
+  border-color: rgba(180, 140, 60, 0.5);
+  box-shadow: 0 0 0 3px rgba(139, 105, 20, 0.15);
 }
 
 .public-room-list {
@@ -1074,9 +1074,9 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
 }
 
 .btn-primary {
-  background: #205834;
+  background: #8b6914;
   color: #fff;
-  box-shadow: 0 12px 24px rgba(32, 88, 52, 0.2);
+  box-shadow: 0 12px 24px rgba(139, 105, 20, 0.25);
 }
 
 .btn-secondary,
@@ -1086,9 +1086,9 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
 }
 
 .btn-success {
-  background: #b67618;
+  background: #8b6914;
   color: #fff;
-  box-shadow: 0 12px 24px rgba(182, 118, 24, 0.2);
+  box-shadow: 0 12px 24px rgba(139, 105, 20, 0.25);
 }
 
 .btn-accent {
@@ -1592,6 +1592,513 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
   .empty-public p:last-child,
   .panel-create .quick-match p {
     display: none;
+  }
+}
+
+/* Lobby compact sombre: overrides de l'ancien layout clair. */
+.lobby-shell {
+  max-width: 1180px;
+  gap: clamp(10px, 1.6vw, 18px);
+}
+
+.lobby-header,
+.panel,
+.modal-card {
+  color: #f6f0dd;
+  background: rgba(28, 31, 28, 0.97);
+  border: 1px solid rgba(228, 203, 138, 0.28);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.3);
+}
+
+.lobby-header {
+  border-radius: 24px;
+}
+
+.lobby-grid {
+  grid-template-areas: "create actions";
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.86fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.panel-actions {
+  grid-area: actions;
+}
+
+.panel-create {
+  grid-area: create;
+}
+
+.lobby-header h1,
+.panel-head h2,
+.compact-box h3,
+.public-room-card h3,
+.players-head h3,
+.modal-card h2 {
+  color: #fff7dc;
+}
+
+.subtitle,
+.players-head p,
+.compact-box p,
+.public-room-top p,
+.preset-summary p,
+.empty-room p,
+.empty-public p,
+.helper-text {
+  color: rgba(246, 240, 221, 0.72);
+}
+
+.eyebrow,
+.section-kicker,
+.user-label,
+.meta-label,
+.player-num {
+  color: #e4cb8a;
+}
+
+.user-panel,
+.compact-box,
+.preset-card,
+.meta-card,
+.player-pill,
+.public-room-card,
+.empty-room,
+.empty-public,
+.shortcut-card {
+  background: rgba(255, 246, 216, 0.07);
+  border: 1px solid rgba(228, 203, 138, 0.18);
+}
+
+.user-name,
+.meta-card strong,
+.preset-card strong,
+.shortcut-card strong {
+  color: #fff7dc;
+}
+
+.preset-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.preset-card {
+  color: #f6f0dd;
+}
+
+.preset-card span,
+.shortcut-card span {
+  color: rgba(246, 240, 221, 0.68);
+}
+
+.preset-card-active {
+  background: rgba(228, 203, 138, 0.14);
+  border-color: rgba(245, 211, 127, 0.58);
+}
+
+.action-stack,
+.modal-shortcuts {
+  display: grid;
+  gap: 12px;
+}
+
+.modal-shortcuts {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.shortcut-card {
+  display: grid;
+  gap: 5px;
+  min-height: 92px;
+  padding: 16px;
+  text-align: left;
+  border-radius: 18px;
+  cursor: pointer;
+}
+
+.shortcut-card-active {
+  border-color: rgba(245, 211, 127, 0.62);
+  box-shadow: inset 0 0 0 1px rgba(245, 211, 127, 0.16);
+}
+
+.join-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.game-input {
+  color: #fff7dc;
+  background: rgba(4, 14, 10, 0.56);
+  border-color: rgba(228, 203, 138, 0.24);
+}
+
+.game-input::placeholder {
+  color: rgba(246, 240, 221, 0.42);
+}
+
+.btn-secondary,
+.btn-ghost,
+.modal-close {
+  color: #fff7dc;
+  background: rgba(255, 246, 216, 0.1);
+  border: 1px solid rgba(228, 203, 138, 0.18);
+}
+
+.tag,
+.room-code,
+.status-badge {
+  background: rgba(255, 246, 216, 0.1);
+  color: #f5d37f;
+}
+
+.status-playing {
+  background: rgba(77, 155, 102, 0.18);
+  color: #9be3ad;
+}
+
+.status-finished {
+  background: rgba(128, 128, 128, 0.18);
+  color: #ddd2b7;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: clamp(12px, 3vw, 32px);
+  background: rgba(0, 0, 0, 0.66);
+  backdrop-filter: blur(8px);
+}
+
+.modal-card {
+  width: min(720px, 100%);
+  max-height: min(760px, calc(100dvh - 24px));
+  overflow: auto;
+  padding: clamp(18px, 2.4vw, 28px);
+  border-radius: 26px;
+}
+
+.modal-card-wide {
+  width: min(1020px, 100%);
+}
+
+.modal-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+  margin-bottom: 18px;
+}
+
+.modal-head-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.modal-close {
+  border-radius: 999px;
+  padding: 9px 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.active-room {
+  overflow: visible;
+  padding-right: 0;
+}
+
+.room-meta-grid {
+  margin-top: 14px;
+}
+
+.public-room-list {
+  overflow: visible;
+  padding-right: 0;
+}
+
+.error-banner {
+  background: rgba(127, 29, 29, 0.72);
+  border-color: rgba(255, 190, 160, 0.28);
+  color: #ffe9de;
+}
+
+@media (max-width: 820px) {
+  .lobby-grid {
+    grid-template-areas:
+      "create"
+      "actions";
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+
+  .lobby-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .modal-shortcuts,
+  .join-form {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-card {
+    border-radius: 20px;
+    padding: 14px;
+  }
+
+  .modal-head,
+  .modal-head-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-height: 540px) and (orientation: landscape) {
+  .lobby-grid {
+    grid-template-areas: "create actions";
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 0.9fr);
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .modal-card {
+    max-height: calc(100dvh - 16px);
+    padding: 12px;
+  }
+}
+
+/* Finition lobby: cartes plus sombres et alignements moins étirés. */
+.lobby-page {
+  background: #07150e;
+}
+
+.lobby-shell {
+  max-width: 1240px;
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.lobby-grid {
+  align-items: start;
+  gap: clamp(12px, 1.7vw, 20px);
+}
+
+.lobby-header,
+.panel,
+.modal-card {
+  background: rgba(32, 34, 31, 0.97);
+  border-color: rgba(226, 203, 145, 0.28);
+}
+
+.lobby-header {
+  min-height: 112px;
+  align-items: center;
+}
+
+.header-copy {
+  display: grid;
+  gap: 8px;
+}
+
+.subtitle {
+  max-width: 620px;
+}
+
+.panel {
+  align-self: start;
+  min-height: 0;
+  height: auto;
+  padding: clamp(18px, 2vw, 24px);
+}
+
+.panel-head {
+  margin-bottom: 16px;
+}
+
+.panel-head h2,
+.compact-box h3 {
+  letter-spacing: -0.02em;
+}
+
+.create-body,
+.action-stack {
+  gap: 14px;
+}
+
+.panel-create {
+  min-height: 260px;
+}
+
+.panel-actions {
+  min-height: 0;
+}
+
+.preset-summary {
+  min-height: 24px;
+}
+
+.user-panel,
+.compact-box,
+.preset-card,
+.meta-card,
+.player-pill,
+.public-room-card,
+.empty-room,
+.empty-public,
+.shortcut-card {
+  background: rgba(12, 30, 20, 0.92);
+  border-color: rgba(226, 203, 145, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 244, 205, 0.06),
+    0 10px 24px rgba(0, 0, 0, 0.18);
+}
+
+.preset-card,
+.shortcut-card {
+  transition:
+    transform 140ms ease,
+    border-color 140ms ease,
+    background 140ms ease;
+}
+
+.preset-card:hover,
+.shortcut-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(241, 211, 139, 0.5);
+}
+
+.preset-card-active {
+  background: rgba(90, 62, 12, 0.55);
+  border-color: rgba(246, 214, 137, 0.72);
+  box-shadow:
+    inset 0 0 0 1px rgba(246, 214, 137, 0.18),
+    0 12px 28px rgba(0, 0, 0, 0.22);
+}
+
+.preset-card strong,
+.shortcut-card strong,
+.compact-box h3 {
+  color: #fff4cf;
+}
+
+.preset-card span,
+.shortcut-card span,
+.compact-box p {
+  color: rgba(243, 232, 198, 0.72);
+}
+
+.compact-box {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 18px;
+}
+
+.compact-box .section-kicker {
+  margin-bottom: 8px;
+}
+
+.compact-box .btn {
+  align-self: center;
+  white-space: nowrap;
+}
+
+.join-form {
+  align-items: center;
+  gap: 10px;
+}
+
+.game-input {
+  min-height: 46px;
+  background: rgba(16, 18, 16, 0.88);
+  border-color: rgba(226, 203, 145, 0.2);
+  box-shadow: inset 0 1px 8px rgba(0, 0, 0, 0.34);
+}
+
+.btn {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.btn-primary,
+.btn-success {
+  background: #8b6914;
+}
+
+.btn-accent {
+  background: #8c2222;
+}
+
+.btn-secondary,
+.btn-ghost,
+.modal-close {
+  background: rgba(52, 54, 48, 0.95);
+}
+
+.modal-shortcuts {
+  gap: 12px;
+}
+
+.shortcut-card {
+  min-height: 86px;
+  align-content: center;
+}
+
+.shortcut-card-active {
+  background: rgba(90, 62, 12, 0.55);
+  border-color: rgba(246, 214, 137, 0.72);
+}
+
+.room-meta-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.public-room-card {
+  align-items: stretch;
+}
+
+@media (max-width: 820px) {
+  .lobby-shell {
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+
+  .lobby-header {
+    min-height: 0;
+  }
+
+  .panel-create {
+    min-height: 0;
+  }
+
+  .compact-box {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-height: 540px) and (orientation: landscape) {
+  .lobby-shell {
+    max-width: 1180px;
+  }
+
+  .lobby-header {
+    min-height: 0;
+  }
+
+  .panel {
+    padding: 12px;
+  }
+
+  .compact-box {
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 10px;
+    gap: 10px;
+  }
+
+  .shortcut-card {
+    min-height: 68px;
   }
 }
 </style>

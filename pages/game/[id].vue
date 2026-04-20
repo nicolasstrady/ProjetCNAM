@@ -28,7 +28,7 @@
                 @click="handleRetrieveDog"
                 class="btn btn-primary"
               >
-                Recuperer le chien
+                Récupérer le chien
               </button>
             </div>
           </section>
@@ -36,8 +36,8 @@
 
         <section v-if="showRotateOverlay" class="rotate-overlay">
           <div class="rotate-card">
-            <h2>Tournez votre telephone</h2>
-            <p>Le tapis est optimise pour le paysage. Passez en mode horizontal pour jouer confortablement.</p>
+            <h2>Tournez votre téléphone</h2>
+            <p>Le tapis est optimisé pour le paysage. Passez en mode horizontal pour jouer confortablement.</p>
           </div>
         </section>
 
@@ -55,7 +55,7 @@
                 <p>{{ finalSummaryText }}</p>
               </div>
 
-              <span class="final-summary-pill">{{ finalResult.attackWon ? 'Attaque gagnante' : 'Defense gagnante' }}</span>
+              <span class="final-summary-pill">{{ finalResult.attackWon ? 'Attaque gagnante' : 'Défense gagnante' }}</span>
             </div>
 
             <div class="final-stats-grid">
@@ -72,7 +72,7 @@
                 <strong>{{ formatScoreValue(finalResult.attackPoints) }}</strong>
               </div>
               <div class="final-stat-card">
-                <span>Points demandes</span>
+                <span>Points demandés</span>
                 <strong>{{ formatScoreValue(finalResult.requiredPoints) }}</strong>
               </div>
               <div class="final-stat-card">
@@ -89,12 +89,12 @@
               </div>
               <div class="final-stat-card">
                 <span>Chien</span>
-                <strong>{{ formatScoreValue(finalResult.dogPoints) }} pour {{ finalResult.dogOwner === 'ATTACK' ? 'attaque' : 'defense' }}</strong>
+                <strong>{{ formatScoreValue(finalResult.dogPoints) }} pour {{ finalResult.dogOwner === 'ATTACK' ? 'attaque' : 'défense' }}</strong>
               </div>
             </div>
 
             <p v-if="!finalResult.bonusesHandled" class="final-summary-note">
-              Le tableau applique le score contrat + bouts. Les bonus de poignee, chelem et petit au bout ne sont pas encore geres.
+              Le tableau applique le score contrat + bouts. Les bonus de poignée, chelem et petit au bout ne sont pas encore gérés.
             </p>
 
             <div class="final-table-wrapper">
@@ -102,7 +102,7 @@
                 <thead>
                   <tr>
                     <th>Joueur</th>
-                    <th>Role</th>
+                    <th>Rôle</th>
                     <th>Camp</th>
                     <th>Points de plis</th>
                     <th>Score final</th>
@@ -116,94 +116,7 @@
                   >
                     <td>{{ result.pseudo }}</td>
                     <td>{{ result.roleLabel }}</td>
-                    <td>{{ result.side === 'ATTACK' ? 'Attaque' : 'Defense' }}</td>
-                    <td>{{ formatScoreValue(result.trickPoints) }}</td>
-                    <td :class="result.finalDelta >= 0 ? 'score-positive' : 'score-negative'">
-                      {{ formatSignedScore(result.finalDelta) }}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-
-        <section v-if="finalResult" class="final-summary-overlay" style="display: none;" aria-hidden="true">
-          <div
-            class="final-summary"
-            :class="{
-              'outcome-victory': finalOutcomeState === 'victory',
-              'outcome-defeat': finalOutcomeState === 'defeat'
-            }"
-          >
-            <div class="final-summary-header">
-              <div>
-                <h2>{{ finalOutcomeTitle }}</h2>
-                <p>{{ finalSummaryText }}</p>
-              </div>
-
-              <span class="final-summary-pill">{{ finalResult.attackWon ? 'Attaque gagnante' : 'DÃƒÂ©fense gagnante' }}</span>
-            </div>
-
-            <div class="final-stats-grid">
-              <div class="final-stat-card">
-                <span>Contrat</span>
-                <strong>{{ finalResult.contractLabel }} x{{ finalResult.multiplier }}</strong>
-              </div>
-              <div class="final-stat-card">
-                <span>Bouts attaque</span>
-                <strong>{{ finalResult.bouts }}</strong>
-              </div>
-              <div class="final-stat-card">
-                <span>Points attaque</span>
-                <strong>{{ formatScoreValue(finalResult.attackPoints) }}</strong>
-              </div>
-              <div class="final-stat-card">
-                <span>Points demandÃƒÂ©s</span>
-                <strong>{{ formatScoreValue(finalResult.requiredPoints) }}</strong>
-              </div>
-              <div class="final-stat-card">
-                <span>Ecart</span>
-                <strong>{{ formatSignedScore(finalResult.pointDifference) }}</strong>
-              </div>
-              <div class="final-stat-card">
-                <span>Base</span>
-                <strong>{{ formatScoreValue(finalResult.basePoints) }}</strong>
-              </div>
-              <div class="final-stat-card">
-                <span>Valeur du contrat</span>
-                <strong>{{ formatScoreValue(finalResult.totalScore) }}</strong>
-              </div>
-              <div class="final-stat-card">
-                <span>Chien</span>
-                <strong>{{ formatScoreValue(finalResult.dogPoints) }} pour {{ finalResult.dogOwner === 'ATTACK' ? 'attaque' : 'dÃƒÂ©fense' }}</strong>
-              </div>
-            </div>
-
-            <p v-if="!finalResult.bonusesHandled" class="final-summary-note">
-              Le tableau applique le score contrat + bouts. Les bonus de poignÃƒÂ©e, chelem et petit au bout ne sont pas encore gÃƒÂ©rÃƒÂ©s.
-            </p>
-
-            <div class="final-table-wrapper">
-              <table class="final-table">
-                <thead>
-                  <tr>
-                    <th>Joueur</th>
-                    <th>RÃƒÂ´le</th>
-                    <th>Camp</th>
-                    <th>Points de plis</th>
-                    <th>Score final</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr
-                    v-for="result in finalResult.playerResults"
-                    :key="result.playerNum"
-                    :class="{ current: result.playerNum === playerNum }"
-                  >
-                    <td>{{ result.pseudo }}</td>
-                    <td>{{ result.roleLabel }}</td>
-                    <td>{{ result.side === 'ATTACK' ? 'Attaque' : 'DÃƒÂ©fense' }}</td>
+                    <td>{{ result.side === 'ATTACK' ? 'Attaque' : 'Défense' }}</td>
                     <td>{{ formatScoreValue(result.trickPoints) }}</td>
                     <td :class="result.finalDelta >= 0 ? 'score-positive' : 'score-negative'">
                       {{ formatSignedScore(result.finalDelta) }}
@@ -216,94 +129,6 @@
         </section>
       </div>
     </div>
-
-    <section
-      v-if="finalResult"
-      class="final-summary"
-      :class="{
-        'outcome-victory': finalOutcomeState === 'victory',
-        'outcome-defeat': finalOutcomeState === 'defeat'
-      }"
-      style="display: none;"
-      aria-hidden="true"
-    >
-      <div class="final-summary-header">
-        <div>
-          <h2>{{ finalOutcomeTitle }}</h2>
-          <p>{{ finalSummaryText }}</p>
-        </div>
-
-        <span class="final-summary-pill">{{ finalResult.attackWon ? 'Attaque gagnante' : 'DÃ©fense gagnante' }}</span>
-      </div>
-
-      <div class="final-stats-grid">
-        <div class="final-stat-card">
-          <span>Contrat</span>
-          <strong>{{ finalResult.contractLabel }} x{{ finalResult.multiplier }}</strong>
-        </div>
-        <div class="final-stat-card">
-          <span>Bouts attaque</span>
-          <strong>{{ finalResult.bouts }}</strong>
-        </div>
-        <div class="final-stat-card">
-          <span>Points attaque</span>
-          <strong>{{ formatScoreValue(finalResult.attackPoints) }}</strong>
-        </div>
-        <div class="final-stat-card">
-          <span>Points demandÃ©s</span>
-          <strong>{{ formatScoreValue(finalResult.requiredPoints) }}</strong>
-        </div>
-        <div class="final-stat-card">
-          <span>Ecart</span>
-          <strong>{{ formatSignedScore(finalResult.pointDifference) }}</strong>
-        </div>
-        <div class="final-stat-card">
-          <span>Base</span>
-          <strong>{{ formatScoreValue(finalResult.basePoints) }}</strong>
-        </div>
-        <div class="final-stat-card">
-          <span>Valeur du contrat</span>
-          <strong>{{ formatScoreValue(finalResult.totalScore) }}</strong>
-        </div>
-        <div class="final-stat-card">
-          <span>Chien</span>
-          <strong>{{ formatScoreValue(finalResult.dogPoints) }} pour {{ finalResult.dogOwner === 'ATTACK' ? 'attaque' : 'dÃ©fense' }}</strong>
-        </div>
-      </div>
-
-      <p v-if="!finalResult.bonusesHandled" class="final-summary-note">
-        Le tableau applique le score contrat + bouts. Les bonus de poignÃ©e, chelem et petit au bout ne sont pas encore gÃ©rÃ©s.
-      </p>
-
-      <div class="final-table-wrapper">
-        <table class="final-table">
-          <thead>
-            <tr>
-              <th>Joueur</th>
-              <th>RÃ´le</th>
-              <th>Camp</th>
-              <th>Points de plis</th>
-              <th>Score final</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="result in finalResult.playerResults"
-              :key="result.playerNum"
-              :class="{ current: result.playerNum === playerNum }"
-            >
-              <td>{{ result.pseudo }}</td>
-              <td>{{ result.roleLabel }}</td>
-              <td>{{ result.side === 'ATTACK' ? 'Attaque' : 'DÃ©fense' }}</td>
-              <td>{{ formatScoreValue(result.trickPoints) }}</td>
-              <td :class="result.finalDelta >= 0 ? 'score-positive' : 'score-negative'">
-                {{ formatSignedScore(result.finalDelta) }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
   </div>
 </template>
 
@@ -354,7 +179,7 @@ const finalOutcomeTitle = computed(() => {
     return 'Fin de partie'
   }
 
-  return myFinalResult.value.finalDelta >= 0 ? 'Victoire' : 'DÃ©faite'
+  return myFinalResult.value.finalDelta >= 0 ? 'Victoire' : 'Défaite'
 })
 const finalOutcomeState = computed(() => {
   const finalDelta = myFinalResult.value?.finalDelta
@@ -375,10 +200,10 @@ const finalSummaryText = computed(() => {
   const attackScore = formatScoreValue(finalResult.value.attackPoints)
 
   if (finalResult.value.attackWon) {
-    return `L'attaque fait ${attackScore} pour ${target} demandÃ©s et passe le contrat de ${difference}.`
+    return `L'attaque fait ${attackScore} pour ${target} demandés et passe le contrat de ${difference}.`
   }
 
-  return `L'attaque fait ${attackScore} pour ${target} demandÃ©s et chute de ${difference}.`
+  return `L'attaque fait ${attackScore} pour ${target} demandés et chute de ${difference}.`
 })
 const showActionPanel = computed(() => {
   if (!gameData.value || gamePhase.value === 'FINISHED') {
@@ -402,7 +227,7 @@ const actionHint = computed(() => {
   }
 
   if (gamePhase.value === 'DOG_EXCHANGE') {
-    return 'Recuperez le chien avant de choisir les 3 cartes a remettre.'
+    return 'Récupérez le chien avant de choisir les 3 cartes à remettre.'
   }
 
   return ''
@@ -608,15 +433,15 @@ const loadGameState = async () => {
 const formatCalledKingLabel = (color: string | null) => {
   switch (normalizeCardColor(color)) {
     case 'COEUR':
-      return 'roi de coeur'
+      return 'roi de cœur'
     case 'CARREAU':
       return 'roi de carreau'
     case 'TREFLE':
-      return 'roi de trefle'
+      return 'roi de trèfle'
     case 'PIQUE':
       return 'roi de pique'
     default:
-      return 'roi appele'
+      return 'roi appelé'
   }
 }
 
@@ -626,7 +451,7 @@ const updateStatusText = (state: GameApiState) => {
 
   switch (state.phase) {
     case 'BIDDING':
-      statusText.value = isMyTurn.value ? 'A vous de declarer' : 'Phase dencheres'
+      statusText.value = isMyTurn.value ? 'À vous de déclarer' : "Phase d'enchères"
       break
     case 'CALLING':
       statusText.value = isTaker.value ? 'Choisissez un roi sur le tapis' : 'Le preneur choisit un roi'
@@ -637,7 +462,7 @@ const updateStatusText = (state: GameApiState) => {
           ? `Chien valide - ${calledKingLabel}`
           : `${calledKingLabel} - le preneur fait son chien`
       } else if (!state.dogRetrieved) {
-        statusText.value = 'Recuperez le chien'
+        statusText.value = 'Récupérez le chien'
       } else if (state.dogDiscardCount >= 3) {
         statusText.value = 'Le chien est valide'
       } else {
@@ -648,9 +473,9 @@ const updateStatusText = (state: GameApiState) => {
       if (state.finPartie) {
         statusText.value = 'Fin de partie'
       } else if (state.finTour) {
-        statusText.value = 'Pli termine'
+        statusText.value = 'Pli terminé'
       } else if (isMyTurn.value) {
-        statusText.value = 'A vous de jouer'
+        statusText.value = 'À vous de jouer'
       } else if (currentPlayer) {
         statusText.value = `Au tour de ${currentPlayer.pseudo}`
       } else {
@@ -660,7 +485,7 @@ const updateStatusText = (state: GameApiState) => {
     case 'FINISHED':
       if (state.finalResult) {
         const currentPlayerResult = state.finalResult.playerResults.find((result) => result.playerNum === playerNum.value)
-        statusText.value = currentPlayerResult && currentPlayerResult.finalDelta >= 0 ? 'Victoire' : 'DÃ©faite'
+        statusText.value = currentPlayerResult && currentPlayerResult.finalDelta >= 0 ? 'Victoire' : 'Défaite'
       } else {
         statusText.value = 'Partie close'
       }
@@ -749,7 +574,7 @@ const handleCallKingCard = async (card: Card) => {
   const result = await callKing(partieId.value, card.id)
 
   if (!result.success) {
-    statusText.value = result.error ?? 'Impossible d appeler ce roi'
+    statusText.value = result.error ?? "Impossible d'appeler ce roi"
     return
   }
 
@@ -764,7 +589,7 @@ const handleRetrieveDog = async () => {
   const result = await retrieveDog(user.value.id, partieId.value)
 
   if (!result.success) {
-    statusText.value = result.error ?? 'Impossible de recuperer le chien'
+    statusText.value = result.error ?? 'Impossible de récupérer le chien'
     return
   }
 

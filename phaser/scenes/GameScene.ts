@@ -4,6 +4,11 @@ import { getRelativePlayerOffset, sortHandCards } from '~/utils/tarot'
 
 declare const __CARD_ASSET_VERSION__: string
 
+const CARD_ASSET_VERSION =
+  typeof __CARD_ASSET_VERSION__ === 'string' && __CARD_ASSET_VERSION__.length > 0
+    ? __CARD_ASSET_VERSION__
+    : 'dev'
+
 interface SceneCallbacks {
   onCardClick?: (card: Card) => void
   onCallKing?: (card: Card) => void
@@ -1509,6 +1514,6 @@ export class GameScene extends Phaser.Scene {
 
   private versionAssetPath(path: string) {
     const separator = path.includes('?') ? '&' : '?'
-    return `${path}${separator}v=${encodeURIComponent(__CARD_ASSET_VERSION__)}`
+    return `${path}${separator}v=${encodeURIComponent(CARD_ASSET_VERSION)}`
   }
 }

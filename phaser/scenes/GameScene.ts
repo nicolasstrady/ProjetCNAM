@@ -5,7 +5,6 @@ import { getRelativePlayerOffset, sortHandCards } from '~/utils/tarot'
 interface SceneCallbacks {
   onCardClick?: (card: Card) => void
   onCallKing?: (card: Card) => void
-  onRetrieveDog?: () => void
 }
 
 interface RenderOptions {
@@ -54,9 +53,6 @@ interface SceneLayout {
   kingCardsY: number
   kingCardWidth: number
   kingCardHeight: number
-  retrieveButtonY: number
-  retrieveButtonWidth: number
-  retrieveButtonHeight: number
 }
 
 type SeatKey = 'self' | 'left' | 'topLeft' | 'topRight' | 'right'
@@ -86,7 +82,6 @@ export class GameScene extends Phaser.Scene {
   } | null = null
   private onCardClick?: (card: Card) => void
   private onCallKing?: (card: Card) => void
-  private onRetrieveDog?: () => void
   private sceneReady = false
   private backgroundImage?: Phaser.GameObjects.Image
   private tableBorder?: Phaser.GameObjects.Rectangle
@@ -100,7 +95,6 @@ export class GameScene extends Phaser.Scene {
   init(data: SceneCallbacks) {
     this.onCardClick = data.onCardClick
     this.onCallKing = data.onCallKing
-    this.onRetrieveDog = data.onRetrieveDog
   }
 
   preload() {
@@ -215,7 +209,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (this.shouldAnimateDogRetrieve(previousState, nextState)) {
-      this.animateDogRetrieve(previousState as SceneTableState, nextState)
+      this.animateDogRetrieve(previousState as SceneTableState)
       return
     }
 
@@ -415,10 +409,7 @@ export class GameScene extends Phaser.Scene {
       kingLabelY: sy(kingLabelYDisplay),
       kingCardsY: sy(kingCardsYDisplay),
       kingCardWidth,
-      kingCardHeight,
-      retrieveButtonY: sy(dogInfoYDisplay),
-      retrieveButtonWidth: sx(Phaser.Math.Clamp(displayWidth * 0.22, 190, 250)),
-      retrieveButtonHeight: sy(Phaser.Math.Clamp(displayHeight * 0.062, 42, 54))
+      kingCardHeight
     }
   }
 
@@ -768,40 +759,6 @@ export class GameScene extends Phaser.Scene {
     this.dynamicObjects.push(badge, kingCard, label)
   }
 
-  private renderRetrieveDogButton() {
-    const layout = this.getLayout()
-    const background = this.add.rectangle(
-      layout.centerX,
-      layout.retrieveButtonY,
-      layout.retrieveButtonWidth,
-      layout.retrieveButtonHeight,
-      0x1c5b2e,
-      0.92
-    )
-      .setStrokeStyle(2, 0xf5d37f, 0.7)
-      .setInteractive({ useHandCursor: true })
-
-    const text = this.addSharpText(layout.centerX, layout.retrieveButtonY, 'Recuperer le chien', {
-      color: '#fff6d8',
-      fontSize: this.toPx(layout.selfFontSize),
-      fontStyle: 'bold'
-    }).setOrigin(0.5)
-
-    background.on('pointerover', () => {
-      background.setFillStyle(0x24763b, 0.96)
-    })
-
-    background.on('pointerout', () => {
-      background.setFillStyle(0x1c5b2e, 0.92)
-    })
-
-    background.on('pointerdown', () => {
-      this.onRetrieveDog?.()
-    })
-
-    this.dynamicObjects.push(background, text)
-  }
-
   private renderPlayerHand() {
     if (!this.tableState) {
       return
@@ -959,7 +916,7 @@ export class GameScene extends Phaser.Scene {
     return nextState.discardedDogCards.find((card) => !previousDiscardIds.has(card.id)) ?? null
   }
 
-  private animateDogRetrieve(previousState: SceneTableState, nextState: SceneTableState) {
+  private animateDogRetrieve(previousState: SceneTableState) {
     if (previousState.dogCards.length === 0) {
       this.renderTable()
       return

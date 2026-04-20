@@ -138,14 +138,12 @@ const registerForm = reactive({
   motdepasse: ''
 })
 
-onMounted(() => {
-  void (async () => {
-    await restoreSession()
+onMounted(async () => {
+  await restoreSession()
 
-    if (user.value) {
-      await router.push('/lobby')
-    }
-  })()
+  if (user.value) {
+    await router.push('/lobby')
+  }
 })
 
 const handleLogin = async () => {
@@ -155,7 +153,7 @@ const handleLogin = async () => {
   const result = await login(loginForm)
   
   if (result.success) {
-    router.push('/lobby')
+    await router.push('/lobby')
   } else {
     errorMessage.value = result.error || 'Erreur de connexion'
   }
@@ -170,7 +168,7 @@ const handleRegister = async () => {
   const result = await register(registerForm)
   
   if (result.success) {
-    router.push('/lobby')
+    await router.push('/lobby')
   } else {
     errorMessage.value = result.error || 'Erreur d\'inscription'
   }

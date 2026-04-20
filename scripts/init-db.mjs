@@ -320,7 +320,7 @@ async function main() {
   try {
     await ensureDatabase(serverConnection, databaseName)
   } finally {
-    await serverConnection.end()
+    serverConnection.end()
   }
 
   const dbConnection = await waitForServerConnection(
@@ -358,7 +358,7 @@ async function main() {
       `Database ready: ${cardRows[0].count} cards, ${userRows[0].count} users in ${databaseName}.`
     )
   } finally {
-    await dbConnection.end()
+    dbConnection.end()
   }
 }
 

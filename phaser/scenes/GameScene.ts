@@ -505,6 +505,14 @@ export class GameScene extends Phaser.Scene {
 
       const badge = this.addTextBadge([selfLabel], Math.max(170, layout.handCardWidth * 2))
       this.dynamicObjects.push(badge, selfLabel)
+
+      const selfRoleIcon = this.getPlayerRoleIcon(myself.num)
+      if (selfRoleIcon) {
+        const iconSize = layout.selfFontSize
+        const labelBounds = selfLabel.getBounds()
+        const icon = this.renderSwordIcon(labelBounds.x - iconSize * 0.72, layout.selfLabelY, iconSize, selfRoleIcon)
+        this.dynamicObjects.push(icon)
+      }
     }
 
     this.tableState.players
@@ -549,6 +557,14 @@ export class GameScene extends Phaser.Scene {
 
     const badge = this.addTextBadge([label, score], seatConfig.badgeWidth)
     this.dynamicObjects.push(badge, label, score)
+
+    const opponentRoleIcon = this.getPlayerRoleIcon(player.num)
+    if (opponentRoleIcon) {
+      const iconSize = layout.opponentLabelFontSize
+      const labelBounds = label.getBounds()
+      const icon = this.renderSwordIcon(labelBounds.x - iconSize * 0.72, seatConfig.labelY, iconSize, opponentRoleIcon)
+      this.dynamicObjects.push(icon)
+    }
   }
 
   private addTextBadge(textObjects: Phaser.GameObjects.Text[], minWidth = 0) {
@@ -1349,15 +1365,62 @@ export class GameScene extends Phaser.Scene {
       return '#f2a347'
     }
 
-    if (this.tableState.teamsRevealed && this.tableState.takerNum !== null) {
-      if (playerNum === this.tableState.takerNum || playerNum === this.tableState.partnerNum) {
-        return '#db7660'
-      }
+    return '#f1ead9'
+  }
 
-      return '#7fb0de'
+  private getPlayerRoleIcon(playerNum: number): 'crossed' | 'single' | null {
+    if (!this.tableState || this.tableState.takerNum === null) {
+      return null
     }
 
-    return '#f1ead9'
+    if (playerNum === this.tableState.takerNum) {
+      return 'crossed'
+    }
+
+    if (
+      this.tableState.teamsRevealed &&
+      this.tableState.partnerNum !== null &&
+      playerNum === this.tableState.partnerNum &&
+      playerNum !== this.tableState.takerNum
+    ) {
+      return 'single'
+    }
+
+    return null
+  }
+
+  private renderSwordIcon(
+    x: number,
+    y: number,
+    size: number,
+    type: 'crossed' | 'single'
+  ): Phaser.GameObjects.Graphics {
+    const g = this.add.graphics()
+    const bladeLen = size * 0.42
+    const lineWidth = Math.max(1.5, size * 0.09)
+
+    if (type === 'crossed') {
+      g.lineStyle(lineWidth, 0xf5d37f, 0.92)
+      g.lineBetween(x - bladeLen, y - bladeLen, x + bladeLen, y + bladeLen)
+      g.lineBetween(x + bladeLen, y - bladeLen, x - bladeLen, y + bladeLen)
+      const guardW = size * 0.18
+      g.lineStyle(lineWidth * 1.3, 0xd4aa44, 0.88)
+      g.lineBetween(x - guardW, y, x + guardW, y)
+    } else {
+      g.lineStyle(lineWidth, 0xf5d37f, 0.92)
+      g.lineBetween(x, y - bladeLen, x, y + bladeLen * 0.6)
+      const guardW = size * 0.22
+      const guardY = y + bladeLen * 0.08
+      g.lineStyle(lineWidth * 1.3, 0xd4aa44, 0.88)
+      g.lineBetween(x - guardW, guardY, x + guardW, guardY)
+      g.lineStyle(lineWidth * 0.9, 0xb8923a, 0.8)
+      g.lineBetween(x, guardY, x, y + bladeLen)
+      g.fillStyle(0xd4aa44, 0.75)
+      g.fillCircle(x, y + bladeLen + size * 0.05, Math.max(1.5, size * 0.06))
+    }
+
+    g.setDepth(8)
+    return g
   }
 
   private getCalledKingColorLabel(color: string) {

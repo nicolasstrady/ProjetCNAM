@@ -8,7 +8,7 @@ import {
   TRICK_COLLECTION_LOCK_MS,
   setPlayerContractAction
 } from '~/server/utils/gameActions'
-import { extractPlayerCardIds, getCardsByIds, getDogCardIds, getPlayerRowByNum } from '~/server/utils/gameData'
+import { extractPlayerCardIds, getCardsByIds, getPlayerRowByNum } from '~/server/utils/gameData'
 import { getGameSession } from '~/server/utils/gameSession'
 import { hashPassword, migrateLegacyPasswords } from '~/server/utils/auth'
 import { ensureLobbySchema } from '~/server/utils/lobbySchema'
@@ -17,7 +17,6 @@ import {
   getCardNumericValue,
   getColorOrder,
   getEffectiveColor,
-  getLedColorFromCards,
   getPlayableCardIds,
   isBoutCard,
   isDogDiscardForbidden,
@@ -151,11 +150,12 @@ async function ensureBotUsers(requiredCount = BOT_POOL_SIZE) {
     `SELECT id, pseudo
      FROM utilisateur
      WHERE email LIKE 'bot%@tarot.local'
-     ORDER BY id ASC`
+     ORDER BY id`
   )
 }
 
 async function getRoomPlayers(partieId: number) {
+  // noinspection SqlResolve
   return query<BotPlayerRow>(
     `SELECT j.utilisateur, j.num, j.reponse, j.playerType, j.botLevel, u.pseudo,
             j.carte1, j.carte2, j.carte3, j.carte4, j.carte5,
@@ -202,7 +202,7 @@ async function selectCalledKingCardId(cards: Card[]) {
     `SELECT id, lien, couleur, valeur, points
      FROM carte
      WHERE valeur = '14' AND couleur NOT IN ('ATOUT', 'BOUT')
-     ORDER BY id ASC`
+     ORDER BY id`
   )
 
   const suitCounts = new Map<string, number>()
@@ -305,6 +305,7 @@ async function getBotPhaseContext(partieId: number) {
     "SELECT COUNT(*) as count FROM joueur WHERE partie = ? AND reponse != 'WAIT'",
     [partieId]
   )
+  // noinspection SqlResolve
   const taker = await queryOne<{ num: number; utilisateur: number; reponse: ContractType; playerType: PlayerType }>(
     `SELECT num, utilisateur, reponse, playerType
      FROM joueur
@@ -344,9 +345,9 @@ async function getBotTurnPlan(partieId: number) {
     }
   }
 
-  let phase: 'BIDDING' | 'CALLING' | 'DOG_EXCHANGE' | 'PLAYING' = 'BIDDING'
-  let currentPlayerNum: number | null = null
-  let delayMs = 0
+  let phase: 'BIDDING' | 'CALLING' | 'DOG_EXCHANGE' | 'PLAYING'
+  let currentPlayerNum: number
+  let delayMs: number
 
   if (!context.taker) {
     phase = 'BIDDING'
@@ -483,7 +484,7 @@ export async function fillRoomWithBots(partieId: number) {
 
     const roomPlayers = await txQuery<{ utilisateur: number; num: number }>(
       connection,
-      'SELECT utilisateur, num FROM joueur WHERE partie = ? ORDER BY num ASC',
+      'SELECT utilisateur, num FROM joueur WHERE partie = ? ORDER BY num',
       [partieId]
     )
 
@@ -517,6 +518,7 @@ export async function fillRoomWithBots(partieId: number) {
         break
       }
 
+      // noinspection SqlResolve
       await txExecute(
         connection,
         `INSERT INTO joueur (utilisateur, num, partie, reponse, equipe, score, playerType, botLevel)

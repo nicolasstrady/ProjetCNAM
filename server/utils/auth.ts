@@ -47,12 +47,14 @@ function sanitizeUser(user: Pick<User, 'id' | 'nom' | 'prenom' | 'email' | 'pseu
 }
 
 async function cleanupExpiredSessions() {
+  // noinspection SqlResolve
   await execute('DELETE FROM auth_session WHERE expiresAt <= NOW()')
 }
 
 export async function ensureAuthSchema() {
   if (!authSchemaPromise) {
     authSchemaPromise = (async () => {
+      // noinspection SqlResolve
       await execute(
         `CREATE TABLE IF NOT EXISTS auth_session (
           id INT AUTO_INCREMENT PRIMARY KEY,
@@ -133,6 +135,7 @@ export async function createUserSession(event: H3Event, userId: number) {
   const tokenHash = hashSessionToken(token)
   const expiresAt = new Date(Date.now() + SESSION_DURATION_SECONDS * 1000)
 
+  // noinspection SqlResolve
   await execute(
     'INSERT INTO auth_session (userId, tokenHash, expiresAt) VALUES (?, ?, ?)',
     [userId, tokenHash, expiresAt]
@@ -146,6 +149,7 @@ export async function destroyUserSession(event: H3Event) {
 
   const token = getCookie(event, SESSION_COOKIE_NAME)
   if (token) {
+    // noinspection SqlResolve
     await execute('DELETE FROM auth_session WHERE tokenHash = ?', [hashSessionToken(token)])
   }
 
@@ -164,6 +168,7 @@ export async function getSessionUser(event: H3Event) {
     return null
   }
 
+  // noinspection SqlResolve
   const sessionUser = await queryOne<User & { expiresAt: string | Date }>(
     `SELECT u.id, u.nom, u.prenom, u.email, u.pseudo, s.expiresAt
      FROM auth_session s
@@ -188,6 +193,7 @@ export async function getSessionUser(event: H3Event) {
     return null
   }
 
+  // noinspection SqlResolve
   await execute(
     'UPDATE auth_session SET lastSeenAt = CURRENT_TIMESTAMP WHERE tokenHash = ?',
     [hashSessionToken(token)]
@@ -199,12 +205,10 @@ export async function getSessionUser(event: H3Event) {
 export async function findUserForLogin(email: string) {
   await migrateLegacyPasswords()
 
-  const user = await queryOne<UserRow>(
+  return queryOne<UserRow>(
     'SELECT id, nom, prenom, email, pseudo, motdepasse FROM utilisateur WHERE email = ? LIMIT 1',
     [email]
   )
-
-  return user
 }
 
 export async function upgradePasswordHashIfNeeded(userId: number, password: string, needsUpgrade: boolean) {

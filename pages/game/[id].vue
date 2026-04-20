@@ -42,7 +42,13 @@
         </section>
 
         <section v-if="finalResult" class="final-summary-overlay">
-          <div class="final-summary" :class="finalOutcomeClass">
+          <div
+            class="final-summary"
+            :class="{
+              'outcome-victory': finalOutcomeState === 'victory',
+              'outcome-defeat': finalOutcomeState === 'defeat'
+            }"
+          >
             <div class="final-summary-header">
               <div>
                 <h2>{{ finalOutcomeTitle }}</h2>
@@ -123,7 +129,13 @@
         </section>
 
         <section v-if="finalResult" class="final-summary-overlay" style="display: none;" aria-hidden="true">
-          <div class="final-summary" :class="finalOutcomeClass">
+          <div
+            class="final-summary"
+            :class="{
+              'outcome-victory': finalOutcomeState === 'victory',
+              'outcome-defeat': finalOutcomeState === 'defeat'
+            }"
+          >
             <div class="final-summary-header">
               <div>
                 <h2>{{ finalOutcomeTitle }}</h2>
@@ -205,7 +217,16 @@
       </div>
     </div>
 
-    <section v-if="finalResult" class="final-summary" :class="finalOutcomeClass" style="display: none;" aria-hidden="true">
+    <section
+      v-if="finalResult"
+      class="final-summary"
+      :class="{
+        'outcome-victory': finalOutcomeState === 'victory',
+        'outcome-defeat': finalOutcomeState === 'defeat'
+      }"
+      style="display: none;"
+      aria-hidden="true"
+    >
       <div class="final-summary-header">
         <div>
           <h2>{{ finalOutcomeTitle }}</h2>
@@ -335,12 +356,14 @@ const finalOutcomeTitle = computed(() => {
 
   return myFinalResult.value.finalDelta >= 0 ? 'Victoire' : 'DÃ©faite'
 })
-const finalOutcomeClass = computed(() => {
-  if (!myFinalResult.value) {
-    return 'outcome-neutral'
+const finalOutcomeState = computed(() => {
+  const finalDelta = myFinalResult.value?.finalDelta
+
+  if (typeof finalDelta !== 'number') {
+    return 'neutral'
   }
 
-  return myFinalResult.value.finalDelta >= 0 ? 'outcome-victory' : 'outcome-defeat'
+  return finalDelta >= 0 ? 'victory' : 'defeat'
 })
 const finalSummaryText = computed(() => {
   if (!finalResult.value) {

@@ -26,7 +26,15 @@
               <p class="section-kicker">Salon actif</p>
               <h2>{{ activeRoom ? `Salon #${activeRoom.id}` : 'Aucun salon en cours' }}</h2>
             </div>
-            <span v-if="activeRoom" class="status-badge" :class="`status-${activeRoom.status.toLowerCase()}`">
+            <span
+              v-if="activeRoom"
+              class="status-badge"
+              :class="{
+                'status-waiting': activeRoom.status === 'WAITING',
+                'status-playing': activeRoom.status === 'PLAYING',
+                'status-finished': activeRoom.status === 'FINISHED'
+              }"
+            >
               {{ formatRoomStatus(activeRoom.status) }}
             </span>
           </div>

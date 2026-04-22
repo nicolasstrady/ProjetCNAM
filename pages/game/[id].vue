@@ -150,6 +150,8 @@ const gameData = ref<GameApiState | null>(null)
 const allCards = ref<Card[]>([])
 const statusText = ref('Chargement...')
 const showRotateOverlay = ref(false)
+const refreshingGame = ref(false)
+const sceneSyncTick = ref(0)
 
 const gamePhase = computed<GamePhase>(() => gameData.value?.phase ?? 'BIDDING')
 const currentTurn = computed(() => gameData.value?.currentTurn ?? null)
@@ -281,7 +283,11 @@ const sceneTableState = computed<SceneTableState | null>(() => {
   }
 })
 
-watch([sceneTableState, gameScene], ([tableState, scene]) => {
+watch([sceneTableState, gameScene, sceneSyncTick], ([tableState, scene]) => {
+  if (refreshingGame.value) {
+    return
+  }
+
   if (tableState && scene) {
     scene.setTableState(tableState)
   }
@@ -343,7 +349,12 @@ onMounted(async () => {
 
   await nextTick()
   await loadCardsCatalog()
-  await initPhaser()
+  const phaserReady = await initPhaser()
+
+  if (!phaserReady) {
+    return
+  }
+
   await refreshGame()
   startGamePolling()
 })
@@ -359,18 +370,25 @@ onUnmounted(() => {
 
 const initPhaser = async () => {
   if (!process.client) {
-    return
+    return false
   }
 
-  const { GameScene } = await import('~/phaser/scenes/GameScene')
-  const game = await initGame('phaser-game')
+  try {
+    const { GameScene } = await import('~/phaser/scenes/GameScene')
+    const game = await initGame('phaser-game')
 
-  game.scene.add('GameScene', GameScene, true, {
-    onCardClick: handleSceneCardSelection,
-    onCallKing: handleCallKingCard
-  })
+    game.scene.add('GameScene', GameScene, true, {
+      onCardClick: handleSceneCardSelection,
+      onCallKing: handleCallKingCard
+    })
 
-  gameScene.value = markRaw(game.scene.getScene('GameScene') as GameScene)
+    gameScene.value = markRaw(game.scene.getScene('GameScene') as GameScene)
+    return true
+  } catch (error) {
+    console.error('Impossible d\'initialiser la scene Phaser', error)
+    statusText.value = 'Impossible d\'initialiser la table de jeu'
+    return false
+  }
 }
 
 const loadCardsCatalog = async () => {
@@ -392,8 +410,15 @@ const refreshGame = async () => {
       return
     }
 
-    await loadPlayerCards()
-    await loadGameState()
+    refreshingGame.value = true
+
+    try {
+      await loadPlayerCards()
+      await loadGameState()
+    } finally {
+      refreshingGame.value = false
+      sceneSyncTick.value += 1
+    }
   })()
 
   try {

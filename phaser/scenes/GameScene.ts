@@ -79,6 +79,9 @@ export class GameScene extends Phaser.Scene {
   private pendingTrickCollectionPliId: number | null = null
   private trickCollectionAnimating = false
   private trickCollectionAnimatingPliId: number | null = null
+  private visualTransitionDepth = 0
+  private queuedTableState: SceneTableState | null = null
+  private queuedTableStateSignature = ''
   private hoveredHandCard: {
     image: Phaser.GameObjects.Image
     baseY: number
@@ -91,7 +94,6 @@ export class GameScene extends Phaser.Scene {
   private sceneReady = false
   private backgroundImage?: Phaser.GameObjects.Image
   private tableBorder?: Phaser.GameObjects.Rectangle
-  private tableGlow?: Phaser.GameObjects.Ellipse
   private tableStateSignature = ''
   private pendingCardTextureLoads = new Set<string>()
   private pendingCardTextureCallbacks = new Map<string, Array<() => void>>()
@@ -137,10 +139,6 @@ export class GameScene extends Phaser.Scene {
       .setStrokeStyle(2, 0xd2b36b, 0.35)
       .setDepth(-20)
 
-    this.tableGlow = this.add.ellipse(0, 0, 0, 0, 0x082f1c, 0.22)
-      .setStrokeStyle(2, 0xe7d29b, 0.22)
-      .setDepth(-10)
-
     this.updateBackdropLayout()
   }
 
@@ -148,7 +146,7 @@ export class GameScene extends Phaser.Scene {
     this.cameras.resize(gameSize.width, gameSize.height)
     this.updateBackdropLayout()
 
-    if (!this.sceneReady || this.trickCollectionAnimating) {
+    if (!this.sceneReady || this.isVisualSequenceLocked()) {
       return
     }
 
@@ -173,20 +171,24 @@ export class GameScene extends Phaser.Scene {
     this.tableBorder
       ?.setPosition(layout.centerX, layout.centerY)
       .setSize(Math.max(layout.width - 20, layout.width * 0.96), Math.max(layout.height - 20, layout.height * 0.95))
-
-    this.tableGlow
-      ?.setPosition(layout.centerX, layout.centerY - Math.min(10, layout.height * 0.015))
-      .setSize(Math.max(layout.width * 0.5, 360), Math.max(layout.height * 0.42, 220))
   }
 
   setTableState(state: SceneTableState) {
-    const previousState = this.tableState ? this.cloneState(this.tableState) : null
     const nextState = this.cloneState(state)
     const nextSignature = this.getStateSignature(nextState)
-    const shouldShowTurnPopup = this.shouldShowTurnPopup(previousState, nextState)
+
+    if (this.isVisualSequenceLocked()) {
+      if (this.tableStateSignature !== nextSignature && this.queuedTableStateSignature !== nextSignature) {
+        this.queueTableState(nextState, nextSignature)
+      }
+      return
+    }
+
+    const previousState = this.tableState ? this.cloneState(this.tableState) : null
 
     if (this.tableStateSignature === nextSignature) {
       this.tableState = nextState
+      this.updateTurnPopup(previousState, nextState)
       return
     }
 
@@ -202,14 +204,6 @@ export class GameScene extends Phaser.Scene {
 
     if (!this.sceneReady) {
       return
-    }
-
-    if (nextState.phase === 'PLAYING' && nextState.currentTurn === nextState.myPlayerNum) {
-      if (shouldShowTurnPopup) {
-        this.showTurnPopup()
-      }
-    } else {
-      this.hideTurnPopup()
     }
 
     const isUpdatingCollectedPli = this.trickCollectionAnimatingPliId !== null
@@ -230,9 +224,18 @@ export class GameScene extends Phaser.Scene {
       return
     }
 
-    const newPlayedCard = this.getNewPlayedCard(previousState, nextState)
-    if (newPlayedCard) {
-      this.animatePlayedCard(previousState, nextState, newPlayedCard)
+    const newPlayedCards = this.getNewPlayedCards(previousState, nextState)
+    if (newPlayedCards.length > 0) {
+      const stagedState = this.getPlayedCardAnimationState(previousState, nextState, newPlayedCards[0])
+      const stagedSignature = this.getStateSignature(stagedState)
+
+      if (stagedSignature !== nextSignature) {
+        this.queueTableState(nextState, nextSignature)
+        this.tableState = stagedState
+        this.tableStateSignature = stagedSignature
+      }
+
+      this.animatePlayedCard(previousState, this.tableState as SceneTableState, newPlayedCards[0])
       return
     }
 
@@ -242,17 +245,71 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.renderTable()
+    this.updateTurnPopup(previousState, nextState)
+  }
+
+  private isVisualSequenceLocked() {
+    return this.visualTransitionDepth > 0 ||
+      this.pendingTrickCollection !== null ||
+      this.trickCollectionAnimating ||
+      this.trickCollectionAnimatingPliId !== null
+  }
+
+  private queueTableState(state: SceneTableState, signature = this.getStateSignature(state)) {
+    this.queuedTableState = this.cloneState(state)
+    this.queuedTableStateSignature = signature
+    this.hideTurnPopup()
+  }
+
+  private flushQueuedTableState() {
+    if (!this.queuedTableState) {
+      return false
+    }
+
+    const queuedState = this.queuedTableState
+    this.queuedTableState = null
+    this.queuedTableStateSignature = ''
+    this.setTableState(queuedState)
+    return true
+  }
+
+  private beginVisualTransition() {
+    this.visualTransitionDepth += 1
+    this.hideTurnPopup()
+  }
+
+  private finishVisualTransition() {
+    this.visualTransitionDepth = Math.max(0, this.visualTransitionDepth - 1)
+  }
+
+  private updateTurnPopup(previousState: SceneTableState | null, nextState: SceneTableState) {
+    if (this.isVisualSequenceLocked()) {
+      this.hideTurnPopup()
+      return
+    }
+
+    if (this.shouldShowTurnPopup(previousState, nextState)) {
+      this.showTurnPopup()
+    } else if (!this.isOwnPlayableTurn(nextState)) {
+      this.hideTurnPopup()
+    }
   }
 
   private shouldShowTurnPopup(previousState: SceneTableState | null, nextState: SceneTableState) {
-    if (nextState.phase !== 'PLAYING' || nextState.currentTurn !== nextState.myPlayerNum) {
+    if (!this.isOwnPlayableTurn(nextState)) {
       return false
     }
 
     return !previousState
       || previousState.phase !== 'PLAYING'
+      || previousState.finTour
       || previousState.currentTurn !== nextState.myPlayerNum
       || previousState.currentPliId !== nextState.currentPliId
+      || (previousState.selectableCardIds.length === 0 && nextState.selectableCardIds.length > 0)
+  }
+
+  private isOwnPlayableTurn(state: SceneTableState) {
+    return state.phase === 'PLAYING' && !state.finTour && state.currentTurn === state.myPlayerNum
   }
 
   displayPlayerHand(cards: Card[]) {
@@ -543,14 +600,33 @@ export class GameScene extends Phaser.Scene {
     const maxX = Math.max(...bounds.map((bound) => bound.right))
     const minY = Math.min(...bounds.map((bound) => bound.y))
     const maxY = Math.max(...bounds.map((bound) => bound.bottom))
+    const width = Math.max(minWidth, maxX - minX + 26)
+    const height = maxY - minY + 16
+    const centerX = (minX + maxX) / 2
+    const centerY = (minY + maxY) / 2
+
+    if (active) {
+      const glow = this.add.rectangle(
+        centerX,
+        centerY,
+        width + 16,
+        height + 12,
+        0xf5d37f,
+        0.18
+      ).setStrokeStyle(1, 0xf8df9a, 0.3)
+
+      glow.setDepth(4)
+      this.dynamicObjects.push(glow)
+    }
+
     const badge = this.add.rectangle(
-      (minX + maxX) / 2,
-      (minY + maxY) / 2,
-      Math.max(minWidth, maxX - minX + 26),
-      maxY - minY + 16,
-      active ? 0x6f4e12 : 0x06150e,
-      active ? 0.84 : 0.62
-    ).setStrokeStyle(active ? 2 : 1, active ? 0xf5d37f : 0xe4cb8a, active ? 0.9 : 0.3)
+      centerX,
+      centerY,
+      width,
+      height,
+      active ? 0x856018 : 0x06150e,
+      active ? 0.94 : 0.62
+    ).setStrokeStyle(active ? 3 : 1, active ? 0xffedb0 : 0xe4cb8a, active ? 1 : 0.3)
 
     badge.setDepth(6)
     textObjects.forEach((textObject) => textObject.setDepth(7))
@@ -790,16 +866,19 @@ export class GameScene extends Phaser.Scene {
     }
 
     const layout = this.getLayout()
-    const sortedHand = sortHandCards(this.tableState.playerHand)
+    const sortedHand = sortHandCards(this.getVisibleHandCards(this.tableState))
     const spacing = this.getHandSpacing(sortedHand.length)
     const firstX = layout.centerX - ((sortedHand.length - 1) * spacing) / 2
     const selectableIds = new Set(this.tableState.selectableCardIds)
     const disableAllCards = this.shouldDisableAllHandCards()
+    const showPlayability = this.shouldShowHandPlayability()
 
     sortedHand.forEach((card, index) => {
       const x = firstX + index * spacing
       const y = layout.handY
       const selectable = selectableIds.has(card.id)
+      const canInteract = selectable && !disableAllCards
+      const shouldDim = disableAllCards || (!selectable && showPlayability)
       const baseWidth = layout.handCardWidth
       const baseHeight = layout.handCardHeight
       const baseDepth = 10 + index
@@ -808,11 +887,11 @@ export class GameScene extends Phaser.Scene {
       image.setDisplaySize(baseWidth, baseHeight)
       image.setDepth(baseDepth)
 
-      if (!selectable && (disableAllCards || selectableIds.size > 0)) {
+      if (shouldDim) {
         image.setTint(0xb4bcc4)
       }
 
-      if (selectable) {
+      if (canInteract) {
         image.setInteractive({ useHandCursor: true })
 
         image.on('pointerover', () => {
@@ -837,6 +916,10 @@ export class GameScene extends Phaser.Scene {
       return false
     }
 
+    if (this.isVisualSequenceLocked()) {
+      return true
+    }
+
     if (this.tableState.phase === 'PLAYING') {
       return this.tableState.currentTurn !== this.tableState.myPlayerNum
     }
@@ -846,6 +929,33 @@ export class GameScene extends Phaser.Scene {
     }
 
     return false
+  }
+
+  private shouldShowHandPlayability() {
+    if (!this.tableState) {
+      return false
+    }
+
+    if (this.tableState.phase === 'PLAYING') {
+      return this.tableState.currentTurn === this.tableState.myPlayerNum && !this.tableState.finTour
+    }
+
+    if (this.tableState.phase === 'DOG_EXCHANGE') {
+      return this.tableState.takerNum === this.tableState.myPlayerNum &&
+        this.tableState.dogRetrieved &&
+        this.tableState.dogDiscardCount < 3
+    }
+
+    return false
+  }
+
+  private getVisibleHandCards(state: SceneTableState) {
+    if (state.phase !== 'DOG_EXCHANGE' || state.takerNum !== state.myPlayerNum || state.discardedDogCards.length === 0) {
+      return state.playerHand
+    }
+
+    const discardedDogCardIds = new Set(state.discardedDogCards.map((card) => card.id))
+    return state.playerHand.filter((card) => !discardedDogCardIds.has(card.id))
   }
 
   private clearHoveredHandCard() {
@@ -975,6 +1085,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     const layout = this.getLayout()
+    this.beginVisualTransition()
     this.renderTable()
 
     let completedTweens = 0
@@ -1002,7 +1113,15 @@ export class GameScene extends Phaser.Scene {
           completedTweens += 1
 
           if (completedTweens === previousState.dogCards.length) {
+            this.finishVisualTransition()
+            if (this.flushQueuedTableState()) {
+              return
+            }
+
             this.renderTable()
+            if (this.tableState) {
+              this.updateTurnPopup(previousState, this.tableState)
+            }
           }
         }
       })
@@ -1016,10 +1135,11 @@ export class GameScene extends Phaser.Scene {
       discardIndex >= 0 ? discardIndex : Math.max(nextState.discardedDogCards.length - 1, 0),
       nextState.discardedDogCards.length
     )
-    const origin = this.getHandCardPosition(previousState.playerHand, discardedCard.id)
+    const origin = this.getHandCardPosition(previousState.playerHand, discardedCard.id, previousState)
     const targetWidth = layout.dogCardWidth
     const targetHeight = layout.dogCardHeight
 
+    this.beginVisualTransition()
     this.renderTable({ suppressDogDiscardedCardId: discardedCard.id })
 
     const animationCard = this.addCardImage(origin.x, origin.y, discardedCard)
@@ -1042,14 +1162,23 @@ export class GameScene extends Phaser.Scene {
       onComplete: () => {
         animationCard.destroy()
         this.transientObjects = this.transientObjects.filter((object) => object !== animationCard)
+        this.finishVisualTransition()
+        if (this.flushQueuedTableState()) {
+          return
+        }
+
         this.renderTable()
+        this.updateTurnPopup(previousState, nextState)
       }
     })
   }
 
-  private getHandCardPosition(handCards: Card[], cardId: number) {
+  private getHandCardPosition(handCards: Card[], cardId: number, state?: SceneTableState | null) {
     const layout = this.getLayout()
-    const sortedHand = sortHandCards(handCards)
+    const visibleHandCards = state
+      ? this.getVisibleHandCards({ ...state, playerHand: handCards })
+      : handCards
+    const sortedHand = sortHandCards(visibleHandCards)
     const cardIndex = sortedHand.findIndex((card) => card.id === cardId)
     const spacing = this.getHandSpacing(sortedHand.length)
     const firstX = layout.centerX - ((sortedHand.length - 1) * spacing) / 2
@@ -1086,13 +1215,41 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private getNewPlayedCard(previousState: SceneTableState | null, nextState: SceneTableState) {
+  private getNewPlayedCards(previousState: SceneTableState | null, nextState: SceneTableState) {
     if (nextState.currentPliCards.length === 0) {
-      return null
+      return []
     }
 
     const previousCardIds = new Set(previousState?.currentPliCards.map((playedCard) => playedCard.card.id) ?? [])
-    return nextState.currentPliCards.find((playedCard) => !previousCardIds.has(playedCard.card.id)) ?? null
+    return nextState.currentPliCards.filter((playedCard) => !previousCardIds.has(playedCard.card.id))
+  }
+
+  private getPlayedCardAnimationState(
+    previousState: SceneTableState | null,
+    nextState: SceneTableState,
+    playedCard: CurrentPliCard
+  ) {
+    const previousCardIds = new Set(previousState?.currentPliCards.map((currentPliCard) => currentPliCard.card.id) ?? [])
+    const stagedPliCards: CurrentPliCard[] = []
+
+    for (const currentPliCard of nextState.currentPliCards) {
+      stagedPliCards.push(currentPliCard)
+
+      if (!previousCardIds.has(currentPliCard.card.id) && currentPliCard.card.id === playedCard.card.id) {
+        break
+      }
+    }
+
+    const includesFullPli = stagedPliCards.length === nextState.currentPliCards.length
+
+    return {
+      ...nextState,
+      currentTurn: includesFullPli ? nextState.currentTurn : null,
+      currentPliWinnerNum: includesFullPli ? nextState.currentPliWinnerNum : null,
+      finTour: includesFullPli ? nextState.finTour : false,
+      currentPliCards: stagedPliCards,
+      selectableCardIds: includesFullPli ? nextState.selectableCardIds : []
+    }
   }
 
   private shouldAnimateTrickCollection(previousState: SceneTableState | null, nextState: SceneTableState) {
@@ -1109,52 +1266,97 @@ export class GameScene extends Phaser.Scene {
 
   private animatePlayedCard(previousState: SceneTableState | null, nextState: SceneTableState, playedCard: CurrentPliCard) {
     const textureKey = this.getCardKey(playedCard.card)
+    this.beginVisualTransition()
 
     if (!this.textures.exists(textureKey)) {
       this.renderTable({ suppressPlayedCardId: playedCard.card.id })
       this.queueCardTextureLoad(textureKey, this.getVersionedCardTexturePath(playedCard.card), () => {
         if (!this.sceneReady || this.trickCollectionAnimating) {
+          this.finishVisualTransition()
           return
         }
 
-        this.animatePlayedCard(previousState, nextState, playedCard)
+        if (!this.textures.exists(textureKey)) {
+          this.finishVisualTransition()
+          if (this.flushQueuedTableState()) {
+            return
+          }
+
+          this.renderTable()
+          this.updateTurnPopup(previousState, nextState)
+          return
+        }
+
+        this.runPlayedCardAnimation(previousState, nextState, playedCard, textureKey)
       })
       return
     }
 
+    this.runPlayedCardAnimation(previousState, nextState, playedCard, textureKey)
+  }
+
+  private runPlayedCardAnimation(
+    previousState: SceneTableState | null,
+    nextState: SceneTableState,
+    playedCard: CurrentPliCard,
+    textureKey: string
+  ) {
     this.renderTable({ suppressPlayedCardId: playedCard.card.id })
 
     const seat = playedCard.playerNum ? this.getSeatKey(playedCard.playerNum) : 'self'
     const layout = this.getLayout()
     const origin = previousState && playedCard.playerNum === nextState.myPlayerNum
-      ? { ...this.getHandCardPosition(previousState.playerHand, playedCard.card.id), rotation: 0 }
+      ? { ...this.getHandCardPosition(previousState.playerHand, playedCard.card.id, previousState), rotation: 0 }
       : this.getCardOriginPosition(seat)
     const target = this.getTrickPosition(playedCard)
     const animationCard = this.add.image(origin.x, origin.y, textureKey)
+    const startWidth = seat === 'self' ? layout.handCardWidth : layout.opponentCardWidth
+    const startHeight = seat === 'self' ? layout.handCardHeight : layout.opponentCardHeight
+    const settleWidth = Math.round(layout.trickCardWidth * 1.035)
+    const settleHeight = Math.round(layout.trickCardHeight * 1.035)
 
-    animationCard.setDisplaySize(layout.trickCardWidth, layout.trickCardHeight)
+    animationCard.setDisplaySize(startWidth, startHeight)
     animationCard.setRotation(origin.rotation)
     animationCard.setDepth(320)
     this.transientObjects.push(animationCard)
+
+    const finishAnimation = () => {
+      animationCard.destroy()
+      this.transientObjects = this.transientObjects.filter((object) => object !== animationCard)
+      this.finishVisualTransition()
+
+      if (this.shouldAnimateTrickCollection(previousState, nextState)) {
+        this.renderTable()
+        this.scheduleTrickCollection(nextState)
+        return
+      }
+
+      if (this.flushQueuedTableState()) {
+        return
+      }
+
+      this.renderTable()
+      this.updateTurnPopup(previousState, nextState)
+    }
 
     this.tweens.add({
       targets: animationCard,
       x: target.x,
       y: target.y,
       angle: Phaser.Math.RadToDeg(target.rotation),
-      duration: 260,
+      displayWidth: settleWidth,
+      displayHeight: settleHeight,
+      duration: 330,
       ease: 'Cubic.Out',
       onComplete: () => {
-        animationCard.destroy()
-        this.transientObjects = this.transientObjects.filter((object) => object !== animationCard)
-
-        if (this.shouldAnimateTrickCollection(previousState, nextState)) {
-          this.renderTable()
-          this.scheduleTrickCollection(nextState)
-          return
-        }
-
-        this.renderTable()
+        this.tweens.add({
+          targets: animationCard,
+          displayWidth: layout.trickCardWidth,
+          displayHeight: layout.trickCardHeight,
+          duration: 95,
+          ease: 'Sine.Out',
+          onComplete: finishAnimation
+        })
       }
     })
   }
@@ -1202,6 +1404,7 @@ export class GameScene extends Phaser.Scene {
     this.clearPendingTrickCollection()
     this.trickCollectionAnimating = true
     this.trickCollectionAnimatingPliId = state.currentPliId
+    this.beginVisualTransition()
     this.renderTable({ suppressTrickCards: true })
 
     const winnerSeat = this.getSeatKey(state.currentPliWinnerNum)
@@ -1234,7 +1437,16 @@ export class GameScene extends Phaser.Scene {
             this.trickCollectionAnimating = false
             this.trickCollectionAnimatingPliId = null
             this.collectedPliIds.add(state.currentPliId as number)
+            this.finishVisualTransition()
+
+            if (this.flushQueuedTableState()) {
+              return
+            }
+
             this.renderTable()
+            if (this.tableState) {
+              this.updateTurnPopup(null, this.tableState)
+            }
           }
         }
       })
@@ -1512,14 +1724,14 @@ export class GameScene extends Phaser.Scene {
   }
 
   private scheduleRenderAfterTextureLoad() {
-    if (!this.sceneReady || this.trickCollectionAnimating || this.pendingTextureRender) {
+    if (!this.sceneReady || this.isVisualSequenceLocked() || this.pendingTextureRender) {
       return
     }
 
     this.pendingTextureRender = this.time.delayedCall(40, () => {
       this.pendingTextureRender = null
 
-      if (this.sceneReady && !this.trickCollectionAnimating) {
+      if (this.sceneReady && !this.isVisualSequenceLocked()) {
         this.renderTable()
       }
     })

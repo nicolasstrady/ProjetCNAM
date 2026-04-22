@@ -21,6 +21,22 @@ export const usePhaser = () => {
     return Math.max(1, Math.min(deviceResolution, budgetResolution, 3))
   }
 
+  const getGlobalGameStore = () => {
+    if (typeof window === 'undefined') {
+      return null
+    }
+
+    return window as Window & { __tarotPhaserGame?: any }
+  }
+
+  const destroyGameInstance = (gameInstance: any) => {
+    try {
+      gameInstance?.destroy(true)
+    } catch {
+      // Phaser peut deja etre en cours de destruction pendant un HMR.
+    }
+  }
+
   const refreshScale = () => {
     if (!game?.scale || !observedElement) {
       return
@@ -67,12 +83,21 @@ export const usePhaser = () => {
 
   const initGame = async (containerId: string, config?: any) => {
     if (game) {
-      game.destroy(true)
+      destroyGameInstance(game)
       game = null
     }
 
     const Phaser = await import('phaser').then(m => m.default)
+    const globalGameStore = getGlobalGameStore()
+
+    if (globalGameStore?.__tarotPhaserGame) {
+      destroyGameInstance(globalGameStore.__tarotPhaserGame)
+      globalGameStore.__tarotPhaserGame = null
+    }
+
     const container = document.getElementById(containerId)
+    container?.querySelectorAll('canvas').forEach((canvas) => canvas.remove())
+
     const element = container?.parentElement ?? container
     const initialCssWidth = Math.max(element?.clientWidth ?? 1200, 1)
     const initialCssHeight = Math.max(element?.clientHeight ?? 800, 1)
@@ -80,8 +105,7 @@ export const usePhaser = () => {
     const initialWidth = Math.max(1, Math.round(initialCssWidth * initialResolution))
     const initialHeight = Math.max(1, Math.round(initialCssHeight * initialResolution))
 
-    const defaultConfig = {
-      type: Phaser.AUTO,
+    const defaultConfig: any = {
       parent: containerId,
       width: initialWidth,
       height: initialHeight,
@@ -97,8 +121,14 @@ export const usePhaser = () => {
       },
       ...config
     }
+    defaultConfig.type = Phaser.WEBGL ?? 2
+    defaultConfig.parent = containerId
 
     game = new Phaser.Game(defaultConfig)
+    if (globalGameStore) {
+      globalGameStore.__tarotPhaserGame = game
+    }
+
     await new Promise<void>((resolve) => {
       game.events.once(Phaser.Core.Events.READY, () => resolve())
     })
@@ -133,7 +163,13 @@ export const usePhaser = () => {
     lastRenderHeight = 0
 
     if (game) {
-      game.destroy(true)
+      destroyGameInstance(game)
+      const globalGameStore = getGlobalGameStore()
+
+      if (globalGameStore && globalGameStore.__tarotPhaserGame === game) {
+        globalGameStore.__tarotPhaserGame = null
+      }
+
       game = null
     }
   }

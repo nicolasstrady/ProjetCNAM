@@ -8,6 +8,8 @@ const CARD_ASSET_VERSION =
   typeof __CARD_ASSET_VERSION__ === 'string' && __CARD_ASSET_VERSION__.length > 0
     ? __CARD_ASSET_VERSION__
     : 'dev'
+const ROLE_ICON_SINGLE_KEY = 'role-sword'
+const ROLE_ICON_CROSSED_KEY = 'role-swords'
 
 interface SceneCallbacks {
   onCardClick?: (card: Card) => void
@@ -26,9 +28,6 @@ interface SceneLayout {
   centerX: number
   centerY: number
   padding: number
-  statusY: number
-  statusWidth: number
-  statusHeight: number
   statusFontSize: number
   handCardWidth: number
   handCardHeight: number
@@ -40,7 +39,6 @@ interface SceneLayout {
   opponentCardWidth: number
   opponentCardHeight: number
   opponentLabelFontSize: number
-  opponentScoreFontSize: number
   topSeatY: number
   topSeatOffsetX: number
   sideSeatX: number
@@ -96,6 +94,8 @@ export class GameScene extends Phaser.Scene {
   private tableStateSignature = ''
   private pendingCardTextureLoads = new Set<string>()
   private pendingTextureRender: Phaser.Time.TimerEvent | null = null
+  private turnPopupObjects: Phaser.GameObjects.GameObject[] = []
+  private turnPopupTimer: Phaser.Time.TimerEvent | null = null
 
   constructor() {
     super({ key: 'GameScene' })
@@ -109,6 +109,8 @@ export class GameScene extends Phaser.Scene {
   preload() {
     this.load.image('cardback', this.versionAssetPath('/cards/cardback.png'))
     this.load.image('background', this.versionAssetPath('/background.jpg'))
+    this.load.image(ROLE_ICON_SINGLE_KEY, this.versionAssetPath('/icons/roles/sword.png'))
+    this.load.image(ROLE_ICON_CROSSED_KEY, this.versionAssetPath('/icons/roles/swords.png'))
   }
 
   create() {
@@ -117,6 +119,7 @@ export class GameScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.scale.off('resize', this.handleResize, this)
       this.pendingTextureRender?.remove(false)
+      this.hideTurnPopup()
     })
 
     this.sceneReady = true
@@ -178,6 +181,7 @@ export class GameScene extends Phaser.Scene {
     const previousState = this.tableState ? this.cloneState(this.tableState) : null
     const nextState = this.cloneState(state)
     const nextSignature = this.getStateSignature(nextState)
+    const shouldShowTurnPopup = this.shouldShowTurnPopup(previousState, nextState)
 
     if (this.tableStateSignature === nextSignature) {
       this.tableState = nextState
@@ -196,6 +200,14 @@ export class GameScene extends Phaser.Scene {
 
     if (!this.sceneReady) {
       return
+    }
+
+    if (nextState.phase === 'PLAYING' && nextState.currentTurn === nextState.myPlayerNum) {
+      if (shouldShowTurnPopup) {
+        this.showTurnPopup()
+      }
+    } else {
+      this.hideTurnPopup()
     }
 
     const isUpdatingCollectedPli = this.trickCollectionAnimatingPliId !== null
@@ -228,6 +240,17 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.renderTable()
+  }
+
+  private shouldShowTurnPopup(previousState: SceneTableState | null, nextState: SceneTableState) {
+    if (nextState.phase !== 'PLAYING' || nextState.currentTurn !== nextState.myPlayerNum) {
+      return false
+    }
+
+    return !previousState
+      || previousState.phase !== 'PLAYING'
+      || previousState.currentTurn !== nextState.myPlayerNum
+      || previousState.currentPliId !== nextState.currentPliId
   }
 
   displayPlayerHand(cards: Card[]) {
@@ -289,9 +312,8 @@ export class GameScene extends Phaser.Scene {
       calledKingColor: state.calledKingColor,
       dogRetrieved: state.dogRetrieved,
       dogDiscardCount: state.dogDiscardCount,
-      statusText: state.statusText,
       playerHand: state.playerHand.map((card) => card.id),
-      players: state.players.map((player) => [player.num, player.score, player.handCount, player.pseudo]),
+      players: state.players.map((player) => [player.num, player.handCount, player.pseudo]),
       dogCards: state.dogCards.map((card) => card.id),
       discardedDogCards: state.discardedDogCards.map((card) => card.id),
       currentPliCards: state.currentPliCards.map((playedCard) => [playedCard.card.id, playedCard.playerNum, playedCard.position]),
@@ -317,11 +339,6 @@ export class GameScene extends Phaser.Scene {
     const centerY = height / 2
     const paddingDisplay = Phaser.Math.Clamp(Math.min(displayWidth, displayHeight) * 0.028, 8, 24)
 
-    const statusHeightDisplay = Phaser.Math.Clamp(displayHeight * 0.068, 40, 56)
-    const statusWidthMaxDisplay = Math.max(displayWidth - (paddingDisplay * 2) - 150, 220)
-    const statusWidthDisplay = Math.min(Math.max(displayWidth * 0.4, 260), statusWidthMaxDisplay)
-    const statusYDisplay = paddingDisplay + statusHeightDisplay / 2 + Phaser.Math.Clamp(displayHeight * 0.022, 8, 18)
-
     const tableCardBaseHeightDisplay = Phaser.Math.Clamp(displayHeight * 0.238, 98, 182)
     const handCardHeightDisplay = Phaser.Math.Clamp(displayHeight * 0.4, 168, 320)
     const handCardWidthDisplay = handCardHeightDisplay * GameScene.CARD_ASPECT_RATIO
@@ -330,7 +347,7 @@ export class GameScene extends Phaser.Scene {
 
     const opponentCardHeightDisplay = Phaser.Math.Clamp(tableCardBaseHeightDisplay * 0.72, 68, 118)
     const opponentCardWidthDisplay = opponentCardHeightDisplay * GameScene.CARD_ASPECT_RATIO
-    const topSeatYDisplay = statusYDisplay + (statusHeightDisplay / 2) + (opponentCardHeightDisplay / 2) + Phaser.Math.Clamp(displayHeight * 0.075, 24, 42)
+    const topSeatYDisplay = paddingDisplay + (opponentCardHeightDisplay / 2) + Phaser.Math.Clamp(displayHeight * 0.105, 62, 94)
     const topSeatOffsetXDisplay = Math.min(
       Phaser.Math.Clamp(displayWidth * 0.29, 150, 340),
       Math.max((displayWidth / 2) - paddingDisplay - (opponentCardWidthDisplay * 1.08), 126)
@@ -373,9 +390,6 @@ export class GameScene extends Phaser.Scene {
       centerX,
       centerY,
       padding: ss(paddingDisplay),
-      statusY: sy(statusYDisplay),
-      statusWidth: sx(statusWidthDisplay),
-      statusHeight: sy(statusHeightDisplay),
       statusFontSize: ss(Phaser.Math.Clamp(displayHeight * 0.032, 16, 25)),
       handCardWidth,
       handCardHeight,
@@ -387,7 +401,6 @@ export class GameScene extends Phaser.Scene {
       opponentCardWidth,
       opponentCardHeight,
       opponentLabelFontSize: ss(Phaser.Math.Clamp(displayHeight * 0.028, 15, 22)),
-      opponentScoreFontSize: ss(Phaser.Math.Clamp(displayHeight * 0.023, 12, 18)),
       topSeatY: sy(topSeatYDisplay),
       topSeatOffsetX: sx(topSeatOffsetXDisplay),
       sideSeatX: sx(sideSeatXDisplay),
@@ -461,58 +474,14 @@ export class GameScene extends Phaser.Scene {
       return
     }
 
-    this.renderStatusBanner()
     this.renderPlayers()
     this.renderCenterArea(options)
     this.renderPlayerHand()
   }
 
-  private renderStatusBanner() {
-    if (!this.tableState) {
-      return
-    }
-
-    const layout = this.getLayout()
-    const banner = this.add.rectangle(layout.centerX, layout.statusY, layout.statusWidth, layout.statusHeight, 0x06150e, 0.75)
-      .setStrokeStyle(2, 0xe4cb8a, 0.5)
-
-    const text = this.addSharpText(layout.centerX, layout.statusY, this.tableState.statusText, {
-      color: '#f6f0dd',
-      fontSize: this.toPx(layout.statusFontSize),
-      align: 'center',
-      fontStyle: 'bold'
-    })
-      .setOrigin(0.5)
-      .setWordWrapWidth(layout.statusWidth - 28, true)
-
-    this.dynamicObjects.push(banner, text)
-  }
-
   private renderPlayers() {
     if (!this.tableState) {
       return
-    }
-
-    const layout = this.getLayout()
-    const myself = this.tableState.players.find((player) => player.num === this.tableState?.myPlayerNum)
-
-    if (myself) {
-      const selfLabel = this.addSharpText(layout.centerX, layout.selfLabelY, `${myself.pseudo}  ${myself.score.toFixed(1)}`, {
-        color: this.getPlayerColor(myself.num),
-        fontSize: this.toPx(layout.selfFontSize),
-        fontStyle: 'bold'
-      }).setOrigin(0.5)
-
-      const badge = this.addTextBadge([selfLabel], Math.max(170, layout.handCardWidth * 2))
-      this.dynamicObjects.push(badge, selfLabel)
-
-      const selfRoleIcon = this.getPlayerRoleIcon(myself.num)
-      if (selfRoleIcon) {
-        const iconSize = layout.selfFontSize
-        const labelBounds = selfLabel.getBounds()
-        const icon = this.renderSwordIcon(labelBounds.x - iconSize * 0.72, layout.selfLabelY, iconSize, selfRoleIcon)
-        this.dynamicObjects.push(icon)
-      }
     }
 
     this.tableState.players
@@ -545,29 +514,28 @@ export class GameScene extends Phaser.Scene {
     }
 
     const label = this.addSharpText(seatConfig.labelX, seatConfig.labelY, player.pseudo, {
-      color: this.getPlayerColor(player.num),
+      color: '#f1ead9',
       fontSize: this.toPx(layout.opponentLabelFontSize),
       fontStyle: 'bold'
     }).setOrigin(0.5)
 
-    const score = this.addSharpText(seatConfig.scoreX, seatConfig.scoreY, `${player.score.toFixed(1)}  ${player.handCount} cartes`, {
-      color: '#f1ead9',
-      fontSize: this.toPx(layout.opponentScoreFontSize)
-    }).setOrigin(0.5)
-
-    const badge = this.addTextBadge([label, score], seatConfig.badgeWidth)
-    this.dynamicObjects.push(badge, label, score)
+    const badge = this.addTextBadge(
+      [label],
+      seatConfig.badgeWidth,
+      this.tableState.currentTurn === player.num
+    )
+    this.dynamicObjects.push(badge, label)
 
     const opponentRoleIcon = this.getPlayerRoleIcon(player.num)
     if (opponentRoleIcon) {
       const iconSize = layout.opponentLabelFontSize
       const labelBounds = label.getBounds()
-      const icon = this.renderSwordIcon(labelBounds.x - iconSize * 0.72, seatConfig.labelY, iconSize, opponentRoleIcon)
-      this.dynamicObjects.push(icon)
+      const icons = this.renderSwordIcon(labelBounds.x - iconSize * 0.72, seatConfig.labelY, iconSize, opponentRoleIcon)
+      this.dynamicObjects.push(...icons)
     }
   }
 
-  private addTextBadge(textObjects: Phaser.GameObjects.Text[], minWidth = 0) {
+  private addTextBadge(textObjects: Phaser.GameObjects.Text[], minWidth = 0, active = false) {
     const bounds = textObjects.map((textObject) => textObject.getBounds())
     const minX = Math.min(...bounds.map((bound) => bound.x))
     const maxX = Math.max(...bounds.map((bound) => bound.right))
@@ -578,14 +546,77 @@ export class GameScene extends Phaser.Scene {
       (minY + maxY) / 2,
       Math.max(minWidth, maxX - minX + 26),
       maxY - minY + 16,
-      0x06150e,
-      0.62
-    ).setStrokeStyle(1, 0xe4cb8a, 0.3)
+      active ? 0x6f4e12 : 0x06150e,
+      active ? 0.84 : 0.62
+    ).setStrokeStyle(active ? 2 : 1, active ? 0xf5d37f : 0xe4cb8a, active ? 0.9 : 0.3)
 
     badge.setDepth(6)
     textObjects.forEach((textObject) => textObject.setDepth(7))
 
     return badge
+  }
+
+  private showTurnPopup() {
+    this.hideTurnPopup()
+
+    const layout = this.getLayout()
+    const popupY = Math.max(
+      layout.padding + 44,
+      layout.handY - (layout.handCardHeight / 2) - Phaser.Math.Clamp(layout.height * 0.078, 44, 70)
+    )
+
+    const text = this.addSharpText(layout.centerX, popupY, 'À vous de jouer', {
+      color: '#1b1202',
+      fontSize: this.toPx(Math.max(layout.statusFontSize, 18)),
+      fontStyle: 'bold'
+    }).setOrigin(0.5)
+
+    const width = Math.max(230, text.width + 52)
+    const height = Math.max(48, text.height + 22)
+    const background = this.add.rectangle(layout.centerX, popupY, width, height, 0xf5d37f, 0.94)
+      .setStrokeStyle(2, 0xfff1bd, 0.9)
+
+    background.setDepth(360)
+    text.setDepth(361)
+    background.setAlpha(0)
+    text.setAlpha(0)
+    background.setScale(0.96)
+    text.setScale(0.96)
+
+    this.turnPopupObjects = [background, text]
+
+    this.tweens.add({
+      targets: this.turnPopupObjects,
+      alpha: 1,
+      scale: 1,
+      duration: 120,
+      ease: 'Quad.Out'
+    })
+
+    this.turnPopupTimer = this.time.delayedCall(1250, () => {
+      this.tweens.add({
+        targets: this.turnPopupObjects,
+        alpha: 0,
+        duration: 220,
+        ease: 'Quad.In',
+        onComplete: () => this.hideTurnPopup()
+      })
+    })
+  }
+
+  private hideTurnPopup() {
+    if (this.turnPopupTimer) {
+      this.turnPopupTimer.remove(false)
+      this.turnPopupTimer = null
+    }
+
+    if (this.turnPopupObjects.length === 0) {
+      return
+    }
+
+    this.tweens.killTweensOf(this.turnPopupObjects)
+    this.turnPopupObjects.forEach((gameObject) => gameObject.destroy())
+    this.turnPopupObjects = []
   }
 
   private renderCenterArea(options: RenderOptions) {
@@ -737,39 +768,18 @@ export class GameScene extends Phaser.Scene {
 
     const layout = this.getLayout()
     const normalizedColor = this.tableState.calledKingColor.toUpperCase()
-    const colorLabel = this.getCalledKingColorLabel(normalizedColor)
-    const cardWidth = Math.round(layout.kingCardWidth * 0.46)
-    const cardHeight = Math.round(layout.kingCardHeight * 0.46)
-    const bannerY = layout.statusY + (layout.statusHeight / 2) + (cardHeight / 2) + 16
-
-    const label = this.addSharpText(layout.centerX + 14, bannerY, `Roi appele : ${colorLabel}`, {
-      color: '#f7e9bc',
-      fontSize: this.toPx(Math.max(layout.statusFontSize - 4, 12)),
-      fontStyle: 'bold'
-    }).setOrigin(0, 0.5)
-
+    const cardWidth = Math.round(layout.kingCardWidth * 0.52)
+    const cardHeight = Math.round(layout.kingCardHeight * 0.52)
+    const inset = Math.max(10, Math.round(layout.padding * 0.55))
     const kingCard = this.add.image(
-      layout.centerX - (label.width / 2) - (cardWidth / 2),
-      bannerY,
+      layout.padding + inset + (cardWidth / 2),
+      layout.padding + inset + (cardHeight / 2),
       this.getKingCardTextureKey(normalizedColor)
     )
     kingCard.setDisplaySize(cardWidth, cardHeight)
     kingCard.setDepth(15)
 
-    const leftEdge = kingCard.x - (cardWidth / 2) - 12
-    const rightEdge = label.x + label.width + 14
-    const badge = this.add.rectangle(
-      (leftEdge + rightEdge) / 2,
-      bannerY,
-      rightEdge - leftEdge,
-      Math.max(cardHeight + 12, label.height + 16),
-      0x06150e,
-      0.68
-    ).setStrokeStyle(1, 0xe4cb8a, 0.26)
-
-    badge.setDepth(13)
-    label.setDepth(16)
-    this.dynamicObjects.push(badge, kingCard, label)
+    this.dynamicObjects.push(kingCard)
   }
 
   private renderPlayerHand() {
@@ -1209,10 +1219,9 @@ export class GameScene extends Phaser.Scene {
 
   private getSeatConfig(seat: SeatKey) {
     const layout = this.getLayout()
-    const topLabelY = layout.topSeatY - (layout.opponentCardHeight / 2) - Phaser.Math.Clamp(layout.height * 0.04, 12, 20)
-    const sideLabelY = layout.sideSeatY - (layout.opponentCardHeight / 2) - Phaser.Math.Clamp(layout.height * 0.06, 18, 28)
-    const scoreOffsetY = Phaser.Math.Clamp(layout.opponentScoreFontSize + 6, 18, 26)
-    const badgeWidth = Math.max(150, layout.opponentCardHeight + 42)
+    const topLabelY = layout.topSeatY - (layout.opponentCardHeight / 2) - Phaser.Math.Clamp(layout.height * 0.065, 30, 48)
+    const sideLabelY = layout.sideSeatY - (layout.opponentCardHeight / 2) - Phaser.Math.Clamp(layout.height * 0.08, 36, 56)
+    const badgeWidth = Math.max(118, layout.opponentCardHeight + 26)
 
     switch (seat) {
       case 'left':
@@ -1224,8 +1233,6 @@ export class GameScene extends Phaser.Scene {
           rotation: -Math.PI / 2,
           labelX: layout.sideSeatX,
           labelY: sideLabelY,
-          scoreX: layout.sideSeatX,
-          scoreY: sideLabelY + scoreOffsetY,
           badgeWidth
         }
       case 'topLeft':
@@ -1237,9 +1244,7 @@ export class GameScene extends Phaser.Scene {
           rotation: 0,
           labelX: layout.centerX - layout.topSeatOffsetX,
           labelY: topLabelY,
-          scoreX: layout.centerX - layout.topSeatOffsetX,
-          scoreY: topLabelY + scoreOffsetY,
-          badgeWidth: Math.max(170, layout.opponentCardWidth * 2)
+          badgeWidth: Math.max(132, layout.opponentCardWidth * 2)
         }
       case 'topRight':
         return {
@@ -1250,9 +1255,7 @@ export class GameScene extends Phaser.Scene {
           rotation: 0,
           labelX: layout.centerX + layout.topSeatOffsetX,
           labelY: topLabelY,
-          scoreX: layout.centerX + layout.topSeatOffsetX,
-          scoreY: topLabelY + scoreOffsetY,
-          badgeWidth: Math.max(170, layout.opponentCardWidth * 2)
+          badgeWidth: Math.max(132, layout.opponentCardWidth * 2)
         }
       case 'right':
         return {
@@ -1263,8 +1266,6 @@ export class GameScene extends Phaser.Scene {
           rotation: Math.PI / 2,
           labelX: layout.width - layout.sideSeatX,
           labelY: sideLabelY,
-          scoreX: layout.width - layout.sideSeatX,
-          scoreY: sideLabelY + scoreOffsetY,
           badgeWidth
         }
       default:
@@ -1276,8 +1277,6 @@ export class GameScene extends Phaser.Scene {
           rotation: 0,
           labelX: layout.centerX,
           labelY: 0,
-          scoreX: layout.centerX,
-          scoreY: 0,
           badgeWidth: 0
         }
     }
@@ -1356,18 +1355,6 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private getPlayerColor(playerNum: number) {
-    if (!this.tableState) {
-      return '#f1ead9'
-    }
-
-    if (this.tableState.currentTurn === playerNum) {
-      return '#f2a347'
-    }
-
-    return '#f1ead9'
-  }
-
   private getPlayerRoleIcon(playerNum: number): 'crossed' | 'single' | null {
     if (!this.tableState || this.tableState.takerNum === null) {
       return null
@@ -1394,48 +1381,20 @@ export class GameScene extends Phaser.Scene {
     y: number,
     size: number,
     type: 'crossed' | 'single'
-  ): Phaser.GameObjects.Graphics {
-    const g = this.add.graphics()
-    const bladeLen = size * 0.42
-    const lineWidth = Math.max(1.5, size * 0.09)
+  ): Phaser.GameObjects.Image[] {
+    const textureKey = type === 'crossed' ? ROLE_ICON_CROSSED_KEY : ROLE_ICON_SINGLE_KEY
 
-    if (type === 'crossed') {
-      g.lineStyle(lineWidth, 0xf5d37f, 0.92)
-      g.lineBetween(x - bladeLen, y - bladeLen, x + bladeLen, y + bladeLen)
-      g.lineBetween(x + bladeLen, y - bladeLen, x - bladeLen, y + bladeLen)
-      const guardW = size * 0.18
-      g.lineStyle(lineWidth * 1.3, 0xd4aa44, 0.88)
-      g.lineBetween(x - guardW, y, x + guardW, y)
-    } else {
-      g.lineStyle(lineWidth, 0xf5d37f, 0.92)
-      g.lineBetween(x, y - bladeLen, x, y + bladeLen * 0.6)
-      const guardW = size * 0.22
-      const guardY = y + bladeLen * 0.08
-      g.lineStyle(lineWidth * 1.3, 0xd4aa44, 0.88)
-      g.lineBetween(x - guardW, guardY, x + guardW, guardY)
-      g.lineStyle(lineWidth * 0.9, 0xb8923a, 0.8)
-      g.lineBetween(x, guardY, x, y + bladeLen)
-      g.fillStyle(0xd4aa44, 0.75)
-      g.fillCircle(x, y + bladeLen + size * 0.05, Math.max(1.5, size * 0.06))
+    if (!this.textures.exists(textureKey)) {
+      return []
     }
 
-    g.setDepth(8)
-    return g
-  }
+    const icon = this.add.image(x, y, textureKey)
+    const displaySize = size * 1.35
+    icon.setDisplaySize(displaySize, displaySize)
+    icon.setAlpha(0.96)
+    icon.setDepth(8)
 
-  private getCalledKingColorLabel(color: string) {
-    switch (color) {
-      case 'COEUR':
-        return 'coeur'
-      case 'CARREAU':
-        return 'carreau'
-      case 'TREFLE':
-        return 'trefle'
-      case 'PIQUE':
-        return 'pique'
-      default:
-        return color.toLowerCase()
-    }
+    return [icon]
   }
 
   private addCardImage(x: number, y: number, card: Card) {

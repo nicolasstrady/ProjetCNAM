@@ -3,6 +3,7 @@ import { createError } from 'h3'
 import { query, queryOne, txExecute, txQuery, txQueryOne, withTransaction } from '~/server/utils/db'
 import { ensureLobbySchema } from '~/server/utils/lobbySchema'
 import type {
+  BotLevel,
   CreateRoomOptions,
   LobbyRoomPlayer,
   LobbyRoomSummary,
@@ -90,8 +91,9 @@ async function getPlayersForRooms(roomIds: number[]) {
     pseudo: string
     playerNum: number
     playerType: PlayerType
+    botLevel: BotLevel | null
   }>(
-    `SELECT j.partie, j.utilisateur AS userId, u.pseudo, j.num AS playerNum, j.playerType
+    `SELECT j.partie, j.utilisateur AS userId, u.pseudo, j.num AS playerNum, j.playerType, j.botLevel
      FROM joueur j
      JOIN utilisateur u ON u.id = j.utilisateur
      WHERE j.partie IN (${buildPlaceholders(roomIds.length)})
@@ -107,7 +109,8 @@ async function getPlayersForRooms(roomIds: number[]) {
       userId: player.userId,
       pseudo: player.pseudo,
       playerNum: player.playerNum,
-      playerType: player.playerType
+      playerType: player.playerType,
+      botLevel: player.botLevel
     })
     playersByRoom.set(player.partie, current)
   }
@@ -522,5 +525,97 @@ export async function quickMatch(userId: number) {
     playerNum: room[0]?.myPlayerNum ?? undefined,
     room: room[0] ?? null,
     alreadyJoined: false
+  }
+}
+
+export async function updateLobbyBotLevel(
+  ownerUserId: number,
+  partieId: number,
+  botUserId: number,
+  botLevel: BotLevel
+) {
+  await ensureLobbySchema()
+
+  const normalizedBotLevel = String(botLevel ?? '').toUpperCase()
+  if (normalizedBotLevel !== 'EASY' && normalizedBotLevel !== 'STANDARD' && normalizedBotLevel !== 'HARD') {
+    throw createError({
+      statusCode: 400,
+      message: 'Niveau de bot invalide'
+    })
+  }
+
+  await withTransaction(async (connection) => {
+    const room = await txQueryOne<{ status: 'WAITING' | 'PLAYING' | 'FINISHED'; ownerUserId: number | null }>(
+      connection,
+      'SELECT status, ownerUserId FROM partie WHERE id = ? FOR UPDATE',
+      [partieId]
+    )
+
+    if (!room) {
+      throw createError({
+        statusCode: 404,
+        message: 'Salon introuvable'
+      })
+    }
+
+    if (room.status !== 'WAITING') {
+      throw createError({
+        statusCode: 400,
+        message: 'Le niveau des bots ne peut etre modifie que dans un salon en attente'
+      })
+    }
+
+    if (room.ownerUserId !== ownerUserId) {
+      throw createError({
+        statusCode: 403,
+        message: 'Seul le proprietaire du salon peut modifier le niveau des bots'
+      })
+    }
+
+    const ownerMembership = await txQueryOne<{ id: number }>(
+      connection,
+      'SELECT id FROM joueur WHERE partie = ? AND utilisateur = ? LIMIT 1',
+      [partieId, ownerUserId]
+    )
+
+    if (!ownerMembership) {
+      throw createError({
+        statusCode: 403,
+        message: 'Vous devez etre present dans le salon'
+      })
+    }
+
+    const botPlayer = await txQueryOne<{ id: number; playerType: PlayerType }>(
+      connection,
+      'SELECT id, playerType FROM joueur WHERE partie = ? AND utilisateur = ? LIMIT 1 FOR UPDATE',
+      [partieId, botUserId]
+    )
+
+    if (!botPlayer) {
+      throw createError({
+        statusCode: 404,
+        message: 'Bot introuvable dans ce salon'
+      })
+    }
+
+    if (botPlayer.playerType !== 'BOT') {
+      throw createError({
+        statusCode: 400,
+        message: 'Le joueur cible nest pas un bot'
+      })
+    }
+
+    await txExecute(
+      connection,
+      'UPDATE joueur SET botLevel = ? WHERE id = ?',
+      [normalizedBotLevel, botPlayer.id]
+    )
+  })
+
+  const rooms = await listLobbyRooms(ownerUserId)
+
+  return {
+    success: true as const,
+    activeRoom: rooms.activeRoom
   }
 }

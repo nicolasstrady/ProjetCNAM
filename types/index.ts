@@ -38,7 +38,7 @@ export type RoomVisibility = 'PRIVATE' | 'PUBLIC' | 'UNLISTED'
 export type RoomStatus = 'WAITING' | 'PLAYING' | 'FINISHED'
 export type RoomMode = 'CLASSIC' | 'QUICK_MATCH' | 'SOLO'
 export type PlayerType = 'HUMAN' | 'BOT'
-export type BotLevel = 'STANDARD'
+export type BotLevel = 'EASY' | 'STANDARD' | 'HARD'
 
 export interface CreateRoomOptions {
   visibility: RoomVisibility
@@ -52,6 +52,7 @@ export interface LobbyRoomPlayer {
   pseudo: string
   playerNum: number
   playerType: PlayerType
+  botLevel: BotLevel | null
 }
 
 export interface LobbyRoomSummary {

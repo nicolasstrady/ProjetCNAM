@@ -1,4 +1,5 @@
 import type {
+  BotLevel,
   Card,
   ContractType,
   CreateRoomOptions,
@@ -179,6 +180,23 @@ export const useGame = () => {
     }
   }
 
+  const updateBotLevel = async (userId: number, partieId: number, botUserId: number, botLevel: BotLevel) => {
+    try {
+      const response = await $fetch<{
+        success: boolean
+      }>(apiUrl('/api/game/bot-level'), {
+        method: 'POST',
+        body: { userId, partieId, botUserId, botLevel }
+      })
+
+      return {
+        success: response.success
+      }
+    } catch (error: any) {
+      return { success: false, error: error.data?.message || 'Erreur de mise a jour du niveau du bot' }
+    }
+  }
+
   const leaveGame = async (userId: number, partieId: number) => {
     try {
       const response = await $fetch<{ success: boolean; closedRoom?: boolean }>(apiUrl('/api/game/leave'), {
@@ -337,6 +355,7 @@ export const useGame = () => {
     listRooms,
     dealCards,
     fillBots,
+    updateBotLevel,
     leaveGame,
     getPlayerHand,
     setContract,

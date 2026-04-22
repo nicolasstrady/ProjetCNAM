@@ -182,6 +182,21 @@
                   <span class="player-num">J{{ player.playerNum }}</span>
                   <span>{{ player.pseudo }}</span>
                   <span v-if="player.playerType === 'BOT'" class="bot-chip">IA</span>
+                  <select
+                    v-if="player.playerType === 'BOT'"
+                    class="bot-level-select"
+                    :disabled="!canManageBots || loadingState === `bot-level-${player.userId}`"
+                    :value="player.botLevel || 'STANDARD'"
+                    @change="handleBotLevelChange(player.userId, $event)"
+                  >
+                    <option
+                      v-for="option in botLevelOptions"
+                      :key="option.value"
+                      :value="option.value"
+                    >
+                      {{ option.label }}
+                    </option>
+                  </select>
                 </div>
               </div>
             </div>
@@ -285,7 +300,9 @@
                 >
                   <span class="player-num">J{{ player.playerNum }}</span>
                   <span>{{ player.pseudo }}</span>
-                  <span v-if="player.playerType === 'BOT'" class="bot-chip">IA</span>
+                  <span v-if="player.playerType === 'BOT'" class="bot-chip">
+                    IA {{ formatBotLevel(player.botLevel) }}
+                  </span>
                 </div>
               </div>
 
@@ -305,14 +322,20 @@
 </template>
 
 <script setup lang="ts">
-import type { CreateRoomOptions, LobbyRoomSummary } from '~/types'
+import type { BotLevel, CreateRoomOptions, LobbyRoomSummary } from '~/types'
 
 type PresetId = 'PRIVATE' | 'PUBLIC'
-type LoadingState = '' | 'create' | 'join' | 'quick' | 'start' | 'leave' | 'fill-bots' | `public-${number}`
+type LoadingState = '' | 'create' | 'join' | 'quick' | 'start' | 'leave' | 'fill-bots' | `public-${number}` | `bot-level-${number}`
 
 const { user, logout, restoreSession } = useAuth()
-const { createGame, joinGame, quickMatch, listRooms, dealCards, fillBots, leaveGame } = useGame()
+const { createGame, joinGame, quickMatch, listRooms, dealCards, fillBots, updateBotLevel, leaveGame } = useGame()
 const router = useRouter()
+
+const botLevelOptions: Array<{ value: BotLevel; label: string }> = [
+  { value: 'EASY', label: 'Facile' },
+  { value: 'STANDARD', label: 'Equilibre' },
+  { value: 'HARD', label: 'Difficile' }
+]
 
 const roomPresets: Array<{
   id: PresetId
@@ -362,6 +385,10 @@ const showPublicRoomsModal = ref(false)
 
 const selectedPreset = computed(() => {
   return roomPresets.find((preset) => preset.id === createPreset.value) ?? roomPresets[0]
+})
+
+const canManageBots = computed(() => {
+  return Boolean(user.value && activeRoom.value && activeRoom.value.ownerUserId === user.value.id)
 })
 
 async function loadLobbyData() {
@@ -543,6 +570,30 @@ const handleFillBots = async () => {
   loadingState.value = ''
 }
 
+const handleBotLevelChange = async (botUserId: number, event: Event) => {
+  if (!user.value || !activeRoom.value || !canManageBots.value) {
+    return
+  }
+
+  const target = event.target as HTMLSelectElement | null
+  const botLevel = (target?.value || 'STANDARD') as BotLevel
+
+  loadingState.value = `bot-level-${botUserId}`
+  errorMessage.value = ''
+
+  const result = await updateBotLevel(user.value.id, activeRoom.value.id, botUserId, botLevel)
+
+  if (!result.success) {
+    errorMessage.value = result.error || 'Impossible de modifier le niveau du bot'
+    loadingState.value = ''
+    await loadLobbyData()
+    return
+  }
+
+  await loadLobbyData()
+  loadingState.value = ''
+}
+
 const handleLeaveActiveRoom = async () => {
   if (!user.value || !activeRoom.value) {
     return
@@ -592,6 +643,18 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
   }
 
   return 'En attente'
+}
+
+const formatBotLevel = (botLevel: BotLevel | null) => {
+  if (botLevel === 'EASY') {
+    return 'facile'
+  }
+
+  if (botLevel === 'HARD') {
+    return 'difficile'
+  }
+
+  return 'equilibre'
 }
 </script>
 
@@ -852,6 +915,22 @@ const formatRoomStatus = (status: LobbyRoomSummary['status']) => {
   color: #7f1d1d;
   font-size: 0.72rem;
   font-weight: 800;
+}
+
+.bot-level-select {
+  min-width: 108px;
+  padding: 5px 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(98, 66, 27, 0.2);
+  background: #fffef9;
+  color: #3e3527;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.bot-level-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
   .room-actions {

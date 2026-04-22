@@ -69,6 +69,7 @@ export class GameScene extends Phaser.Scene {
   private static readonly TRICK_COLLECTION_ANIMATION_DURATION_MS = 760
   private static readonly DOG_RETRIEVE_DURATION_MS = 420
   private static readonly DOG_DISCARD_DURATION_MS = 320
+  private static readonly HAND_HOVER_ANIMATION_DURATION_MS = 150
 
   private dynamicObjects: Phaser.GameObjects.GameObject[] = []
   private transientObjects: Phaser.GameObjects.GameObject[] = []
@@ -93,6 +94,7 @@ export class GameScene extends Phaser.Scene {
   private tableGlow?: Phaser.GameObjects.Ellipse
   private tableStateSignature = ''
   private pendingCardTextureLoads = new Set<string>()
+  private pendingCardTextureCallbacks = new Map<string, Array<() => void>>()
   private pendingTextureRender: Phaser.Time.TimerEvent | null = null
   private turnPopupObjects: Phaser.GameObjects.GameObject[] = []
   private turnPopupTimer: Phaser.Time.TimerEvent | null = null
@@ -347,12 +349,12 @@ export class GameScene extends Phaser.Scene {
 
     const opponentCardHeightDisplay = Phaser.Math.Clamp(tableCardBaseHeightDisplay * 0.72, 68, 118)
     const opponentCardWidthDisplay = opponentCardHeightDisplay * GameScene.CARD_ASPECT_RATIO
-    const topSeatYDisplay = paddingDisplay + (opponentCardHeightDisplay / 2) + Phaser.Math.Clamp(displayHeight * 0.105, 62, 94)
+    const topSeatYDisplay = paddingDisplay + (opponentCardHeightDisplay / 2) + Phaser.Math.Clamp(displayHeight * 0.09, 52, 82)
     const topSeatOffsetXDisplay = Math.min(
       Phaser.Math.Clamp(displayWidth * 0.29, 150, 340),
       Math.max((displayWidth / 2) - paddingDisplay - (opponentCardWidthDisplay * 1.08), 126)
     )
-    const sideSeatXDisplay = paddingDisplay + (opponentCardHeightDisplay / 2) + 18
+    const sideSeatXDisplay = paddingDisplay + (opponentCardHeightDisplay / 2) + Phaser.Math.Clamp(displayWidth * 0.032, 24, 44)
     const sideSeatYDisplay = (displayHeight / 2) + Phaser.Math.Clamp(displayHeight * 0.01, 0, 14)
 
     const trickCardHeightDisplay = Phaser.Math.Clamp(tableCardBaseHeightDisplay * 0.86, 84, 150)
@@ -847,6 +849,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   private clearHoveredHandCard() {
+    if (this.hoveredHandCard?.image.scene) {
+      this.tweens.killTweensOf(this.hoveredHandCard.image)
+    }
+
     this.hoveredHandCard = null
   }
 
@@ -867,9 +873,16 @@ export class GameScene extends Phaser.Scene {
       )
     }
 
-    image.setDisplaySize(Math.round(baseWidth * 1.08), Math.round(baseHeight * 1.08))
-    image.setY(baseY - Math.round(Math.min(baseHeight * 0.16, 28)))
+    this.tweens.killTweensOf(image)
     image.setDepth(250)
+    this.tweens.add({
+      targets: image,
+      y: baseY - Math.round(Math.min(baseHeight * 0.16, 28)),
+      displayWidth: Math.round(baseWidth * 1.08),
+      displayHeight: Math.round(baseHeight * 1.08),
+      duration: GameScene.HAND_HOVER_ANIMATION_DURATION_MS,
+      ease: 'Cubic.Out'
+    })
 
     this.hoveredHandCard = {
       image,
@@ -905,9 +918,25 @@ export class GameScene extends Phaser.Scene {
       return
     }
 
-    image.setDisplaySize(baseWidth, baseHeight)
-    image.setY(baseY)
-    image.setDepth(baseDepth)
+    this.tweens.killTweensOf(image)
+    image.setDepth(250)
+    this.tweens.add({
+      targets: image,
+      y: baseY,
+      displayWidth: baseWidth,
+      displayHeight: baseHeight,
+      duration: GameScene.HAND_HOVER_ANIMATION_DURATION_MS,
+      ease: 'Cubic.Out',
+      onComplete: () => {
+        if (!image.scene) {
+          return
+        }
+
+        image.setDisplaySize(baseWidth, baseHeight)
+        image.setY(baseY)
+        image.setDepth(baseDepth)
+      }
+    })
   }
 
   private isTakerView(state: SceneTableState | null) {
@@ -1079,6 +1108,20 @@ export class GameScene extends Phaser.Scene {
   }
 
   private animatePlayedCard(previousState: SceneTableState | null, nextState: SceneTableState, playedCard: CurrentPliCard) {
+    const textureKey = this.getCardKey(playedCard.card)
+
+    if (!this.textures.exists(textureKey)) {
+      this.renderTable({ suppressPlayedCardId: playedCard.card.id })
+      this.queueCardTextureLoad(textureKey, this.getVersionedCardTexturePath(playedCard.card), () => {
+        if (!this.sceneReady || this.trickCollectionAnimating) {
+          return
+        }
+
+        this.animatePlayedCard(previousState, nextState, playedCard)
+      })
+      return
+    }
+
     this.renderTable({ suppressPlayedCardId: playedCard.card.id })
 
     const seat = playedCard.playerNum ? this.getSeatKey(playedCard.playerNum) : 'self'
@@ -1087,7 +1130,7 @@ export class GameScene extends Phaser.Scene {
       ? { ...this.getHandCardPosition(previousState.playerHand, playedCard.card.id), rotation: 0 }
       : this.getCardOriginPosition(seat)
     const target = this.getTrickPosition(playedCard)
-    const animationCard = this.addCardImage(origin.x, origin.y, playedCard.card)
+    const animationCard = this.add.image(origin.x, origin.y, textureKey)
 
     animationCard.setDisplaySize(layout.trickCardWidth, layout.trickCardHeight)
     animationCard.setRotation(origin.rotation)
@@ -1421,8 +1464,19 @@ export class GameScene extends Phaser.Scene {
     return 'cardback'
   }
 
-  private queueCardTextureLoad(key: string, path: string) {
-    if (this.pendingCardTextureLoads.has(key) || this.textures.exists(key)) {
+  private queueCardTextureLoad(key: string, path: string, onComplete?: () => void) {
+    if (this.textures.exists(key)) {
+      onComplete?.()
+      return
+    }
+
+    if (onComplete) {
+      const callbacks = this.pendingCardTextureCallbacks.get(key) ?? []
+      callbacks.push(onComplete)
+      this.pendingCardTextureCallbacks.set(key, callbacks)
+    }
+
+    if (this.pendingCardTextureLoads.has(key)) {
       return
     }
 
@@ -1433,6 +1487,7 @@ export class GameScene extends Phaser.Scene {
       }
 
       this.pendingCardTextureLoads.delete(key)
+      this.pendingCardTextureCallbacks.delete(key)
       this.load.off(Phaser.Loader.Events.FILE_LOAD_ERROR, onLoadError)
     }
 
@@ -1440,7 +1495,14 @@ export class GameScene extends Phaser.Scene {
     this.load.once(`filecomplete-image-${key}`, () => {
       this.pendingCardTextureLoads.delete(key)
       this.load.off(Phaser.Loader.Events.FILE_LOAD_ERROR, onLoadError)
-      this.scheduleRenderAfterTextureLoad()
+      const callbacks = this.pendingCardTextureCallbacks.get(key) ?? []
+      this.pendingCardTextureCallbacks.delete(key)
+
+      if (callbacks.length > 0) {
+        callbacks.forEach((callback) => callback())
+      } else {
+        this.scheduleRenderAfterTextureLoad()
+      }
     })
     this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, onLoadError)
 

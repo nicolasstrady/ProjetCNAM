@@ -20,17 +20,6 @@
               <button @click="handleContract('REFUSE')" class="btn btn-danger" :disabled="!isMyTurn">Passer</button>
             </div>
 
-            <div
-              v-else-if="gamePhase === 'DOG_EXCHANGE' && isTaker && !gameData?.dogRetrieved"
-              class="actions-stack"
-            >
-              <button
-                @click="handleRetrieveDog"
-                class="btn btn-primary"
-              >
-                Récupérer le chien
-              </button>
-            </div>
           </section>
         </aside>
 
@@ -210,11 +199,7 @@ const showActionPanel = computed(() => {
     return false
   }
 
-  if (gamePhase.value === 'BIDDING') {
-    return isMyTurn.value
-  }
-
-  return gamePhase.value === 'DOG_EXCHANGE' && isTaker.value && !gameData.value.dogRetrieved
+  return gamePhase.value === 'BIDDING' && isMyTurn.value
 })
 
 const actionHint = computed(() => {
@@ -224,10 +209,6 @@ const actionHint = computed(() => {
 
   if (gamePhase.value === 'BIDDING') {
     return 'Choisissez votre contrat.'
-  }
-
-  if (gamePhase.value === 'DOG_EXCHANGE') {
-    return 'Récupérez le chien avant de choisir les 3 cartes à remettre.'
   }
 
   return ''
@@ -307,9 +288,20 @@ watch([sceneTableState, gameScene], ([tableState, scene]) => {
 }, { immediate: true })
 
 let pollTimeout: ReturnType<typeof setTimeout> | null = null
+let dogRetrieveTimeout: ReturnType<typeof setTimeout> | null = null
 let refreshInFlight = false
 let refreshPromise: Promise<void> | null = null
 let pollingActive = false
+let dogRetrieveInFlight = false
+
+const AUTO_RETRIEVE_DOG_DELAY_MS = 1000
+
+const clearDogRetrieveTimeout = () => {
+  if (dogRetrieveTimeout) {
+    clearTimeout(dogRetrieveTimeout)
+    dogRetrieveTimeout = null
+  }
+}
 
 const updateViewportMode = () => {
   if (!import.meta.client) {
@@ -358,6 +350,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   stopGamePolling()
+  clearDogRetrieveTimeout()
   window.removeEventListener('resize', updateViewportMode)
   window.removeEventListener('orientationchange', updateViewportMode)
   gameScene.value = null
@@ -374,8 +367,7 @@ const initPhaser = async () => {
 
   game.scene.add('GameScene', GameScene, true, {
     onCardClick: handleSceneCardSelection,
-    onCallKing: handleCallKingCard,
-    onRetrieveDog: handleRetrieveDog
+    onCallKing: handleCallKingCard
   })
 
   gameScene.value = markRaw(game.scene.getScene('GameScene') as GameScene)
@@ -582,19 +574,50 @@ const handleCallKingCard = async (card: Card) => {
 }
 
 const handleRetrieveDog = async () => {
-  if (!user.value || !isTaker.value) {
+  if (
+    !user.value ||
+    !isTaker.value ||
+    gamePhase.value !== 'DOG_EXCHANGE' ||
+    gameData.value?.dogRetrieved ||
+    dogRetrieveInFlight
+  ) {
     return
   }
 
-  const result = await retrieveDog(user.value.id, partieId.value)
+  clearDogRetrieveTimeout()
+  dogRetrieveInFlight = true
 
-  if (!result.success) {
-    statusText.value = result.error ?? 'Impossible de récupérer le chien'
-    return
+  try {
+    const result = await retrieveDog(user.value.id, partieId.value)
+
+    if (!result.success) {
+      statusText.value = result.error ?? 'Impossible de récupérer le chien'
+      return
+    }
+
+    await refreshGame()
+  } finally {
+    dogRetrieveInFlight = false
   }
-
-  await refreshGame()
 }
+
+const shouldAutoRetrieveDog = () => {
+  const state = gameData.value
+  return Boolean(state && state.phase === 'DOG_EXCHANGE' && isTaker.value && !state.dogRetrieved)
+}
+
+watch(shouldAutoRetrieveDog, (shouldRetrieve) => {
+  clearDogRetrieveTimeout()
+
+  if (!shouldRetrieve) {
+    return
+  }
+
+  dogRetrieveTimeout = setTimeout(() => {
+    dogRetrieveTimeout = null
+    void handleRetrieveDog()
+  }, AUTO_RETRIEVE_DOG_DELAY_MS)
+}, { immediate: true })
 
 const handleSceneCardSelection = async (card: Card) => {
   if (!user.value || !gameData.value) {
@@ -822,9 +845,10 @@ const handleLeaveGame = async () => {
 .action-hud {
   position: absolute;
   z-index: 14;
-  top: max(64px, calc(env(safe-area-inset-top, 0px) + 54px));
-  left: max(12px, calc(env(safe-area-inset-left, 0px) + 10px));
-  width: min(340px, calc(100% - 120px));
+  top: 50%;
+  left: 50%;
+  width: min(360px, calc(100% - 24px));
+  transform: translate(-50%, -50%);
   pointer-events: none;
 }
 
@@ -973,9 +997,7 @@ const handleLeaveGame = async () => {
   }
 
   .action-hud {
-    top: calc(env(safe-area-inset-top, 0px) + 44px);
-    left: 10px;
-    width: min(280px, calc(100% - 84px));
+    width: min(300px, calc(100% - 20px));
   }
 
   .action-panel {
@@ -1008,9 +1030,7 @@ const handleLeaveGame = async () => {
 
 @media (max-width: 720px) and (orientation: landscape) {
   .action-hud {
-    top: calc(env(safe-area-inset-top, 0px) + 40px);
-    left: 8px;
-    width: min(250px, calc(100% - 72px));
+    width: min(280px, calc(100% - 18px));
   }
 
   .action-panel {
